@@ -3,6 +3,7 @@ package pme123.geak4s.components
 import be.doeraene.webcomponents.ui5.*
 import be.doeraene.webcomponents.ui5.configkeys.*
 import com.raquo.laminar.api.L.{*, given}
+import org.scalajs.dom.{HTMLInputElement, KeyboardEvent}
 import pme123.geak4s.domain.area.*
 import pme123.geak4s.domain.uwert.ComponentType
 
@@ -256,13 +257,22 @@ object AreaCalculationTable:
       padding := "0.25rem",
       border := "none",
       value <-- entrySignal.map(getValue),
-      onInput.mapToValue --> Observer[String] { value =>
+      onBlur.mapToValue --> Observer[String] { value =>
         val currentEntries = entries.now()
         val entry = currentEntries.find(_.nr == nr).get
         val updated = updateEntry(entry, value)
         val newEntries = currentEntries.map(e => if e.nr == nr then updated else e)
         entries.set(newEntries)
         onSave(componentType, newEntries)
+      },
+      onKeyDown --> Observer[KeyboardEvent] { event =>
+        if event.key == "Tab" then
+          println(s"CORRECT KEY: ${event.key}")
+          event.target match
+            case input: HTMLInputElement => input.blur()
+            case _ => ()
+        else
+          println(s"OTHER KEY: ${event.key}")
       }
     )
 
@@ -283,7 +293,7 @@ object AreaCalculationTable:
       stepAttr := "0.01",
       textAlign := "right",
       value <-- entrySignal.map(e => getValue(e).toString),
-      onInput.mapToValue --> Observer[String] { value =>
+      onBlur.mapToValue --> Observer[String] { value =>
         val numValue = value.toDoubleOption.getOrElse(0.0)
         val currentEntries = entries.now()
         val entry = currentEntries.find(_.nr == nr).get
@@ -291,6 +301,12 @@ object AreaCalculationTable:
         val newEntries = currentEntries.map(e => if e.nr == nr then updated else e)
         entries.set(newEntries)
         onSave(componentType, newEntries)
+      },
+      onKeyDown --> Observer[KeyboardEvent] { event =>
+        if event.key == "Tab" then
+          event.target match
+            case input: HTMLInputElement => input.blur()
+            case _ => ()
       }
     )
 
@@ -311,7 +327,7 @@ object AreaCalculationTable:
       stepAttr := "1",
       textAlign := "right",
       value <-- entrySignal.map(e => getValue(e).toString),
-      onInput.mapToValue --> Observer[String] { value =>
+      onBlur.mapToValue --> Observer[String] { value =>
         val numValue = value.toIntOption.getOrElse(0)
         val currentEntries = entries.now()
         val entry = currentEntries.find(_.nr == nr).get
@@ -319,6 +335,12 @@ object AreaCalculationTable:
         val newEntries = currentEntries.map(e => if e.nr == nr then updated else e)
         entries.set(newEntries)
         onSave(componentType, newEntries)
+      },
+      onKeyDown --> Observer[KeyboardEvent] { event =>
+        if event.key == "Tab" then
+          event.target match
+            case input: HTMLInputElement => input.blur()
+            case _ => ()
       }
     )
 

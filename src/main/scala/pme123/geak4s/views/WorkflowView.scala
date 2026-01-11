@@ -288,6 +288,7 @@ object WorkflowView:
       Title(_.level := TitleLevel.H2, "Flächenberechnung"),
       MessageStrip(
         _.design := MessageStripDesign.Information,
+        _.hideCloseButton := true,
         "Erfassen Sie die Flächen der Gebäudehülle (IST und SOLL Zustand)."
       ),
       AreaView()

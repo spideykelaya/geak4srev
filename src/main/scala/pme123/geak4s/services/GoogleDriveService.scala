@@ -65,12 +65,12 @@ object GoogleDriveService:
   /** Load access token from localStorage */
   private def loadTokenFromStorage(): Option[String] =
     try
-      val token = dom.window.localStorage.getItem(STORAGE_KEY_ACCESS_TOKEN)
+      val token     = dom.window.localStorage.getItem(STORAGE_KEY_ACCESS_TOKEN)
       val expiryStr = dom.window.localStorage.getItem(STORAGE_KEY_TOKEN_EXPIRY)
 
       if token != null && expiryStr != null then
         val expiryTime = expiryStr.toLong
-        val now = System.currentTimeMillis()
+        val now        = System.currentTimeMillis()
 
         if now < expiryTime then
           dom.console.log("✅ Valid access token found in localStorage")
@@ -79,8 +79,10 @@ object GoogleDriveService:
           dom.console.log("⚠️ Access token in localStorage has expired")
           clearTokenFromStorage()
           None
+        end if
       else
         None
+      end if
     catch
       case ex: Exception =>
         dom.console.error(s"Failed to load token from localStorage: ${ex.getMessage}")
@@ -614,6 +616,7 @@ object GoogleDriveService:
     val projectFolder = s"${GoogleDriveConfig.rootFolder}/$sanitizedName"
 
     val subfolders = List(
+      "01_AN_AB_RE_Kor",
       "08_Fotos",
       "07_Unterlagen",
       "05_Gesuche",
@@ -623,9 +626,11 @@ object GoogleDriveService:
     )
 
     // First, ensure the base project folder exists
-    findOrCreateFolder(projectFolder).flatMap :
+    findOrCreateFolder(projectFolder).flatMap:
       case Some(baseFolderId) =>
-        dom.console.log(s"✅ Base project folder created/verified: $projectFolder (ID: $baseFolderId)")
+        dom.console.log(
+          s"✅ Base project folder created/verified: $projectFolder (ID: $baseFolderId)"
+        )
 
         // Now create all subfolders in parallel
         val folderFutures = subfolders.map { subfolder =>
@@ -634,7 +639,7 @@ object GoogleDriveService:
             case Some(_) =>
               dom.console.log(s"✅ Created/verified folder: $subfolder")
               true
-            case None =>
+            case None    =>
               dom.console.error(s"❌ Failed to create folder: $subfolder")
               false
           }
