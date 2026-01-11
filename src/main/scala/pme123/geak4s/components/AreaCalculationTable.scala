@@ -7,10 +7,9 @@ import org.scalajs.dom.{HTMLInputElement, KeyboardEvent}
 import pme123.geak4s.domain.area.*
 import pme123.geak4s.domain.uwert.ComponentType
 
-/**
- * Reusable area calculation table component
- * Displays area entries for a specific category (EBF, Dach, Wand, etc.)
- */
+/** Reusable area calculation table component Displays area entries for a specific category (EBF,
+  * Dach, Wand, etc.)
+  */
 object AreaCalculationTable:
 
   def apply(
@@ -29,10 +28,10 @@ object AreaCalculationTable:
         marginTop := "1rem",
         Button(
           _.design := ButtonDesign.Transparent,
-          _.icon := IconName.add,
+          _.icon   := IconName.add,
           _.events.onClick.mapTo(()) --> Observer[Unit] { _ =>
             val currentEntries = entries.now()
-            val nextNr = (currentEntries.length + 1).toString
+            val nextNr         = (currentEntries.length + 1).toString
             entries.set(currentEntries :+ AreaEntry.empty(nextNr))
             onSave(category, entries.now())
           },
@@ -49,8 +48,8 @@ object AreaCalculationTable:
     div(
       overflowX := "auto",
       table(
-        width := "100%",
-        border := "1px solid #e0e0e0",
+        width          := "100%",
+        border         := "1px solid #e0e0e0",
         borderCollapse := "collapse",
 
         // Header
@@ -86,13 +85,20 @@ object AreaCalculationTable:
           backgroundColor := "#f5f5f5",
           tr(
             // Empty cells for columns 1-6 (Bauteil Nr. through Fläche)
-            td(border := "1px solid #e0e0e0", padding := "0.5rem", colSpan := 6, textAlign := "right", fontWeight := "600", "Total:"),
+            td(
+              border     := "1px solid #e0e0e0",
+              padding    := "0.5rem",
+              colSpan    := 6,
+              textAlign  := "right",
+              fontWeight := "600",
+              "Total:"
+            ),
 
             // Anzahl [Stk.] - column 7
             td(
-              border := "1px solid #e0e0e0",
-              padding := "0.5rem",
-              textAlign := "right",
+              border     := "1px solid #e0e0e0",
+              padding    := "0.5rem",
+              textAlign  := "right",
               fontWeight := "600",
               child.text <-- entries.signal.map { entries =>
                 entries.map(_.quantity).sum.toString
@@ -101,9 +107,9 @@ object AreaCalculationTable:
 
             // Fläche Total [m²] - column 8
             td(
-              border := "1px solid #e0e0e0",
-              padding := "0.5rem",
-              textAlign := "right",
+              border     := "1px solid #e0e0e0",
+              padding    := "0.5rem",
+              textAlign  := "right",
               fontWeight := "600",
               child.text <-- entries.signal.map { entries =>
                 f"${entries.map(_.totalArea).sum}%.2f"
@@ -111,13 +117,13 @@ object AreaCalculationTable:
             ),
 
             // Empty cell for Fläche Neu - column 9
-            td(border := "1px solid #e0e0e0", padding := "0.5rem"),
+            td(border    := "1px solid #e0e0e0", padding := "0.5rem"),
 
             // Anzahl Neu [Stk.] - column 10
             td(
-              border := "1px solid #e0e0e0",
-              padding := "0.5rem",
-              textAlign := "right",
+              border     := "1px solid #e0e0e0",
+              padding    := "0.5rem",
+              textAlign  := "right",
               fontWeight := "600",
               child.text <-- entries.signal.map { entries =>
                 entries.map(_.quantityNew).sum.toString
@@ -126,9 +132,9 @@ object AreaCalculationTable:
 
             // Fläche Total Neu [m²] - column 11
             td(
-              border := "1px solid #e0e0e0",
-              padding := "0.5rem",
-              textAlign := "right",
+              border     := "1px solid #e0e0e0",
+              padding    := "0.5rem",
+              textAlign  := "right",
               fontWeight := "600",
               child.text <-- entries.signal.map { entries =>
                 f"${entries.map(_.totalAreaNew).sum}%.2f"
@@ -136,8 +142,8 @@ object AreaCalculationTable:
             ),
 
             // Empty cells for Beschrieb Neu and Delete button - columns 12-13
-            td(border := "1px solid #e0e0e0", padding := "0.5rem"),
-            td(border := "1px solid #e0e0e0", padding := "0.5rem")
+            td(border    := "1px solid #e0e0e0", padding := "0.5rem"),
+            td(border    := "1px solid #e0e0e0", padding := "0.5rem")
           )
         )
       )
@@ -153,87 +159,199 @@ object AreaCalculationTable:
   ): HtmlElement =
     tr(
       // Bauteil Nr. - dynamically calculated based on index
-      td(border := "1px solid #e0e0e0", padding := "0.25rem", textAlign := "center",
+      td(
+        border          := "1px solid #e0e0e0",
+        backgroundColor := "#f9f9f9",
+        padding         := "0.25rem",
+        textAlign       := "center",
         child.text <-- indexSignal.map(idx => (idx + 1).toString)
       ),
 
       // Ausrichtung
-      td(border := "1px solid #e0e0e0", padding := "0.25rem",
-        renderEditableCell(nr, entrySignal, _.orientation, entries, (e, v) => e.copy(orientation = v), componentType, onSave)
+      td(
+        border          := "1px solid #e0e0e0",
+        padding         := "0.25rem",
+        renderEditableCell(
+          nr,
+          entrySignal,
+          _.orientation,
+          entries,
+          (e, v) => e.copy(orientation = v),
+          componentType,
+          onSave
+        )
       ),
 
       // Beschrieb
-      td(border := "1px solid #e0e0e0", padding := "0.25rem",
-        renderEditableCell(nr, entrySignal, _.description, entries, (e, v) => e.copy(description = v), componentType, onSave)
+      td(
+        border          := "1px solid #e0e0e0",
+        padding         := "0.25rem",
+        renderEditableCell(
+          nr,
+          entrySignal,
+          _.description,
+          entries,
+          (e, v) => e.copy(description = v),
+          componentType,
+          onSave
+        )
       ),
 
       // Länge
-      td(border := "1px solid #e0e0e0", padding := "0.25rem", textAlign := "right",
-        renderNumericCell(nr, entrySignal, _.length, entries, (e, v) =>
-          val updated = e.copy(length = v)
-          val calculatedArea = v * updated.width
-          updated.copy(area = calculatedArea, totalArea = calculatedArea * updated.quantity)
-        , componentType, onSave)
+      td(
+        border          := "1px solid #e0e0e0",
+        padding         := "0.25rem",
+        textAlign       := "right",
+        renderNumericCell(
+          nr,
+          entrySignal,
+          _.length,
+          entries,
+          (e, v) =>
+            val updated        = e.copy(length = v)
+            val calculatedArea = v * updated.width
+            updated.copy(area = calculatedArea, totalArea = calculatedArea * updated.quantity)
+          ,
+          componentType,
+          onSave
+        )
       ),
 
       // Breite
-      td(border := "1px solid #e0e0e0", padding := "0.25rem", textAlign := "right",
-        renderNumericCell(nr, entrySignal, _.width, entries, (e, v) =>
-          val updated = e.copy(width = v)
-          val calculatedArea = updated.length * v
-          updated.copy(area = calculatedArea, totalArea = calculatedArea * updated.quantity)
-        , componentType, onSave)
+      td(
+        border          := "1px solid #e0e0e0",
+        padding         := "0.25rem",
+        textAlign       := "right",
+        renderNumericCell(
+          nr,
+          entrySignal,
+          _.width,
+          entries,
+          (e, v) =>
+            val updated        = e.copy(width = v)
+            val calculatedArea = updated.length * v
+            updated.copy(area = calculatedArea, totalArea = calculatedArea * updated.quantity)
+          ,
+          componentType,
+          onSave
+        )
       ),
 
       // Fläche (disabled, auto-calculated from Länge × Breite)
-      td(border := "1px solid #e0e0e0", padding := "0.25rem", backgroundColor := "#f9f9f9", textAlign := "right",
-        child.text <-- entrySignal.map(e => f"${e.area}%.2f")
+      td(
+        border          := "1px solid #e0e0e0",
+        padding         := "0.25rem",
+        textAlign       := "right",
+        renderNumericCell(
+          nr,
+          entrySignal,
+          _.area,
+          entries,
+          (e, v) =>
+            e.copy(area = v, width = 0, length = 0, totalArea = v * e.quantity),
+          componentType,
+          onSave
+        )
       ),
 
       // Anzahl
-      td(border := "1px solid #e0e0e0", padding := "0.25rem", textAlign := "right",
-        renderIntCell(nr, entrySignal, _.quantity, entries, (e, v) =>
-          val updated = e.copy(quantity = v)
-          updated.copy(totalArea = updated.calculateTotalArea)
-        , componentType, onSave)
+      td(
+        border          := "1px solid #e0e0e0",
+        padding         := "0.25rem",
+        textAlign       := "right",
+        renderIntCell(
+          nr,
+          entrySignal,
+          _.quantity,
+          entries,
+          (e, v) =>
+            val updated = e.copy(quantity = v)
+            updated.copy(totalArea = updated.calculateTotalArea)
+          ,
+          componentType,
+          onSave
+        )
       ),
 
       // Fläche Total (calculated)
-      td(border := "1px solid #e0e0e0", padding := "0.25rem", backgroundColor := "#f9f9f9", textAlign := "right",
+      td(
+        border          := "1px solid #e0e0e0",
+        padding         := "0.25rem",
+        backgroundColor := "#f9f9f9",
+        textAlign       := "right",
         child.text <-- entrySignal.map(e => f"${e.totalArea}%.2f")
       ),
 
       // Fläche Neu
-      td(border := "1px solid #e0e0e0", padding := "0.25rem", textAlign := "right",
-        renderNumericCell(nr, entrySignal, _.areaNew, entries, (e, v) =>
-          val updated = e.copy(areaNew = v)
-          updated.copy(totalAreaNew = updated.calculateTotalAreaNew)
-        , componentType, onSave)
+      td(
+        border          := "1px solid #e0e0e0",
+        padding         := "0.25rem",
+        textAlign       := "right",
+        renderNumericCell(
+          nr,
+          entrySignal,
+          _.areaNew,
+          entries,
+          (e, v) =>
+            val updated = e.copy(areaNew = v)
+            updated.copy(totalAreaNew = updated.calculateTotalAreaNew)
+          ,
+          componentType,
+          onSave
+        )
       ),
 
       // Anzahl Neu
-      td(border := "1px solid #e0e0e0", padding := "0.25rem", textAlign := "right",
-        renderIntCell(nr, entrySignal, _.quantityNew, entries, (e, v) =>
-          val updated = e.copy(quantityNew = v)
-          updated.copy(totalAreaNew = updated.calculateTotalAreaNew)
-        , componentType, onSave)
+      td(
+        border          := "1px solid #e0e0e0",
+        padding         := "0.25rem",
+        textAlign       := "right",
+        renderIntCell(
+          nr,
+          entrySignal,
+          _.quantityNew,
+          entries,
+          (e, v) =>
+            val updated = e.copy(quantityNew = v)
+            updated.copy(totalAreaNew = updated.calculateTotalAreaNew)
+          ,
+          componentType,
+          onSave
+        )
       ),
 
       // Fläche Total Neu (calculated)
-      td(border := "1px solid #e0e0e0", padding := "0.25rem", backgroundColor := "#f9f9f9", textAlign := "right",
+      td(
+        border          := "1px solid #e0e0e0",
+        padding         := "0.25rem",
+        backgroundColor := "#f9f9f9",
+        textAlign       := "right",
         child.text <-- entrySignal.map(e => f"${e.totalAreaNew}%.2f")
       ),
 
       // Beschrieb Neu
-      td(border := "1px solid #e0e0e0", padding := "0.25rem",
-        renderEditableCell(nr, entrySignal, _.descriptionNew, entries, (e, v) => e.copy(descriptionNew = v), componentType, onSave)
+      td(
+        border          := "1px solid #e0e0e0",
+        padding         := "0.25rem",
+        renderEditableCell(
+          nr,
+          entrySignal,
+          _.descriptionNew,
+          entries,
+          (e, v) => e.copy(descriptionNew = v),
+          componentType,
+          onSave
+        )
       ),
 
       // Delete button
-      td(border := "1px solid #e0e0e0", padding := "0.25rem", textAlign := "center",
+      td(
+        border          := "1px solid #e0e0e0",
+        padding         := "0.25rem",
+        textAlign       := "center",
         Button(
           _.design := ButtonDesign.Transparent,
-          _.icon := IconName.delete,
+          _.icon   := IconName.delete,
           _.events.onClick.mapTo(()) --> Observer[Unit] { _ =>
             entries.update(_.filterNot(_.nr == nr))
             onSave(componentType, entries.now())
@@ -252,27 +370,20 @@ object AreaCalculationTable:
       onSave: (ComponentType, List[AreaEntry]) => Unit
   ): HtmlElement =
     input(
-      typ := "text",
-      width := "100%",
+      typ     := "text",
+      width   := "100%",
       padding := "0.25rem",
-      border := "none",
-      value <-- entrySignal.map(getValue),
+      border  := "none",
+      onMountCallback { ctx =>
+        ctx.thisNode.ref.value = getValue(entries.now().find(_.nr == nr).get)
+      },
       onBlur.mapToValue --> Observer[String] { value =>
         val currentEntries = entries.now()
-        val entry = currentEntries.find(_.nr == nr).get
-        val updated = updateEntry(entry, value)
-        val newEntries = currentEntries.map(e => if e.nr == nr then updated else e)
+        val entry          = currentEntries.find(_.nr == nr).get
+        val updated        = updateEntry(entry, value)
+        val newEntries     = currentEntries.map(e => if e.nr == nr then updated else e)
         entries.set(newEntries)
         onSave(componentType, newEntries)
-      },
-      onKeyDown --> Observer[KeyboardEvent] { event =>
-        if event.key == "Tab" then
-          println(s"CORRECT KEY: ${event.key}")
-          event.target match
-            case input: HTMLInputElement => input.blur()
-            case _ => ()
-        else
-          println(s"OTHER KEY: ${event.key}")
       }
     )
 
@@ -286,27 +397,23 @@ object AreaCalculationTable:
       onSave: (ComponentType, List[AreaEntry]) => Unit
   ): HtmlElement =
     input(
-      typ := "number",
-      width := "100%",
-      padding := "0.25rem",
-      border := "none",
-      stepAttr := "0.01",
+      typ       := "number",
+      width     := "100%",
+      padding   := "0.25rem",
+      border    := "none",
+      stepAttr  := "1",
       textAlign := "right",
-      value <-- entrySignal.map(e => getValue(e).toString),
+      onMountCallback { ctx =>
+        ctx.thisNode.ref.value = getValue(entries.now().find(_.nr == nr).get).toString
+      },
       onBlur.mapToValue --> Observer[String] { value =>
-        val numValue = value.toDoubleOption.getOrElse(0.0)
+        val numValue       = value.toDoubleOption.getOrElse(0.0)
         val currentEntries = entries.now()
-        val entry = currentEntries.find(_.nr == nr).get
-        val updated = updateEntry(entry, numValue)
-        val newEntries = currentEntries.map(e => if e.nr == nr then updated else e)
+        val entry          = currentEntries.find(_.nr == nr).get
+        val updated        = updateEntry(entry, numValue)
+        val newEntries     = currentEntries.map(e => if e.nr == nr then updated else e)
         entries.set(newEntries)
         onSave(componentType, newEntries)
-      },
-      onKeyDown --> Observer[KeyboardEvent] { event =>
-        if event.key == "Tab" then
-          event.target match
-            case input: HTMLInputElement => input.blur()
-            case _ => ()
       }
     )
 
@@ -320,29 +427,24 @@ object AreaCalculationTable:
       onSave: (ComponentType, List[AreaEntry]) => Unit
   ): HtmlElement =
     input(
-      typ := "number",
-      width := "100%",
-      padding := "0.25rem",
-      border := "none",
-      stepAttr := "1",
+      typ       := "number",
+      width     := "100%",
+      padding   := "0.25rem",
+      border    := "none",
+      stepAttr  := "1",
       textAlign := "right",
-      value <-- entrySignal.map(e => getValue(e).toString),
+      onMountCallback { ctx =>
+        ctx.thisNode.ref.value = getValue(entries.now().find(_.nr == nr).get).toString
+      },
       onBlur.mapToValue --> Observer[String] { value =>
-        val numValue = value.toIntOption.getOrElse(0)
+        val numValue       = value.toIntOption.getOrElse(0)
         val currentEntries = entries.now()
-        val entry = currentEntries.find(_.nr == nr).get
-        val updated = updateEntry(entry, numValue)
-        val newEntries = currentEntries.map(e => if e.nr == nr then updated else e)
+        val entry          = currentEntries.find(_.nr == nr).get
+        val updated        = updateEntry(entry, numValue)
+        val newEntries     = currentEntries.map(e => if e.nr == nr then updated else e)
         entries.set(newEntries)
         onSave(componentType, newEntries)
-      },
-      onKeyDown --> Observer[KeyboardEvent] { event =>
-        if event.key == "Tab" then
-          event.target match
-            case input: HTMLInputElement => input.blur()
-            case _ => ()
       }
     )
 
 end AreaCalculationTable
-

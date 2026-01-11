@@ -38,7 +38,7 @@ object AreaEntry:
     quantity = 1,
     totalArea = 0.0,
     areaNew = 0.0,
-    quantityNew = 0,
+    quantityNew = 1,
     totalAreaNew = 0.0,
     descriptionNew = ""
   )
@@ -58,7 +58,7 @@ object AreaEntry:
   ): AreaEntry =
     val totalArea    = area * quantity
     val totalAreaNew = areaNew * quantityNew
-    new AreaEntry(
+    AreaEntry(
       nr,
       orientation,
       description,
