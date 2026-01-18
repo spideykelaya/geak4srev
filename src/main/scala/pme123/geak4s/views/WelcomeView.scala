@@ -53,7 +53,7 @@ object WelcomeView:
           marginBottom := "1rem",
           MessageStrip(
             _.design := MessageStripDesign.Negative,
-            _.hideCloseButton := false,
+            _.hideCloseButton := true,
             _.events.onClose.mapTo(()) --> Observer[Unit] { _ =>
               errorMessage.set(None)
             },

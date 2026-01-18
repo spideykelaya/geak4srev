@@ -32,6 +32,7 @@ object GisDataView:
       Title(_.level := TitleLevel.H2, "GIS-Daten beziehen"),
       MessageStrip(
         _.design := MessageStripDesign.Information,
+        _.hideCloseButton := true,
         "Beziehen Sie Gebäudedaten vom kantonalen GIS (Zürich)."
       ),
       Card(
@@ -69,7 +70,7 @@ object GisDataView:
                 child.maybe <-- uploadError.signal.map(_.map { msg =>
                   MessageStrip(
                     _.design := MessageStripDesign.Negative,
-                    _.hideCloseButton := false,
+                    _.hideCloseButton := true,
                     _.events.onClose.mapTo(()) --> Observer[Unit] { _ =>
                       uploadError.set(None)
                     },
@@ -81,7 +82,7 @@ object GisDataView:
                 child.maybe <-- xmlContent.signal.map(_.map { content =>
                   MessageStrip(
                     _.design := MessageStripDesign.Positive,
-                    _.hideCloseButton := false,
+                    _.hideCloseButton := true,
                     _.events.onClose.mapTo(()) --> Observer[Unit] { _ =>
                       xmlContent.set(None)
                       parsedGisData.set(None)

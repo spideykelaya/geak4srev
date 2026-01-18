@@ -33,6 +33,7 @@ object ReportView:
             Title(_.level := TitleLevel.H2, "Berichte"),
             MessageStrip(
               _.design := MessageStripDesign.Positive,
+              _.hideCloseButton := true,
               "Projekt abgeschlossen! Erstellen Sie den GEAK-Bericht und exportieren Sie die Daten."
             )
           ),
@@ -43,6 +44,7 @@ object ReportView:
             case None          => div(
                 MessageStrip(
                   _.design := MessageStripDesign.Warning,
+                  _.hideCloseButton := true,
                   "Kein Projekt geladen"
                 )
               )
@@ -210,6 +212,7 @@ object ReportView:
           marginTop := "1.5rem",
           MessageStrip(
             _.design := MessageStripDesign.Information,
+            _.hideCloseButton := true,
             s"U-Wert Berechnungen: ${project.uwertCalculations.length} | " +
               s"Flächenberechnungen: ${if project.areaCalculations.isDefined then "✓" else "—"}"
           )

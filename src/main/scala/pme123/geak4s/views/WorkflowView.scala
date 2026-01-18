@@ -31,7 +31,7 @@ object WorkflowView:
       child.maybe <-- AppState.driveError.signal.map(_.map { errorMsg =>
         MessageStrip(
           _.design := MessageStripDesign.Warning,
-          _.hideCloseButton := false,
+          _.hideCloseButton := true,
           _.events.onClose.mapTo(()) --> Observer[Unit] { _ =>
             AppState.driveError.set(None)
           },
@@ -47,7 +47,7 @@ object WorkflowView:
         if showPrompt then
           MessageStrip(
             _.design := MessageStripDesign.Information,
-            _.hideCloseButton := false,
+            _.hideCloseButton := true,
             _.events.onClose.mapTo(()) --> Observer[Unit] { _ =>
               AppState.driveLoginPrompt.set(false)
             },
@@ -260,6 +260,7 @@ object WorkflowView:
       Title(_.level := TitleLevel.H2, "Projekt einrichten"),
       MessageStrip(
         _.design := MessageStripDesign.Information,
+        _.hideCloseButton := true,
         "Erfassen Sie die grundlegenden Projektinformationen und erstellen Sie die Ordnerstruktur."
       ),
       ProjectView(project.project).render()
@@ -276,6 +277,7 @@ object WorkflowView:
       Title(_.level := TitleLevel.H2, "U-Wert-Berechnung"),
       MessageStrip(
         _.design := MessageStripDesign.Information,
+        _.hideCloseButton := true,
         "Berechnen Sie die Wärmedurchgangskoeffizienten (U-Werte) für verschiedene Bauteile."
       ),
       UWertView()
@@ -302,6 +304,7 @@ object WorkflowView:
       Title(_.level := TitleLevel.H2, "Begehung"),
       MessageStrip(
         _.design := MessageStripDesign.Information,
+        _.hideCloseButton := true,
         "Begehungsprotokoll vor Ort ausfüllen. Tablet-freundlich mit Handschrifterkennung."
       ),
       Card(
@@ -327,6 +330,7 @@ object WorkflowView:
       Title(_.level := TitleLevel.H2, "Dateneingabe"),
       MessageStrip(
         _.design := MessageStripDesign.Information,
+        _.hideCloseButton := true,
         "Erfassen Sie alle Gebäudedaten: Hülle, HLKK-Systeme, Energieproduktion."
       ),
       div(

@@ -139,6 +139,7 @@ object ProjectEditorView:
       Label(s"${project.buildingUsages.length} usage types defined"),
       MessageStrip(
         _.design := MessageStripDesign.Information,
+        _.hideCloseButton := true,
         "Define the different usage types and areas in your building"
       )
     )
@@ -189,6 +190,7 @@ object ProjectEditorView:
       Label("Review your project and export to Excel"),
       MessageStrip(
         _.design := MessageStripDesign.Positive,
+        _.hideCloseButton := true,
         "Your project is complete"
       )
     )
