@@ -44,7 +44,8 @@ object AreaView:
       }
     }
 
-  def apply(): HtmlElement =
+  // Create the view element once and reuse it
+  private lazy val viewElement: HtmlElement =
     div(
       className := "area-view",
       // Load data from state when view is mounted
@@ -61,13 +62,19 @@ object AreaView:
           // EBF (always required) - styled like other building components
           renderEBFGroup(),
           // Render one AreaCalculationTable per U-Wert calculation
-          children <-- UWertState.calculations.signal.map { calculations =>
-            calculations.zipWithIndex.map { case (calc, index) =>
-              renderCalculationGroup(calc, index)
-            }
+          children <-- UWertState.calculations.signal.split(_.id) { (id, _, calcSignal) =>
+            renderCalculationGroupReactive(calcSignal)
           }
         )
       )
+    )
+
+  def apply(): HtmlElement = viewElement
+
+  /** Render a calculation group reactively */
+  private def renderCalculationGroupReactive(calcSignal: Signal[UWertCalculation]): HtmlElement =
+    div(
+      child <-- calcSignal.map(renderCalculationGroup)
     )
 
   /** Render EBF group with same styling as other building components */
@@ -99,7 +106,7 @@ object AreaView:
     )
 
   /** Render a calculation group (AreaCalculationTable + U-Wert summary) */
-  private def renderCalculationGroup(calc: UWertCalculation, index: Int): HtmlElement =
+  private def renderCalculationGroup(calc: UWertCalculation): HtmlElement =
     if calc.componentLabel.nonEmpty then
       val entries = getAreaEntries(calc.componentType)
       div(

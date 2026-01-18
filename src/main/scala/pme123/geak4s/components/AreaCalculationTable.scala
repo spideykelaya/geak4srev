@@ -17,11 +17,25 @@ object AreaCalculationTable:
       entries: Var[List[AreaEntry]],
       onSave: (ComponentType, List[AreaEntry]) => Unit
   ): HtmlElement =
+    // Local display state - only updated when rows are added/deleted, not on field edits
+    val displayEntries = Var[List[AreaEntry]](entries.now())
+    println(s"AreaCalculationTable: Initial displayEntries set to ${displayEntries.now().length} entries")
     div(
       className := "area-calculation-table",
 
-      // Table
-      renderTable(category, entries, onSave),
+      // Keep display in sync with entries, but only for structural changes
+      entries.signal --> Observer[List[AreaEntry]] { newEntries =>
+        // Only update display if the number of rows changed (add/delete)
+        if displayEntries.now().length != newEntries.length then
+          println(s"AreaCalculationTable $category: entries signal updated ${displayEntries.now().length}, newEntries.length=${newEntries.length}")
+          displayEntries.set(newEntries)
+      },
+
+      // Table - only re-renders when rows are added/deleted
+      child <-- displayEntries.signal.map { currentEntries =>
+      //  println(s"AreaCalculationTable: Rendering table with ${currentEntries.length} rows")
+        renderTable(category, currentEntries, entries, onSave)
+      },
 
       // Add row button
       div(
@@ -32,8 +46,10 @@ object AreaCalculationTable:
           _.events.onClick.mapTo(()) --> Observer[Unit] { _ =>
             val currentEntries = entries.now()
             val nextNr         = (currentEntries.length + 1).toString
-            entries.set(currentEntries :+ AreaEntry.empty(nextNr))
-            onSave(category, entries.now())
+            val newEntries     = currentEntries :+ AreaEntry.empty(nextNr)
+            entries.set(newEntries)
+            displayEntries.set(newEntries)  // Update display immediately
+            onSave(category, newEntries)
           },
           "Zeile hinzufügen"
         )
@@ -42,7 +58,8 @@ object AreaCalculationTable:
 
   private def renderTable(
       componentType: ComponentType,
-      entries: Var[List[AreaEntry]],
+      displayEntries: List[AreaEntry],
+      dataEntries: Var[List[AreaEntry]],
       onSave: (ComponentType, List[AreaEntry]) => Unit
   ): HtmlElement =
     div(
@@ -74,9 +91,8 @@ object AreaCalculationTable:
 
         // Body
         tbody(
-          children <-- entries.signal.split(_.nr) { (nr, _, entrySignal) =>
-            val indexSignal = entries.signal.map(_.indexWhere(_.nr == nr))
-            renderRow(nr, entrySignal, indexSignal, entries, componentType, onSave)
+          displayEntries.zipWithIndex.map { case (entry, index) =>
+            renderRow(entry, index, dataEntries, componentType, onSave)
           }
         ),
 
@@ -100,9 +116,7 @@ object AreaCalculationTable:
               padding    := "0.5rem",
               textAlign  := "right",
               fontWeight := "600",
-              child.text <-- entries.signal.map { entries =>
-                entries.map(_.quantity).sum.toString
-              }
+              displayEntries.map(_.quantity).sum.toString
             ),
 
             // Fläche Total [m²] - column 8
@@ -111,9 +125,7 @@ object AreaCalculationTable:
               padding    := "0.5rem",
               textAlign  := "right",
               fontWeight := "600",
-              child.text <-- entries.signal.map { entries =>
-                f"${entries.map(_.totalArea).sum}%.2f"
-              }
+              f"${displayEntries.map(_.totalArea).sum}%.2f"
             ),
 
             // Empty cell for Fläche Neu - column 9
@@ -125,9 +137,7 @@ object AreaCalculationTable:
               padding    := "0.5rem",
               textAlign  := "right",
               fontWeight := "600",
-              child.text <-- entries.signal.map { entries =>
-                entries.map(_.quantityNew).sum.toString
-              }
+              displayEntries.map(_.quantityNew).sum.toString
             ),
 
             // Fläche Total Neu [m²] - column 11
@@ -136,9 +146,7 @@ object AreaCalculationTable:
               padding    := "0.5rem",
               textAlign  := "right",
               fontWeight := "600",
-              child.text <-- entries.signal.map { entries =>
-                f"${entries.map(_.totalAreaNew).sum}%.2f"
-              }
+              f"${displayEntries.map(_.totalAreaNew).sum}%.2f"
             ),
 
             // Empty cells for Beschrieb Neu and Delete button - columns 12-13
@@ -150,10 +158,9 @@ object AreaCalculationTable:
     )
 
   private def renderRow(
-      nr: String,
-      entrySignal: Signal[AreaEntry],
-      indexSignal: Signal[Int],
-      entries: Var[List[AreaEntry]],
+      displayEntry: AreaEntry,
+      index: Int,
+      dataEntries: Var[List[AreaEntry]],
       componentType: ComponentType,
       onSave: (ComponentType, List[AreaEntry]) => Unit
   ): HtmlElement =
@@ -164,18 +171,18 @@ object AreaCalculationTable:
         backgroundColor := "#f9f9f9",
         padding         := "0.25rem",
         textAlign       := "center",
-        child.text <-- indexSignal.map(idx => (idx + 1).toString)
+        (index + 1).toString
       ),
 
       // Ausrichtung
       td(
-        border          := "1px solid #e0e0e0",
-        padding         := "0.25rem",
+        border  := "1px solid #e0e0e0",
+        padding := "0.25rem",
         renderEditableCell(
-          nr,
-          entrySignal,
+          displayEntry,
+          index,
           _.orientation,
-          entries,
+          dataEntries,
           (e, v) => e.copy(orientation = v),
           componentType,
           onSave
@@ -184,13 +191,13 @@ object AreaCalculationTable:
 
       // Beschrieb
       td(
-        border          := "1px solid #e0e0e0",
-        padding         := "0.25rem",
+        border  := "1px solid #e0e0e0",
+        padding := "0.25rem",
         renderEditableCell(
-          nr,
-          entrySignal,
+          displayEntry,
+          index,
           _.description,
-          entries,
+          dataEntries,
           (e, v) => e.copy(description = v),
           componentType,
           onSave
@@ -199,14 +206,14 @@ object AreaCalculationTable:
 
       // Länge
       td(
-        border          := "1px solid #e0e0e0",
-        padding         := "0.25rem",
-        textAlign       := "right",
+        border    := "1px solid #e0e0e0",
+        padding   := "0.25rem",
+        textAlign := "right",
         renderNumericCell(
-          nr,
-          entrySignal,
+          displayEntry,
+          index,
           _.length,
-          entries,
+          dataEntries,
           (e, v) =>
             val updated        = e.copy(length = v)
             val calculatedArea = v * updated.width
@@ -219,14 +226,14 @@ object AreaCalculationTable:
 
       // Breite
       td(
-        border          := "1px solid #e0e0e0",
-        padding         := "0.25rem",
-        textAlign       := "right",
+        border    := "1px solid #e0e0e0",
+        padding   := "0.25rem",
+        textAlign := "right",
         renderNumericCell(
-          nr,
-          entrySignal,
+          displayEntry,
+          index,
           _.width,
-          entries,
+          dataEntries,
           (e, v) =>
             val updated        = e.copy(width = v)
             val calculatedArea = updated.length * v
@@ -237,18 +244,17 @@ object AreaCalculationTable:
         )
       ),
 
-      // Fläche (disabled, auto-calculated from Länge × Breite)
+      // Fläche (can be edited directly, resets length/width to 0)
       td(
-        border          := "1px solid #e0e0e0",
-        padding         := "0.25rem",
-        textAlign       := "right",
+        border    := "1px solid #e0e0e0",
+        padding   := "0.25rem",
+        textAlign := "right",
         renderNumericCell(
-          nr,
-          entrySignal,
+          displayEntry,
+          index,
           _.area,
-          entries,
-          (e, v) =>
-            e.copy(area = v, width = 0, length = 0, totalArea = v * e.quantity),
+          dataEntries,
+          (e, v) => e.copy(area = v, width = 0, length = 0, totalArea = v * e.quantity),
           componentType,
           onSave
         )
@@ -256,14 +262,14 @@ object AreaCalculationTable:
 
       // Anzahl
       td(
-        border          := "1px solid #e0e0e0",
-        padding         := "0.25rem",
-        textAlign       := "right",
+        border    := "1px solid #e0e0e0",
+        padding   := "0.25rem",
+        textAlign := "right",
         renderIntCell(
-          nr,
-          entrySignal,
+          displayEntry,
+          index,
           _.quantity,
-          entries,
+          dataEntries,
           (e, v) =>
             val updated = e.copy(quantity = v)
             updated.copy(totalArea = updated.calculateTotalArea)
@@ -279,19 +285,19 @@ object AreaCalculationTable:
         padding         := "0.25rem",
         backgroundColor := "#f9f9f9",
         textAlign       := "right",
-        child.text <-- entrySignal.map(e => f"${e.totalArea}%.2f")
+        f"${displayEntry.totalArea}%.2f"
       ),
 
       // Fläche Neu
       td(
-        border          := "1px solid #e0e0e0",
-        padding         := "0.25rem",
-        textAlign       := "right",
+        border    := "1px solid #e0e0e0",
+        padding   := "0.25rem",
+        textAlign := "right",
         renderNumericCell(
-          nr,
-          entrySignal,
+          displayEntry,
+          index,
           _.areaNew,
-          entries,
+          dataEntries,
           (e, v) =>
             val updated = e.copy(areaNew = v)
             updated.copy(totalAreaNew = updated.calculateTotalAreaNew)
@@ -303,14 +309,14 @@ object AreaCalculationTable:
 
       // Anzahl Neu
       td(
-        border          := "1px solid #e0e0e0",
-        padding         := "0.25rem",
-        textAlign       := "right",
+        border    := "1px solid #e0e0e0",
+        padding   := "0.25rem",
+        textAlign := "right",
         renderIntCell(
-          nr,
-          entrySignal,
+          displayEntry,
+          index,
           _.quantityNew,
-          entries,
+          dataEntries,
           (e, v) =>
             val updated = e.copy(quantityNew = v)
             updated.copy(totalAreaNew = updated.calculateTotalAreaNew)
@@ -326,18 +332,18 @@ object AreaCalculationTable:
         padding         := "0.25rem",
         backgroundColor := "#f9f9f9",
         textAlign       := "right",
-        child.text <-- entrySignal.map(e => f"${e.totalAreaNew}%.2f")
+        f"${displayEntry.totalAreaNew}%.2f"
       ),
 
       // Beschrieb Neu
       td(
-        border          := "1px solid #e0e0e0",
-        padding         := "0.25rem",
+        border  := "1px solid #e0e0e0",
+        padding := "0.25rem",
         renderEditableCell(
-          nr,
-          entrySignal,
+          displayEntry,
+          index,
           _.descriptionNew,
-          entries,
+          dataEntries,
           (e, v) => e.copy(descriptionNew = v),
           componentType,
           onSave
@@ -346,25 +352,27 @@ object AreaCalculationTable:
 
       // Delete button
       td(
-        border          := "1px solid #e0e0e0",
-        padding         := "0.25rem",
-        textAlign       := "center",
+        border    := "1px solid #e0e0e0",
+        padding   := "0.25rem",
+        textAlign := "center",
         Button(
           _.design := ButtonDesign.Transparent,
           _.icon   := IconName.delete,
           _.events.onClick.mapTo(()) --> Observer[Unit] { _ =>
-            entries.update(_.filterNot(_.nr == nr))
-            onSave(componentType, entries.now())
+            val newEntries = dataEntries.now().patch(index, Nil, 1)
+            dataEntries.set(newEntries)
+            // Note: displayEntries will be updated via the sync subscription
+            onSave(componentType, newEntries)
           }
         )
       )
     )
 
   private def renderEditableCell(
-      nr: String,
-      entrySignal: Signal[AreaEntry],
+      displayEntry: AreaEntry,
+      index: Int,
       getValue: AreaEntry => String,
-      entries: Var[List[AreaEntry]],
+      dataEntries: Var[List[AreaEntry]],
       updateEntry: (AreaEntry, String) => AreaEntry,
       componentType: ComponentType,
       onSave: (ComponentType, List[AreaEntry]) => Unit
@@ -374,24 +382,29 @@ object AreaCalculationTable:
       width   := "100%",
       padding := "0.25rem",
       border  := "none",
-      onMountCallback { ctx =>
-        ctx.thisNode.ref.value = getValue(entries.now().find(_.nr == nr).get)
+      // Controlled input: value updates reactively from dataEntries
+      value <-- dataEntries.signal.map { entries =>
+        if index < entries.length then getValue(entries(index))
+        else ""
       },
-      onBlur.mapToValue --> Observer[String] { value =>
-        val currentEntries = entries.now()
-        val entry          = currentEntries.find(_.nr == nr).get
-        val updated        = updateEntry(entry, value)
-        val newEntries     = currentEntries.map(e => if e.nr == nr then updated else e)
-        entries.set(newEntries)
-        onSave(componentType, newEntries)
+      onBlur --> Observer[org.scalajs.dom.FocusEvent] { event =>
+        val inputEl = event.target.asInstanceOf[org.scalajs.dom.HTMLInputElement]
+        val value = inputEl.value
+        val currentEntries = dataEntries.now()
+        if index < currentEntries.length then
+          val entry      = currentEntries(index)
+          val updated    = updateEntry(entry, value)
+          val newEntries = currentEntries.updated(index, updated)
+          dataEntries.set(newEntries)
+          onSave(componentType, newEntries)
       }
     )
 
   private def renderNumericCell(
-      nr: String,
-      entrySignal: Signal[AreaEntry],
+      displayEntry: AreaEntry,
+      index: Int,
       getValue: AreaEntry => Double,
-      entries: Var[List[AreaEntry]],
+      dataEntries: Var[List[AreaEntry]],
       updateEntry: (AreaEntry, Double) => AreaEntry,
       componentType: ComponentType,
       onSave: (ComponentType, List[AreaEntry]) => Unit
@@ -401,27 +414,32 @@ object AreaCalculationTable:
       width     := "100%",
       padding   := "0.25rem",
       border    := "none",
-      stepAttr  := "1",
+      stepAttr  := "0.01",
       textAlign := "right",
-      onMountCallback { ctx =>
-        ctx.thisNode.ref.value = getValue(entries.now().find(_.nr == nr).get).toString
+      // Controlled input: value updates reactively from dataEntries
+      value <-- dataEntries.signal.map { entries =>
+        if index < entries.length then getValue(entries(index)).toString
+        else "0"
       },
-      onBlur.mapToValue --> Observer[String] { value =>
-        val numValue       = value.toDoubleOption.getOrElse(0.0)
-        val currentEntries = entries.now()
-        val entry          = currentEntries.find(_.nr == nr).get
-        val updated        = updateEntry(entry, numValue)
-        val newEntries     = currentEntries.map(e => if e.nr == nr then updated else e)
-        entries.set(newEntries)
-        onSave(componentType, newEntries)
+      onBlur --> Observer[org.scalajs.dom.FocusEvent] { event =>
+        val inputEl = event.target.asInstanceOf[org.scalajs.dom.HTMLInputElement]
+        val value = inputEl.value
+        val numValue = value.toDoubleOption.getOrElse(0.0)
+        val currentEntries = dataEntries.now()
+        if index < currentEntries.length then
+          val entry      = currentEntries(index)
+          val updated    = updateEntry(entry, numValue)
+          val newEntries = currentEntries.updated(index, updated)
+          dataEntries.set(newEntries)
+          onSave(componentType, newEntries)
       }
     )
 
   private def renderIntCell(
-      nr: String,
-      entrySignal: Signal[AreaEntry],
+      displayEntry: AreaEntry,
+      index: Int,
       getValue: AreaEntry => Int,
-      entries: Var[List[AreaEntry]],
+      dataEntries: Var[List[AreaEntry]],
       updateEntry: (AreaEntry, Int) => AreaEntry,
       componentType: ComponentType,
       onSave: (ComponentType, List[AreaEntry]) => Unit
@@ -433,17 +451,22 @@ object AreaCalculationTable:
       border    := "none",
       stepAttr  := "1",
       textAlign := "right",
-      onMountCallback { ctx =>
-        ctx.thisNode.ref.value = getValue(entries.now().find(_.nr == nr).get).toString
+      // Controlled input: value updates reactively from dataEntries
+      value <-- dataEntries.signal.map { entries =>
+        if index < entries.length then getValue(entries(index)).toString
+        else "0"
       },
-      onBlur.mapToValue --> Observer[String] { value =>
-        val numValue       = value.toIntOption.getOrElse(0)
-        val currentEntries = entries.now()
-        val entry          = currentEntries.find(_.nr == nr).get
-        val updated        = updateEntry(entry, numValue)
-        val newEntries     = currentEntries.map(e => if e.nr == nr then updated else e)
-        entries.set(newEntries)
-        onSave(componentType, newEntries)
+      onBlur --> Observer[org.scalajs.dom.FocusEvent] { event =>
+        val inputEl = event.target.asInstanceOf[org.scalajs.dom.HTMLInputElement]
+        val value = inputEl.value
+        val numValue = value.toIntOption.getOrElse(0)
+        val currentEntries = dataEntries.now()
+        if index < currentEntries.length then
+          val entry      = currentEntries(index)
+          val updated    = updateEntry(entry, numValue)
+          val newEntries = currentEntries.updated(index, updated)
+          dataEntries.set(newEntries)
+          onSave(componentType, newEntries)
       }
     )
 
