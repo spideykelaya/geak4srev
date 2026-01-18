@@ -285,7 +285,10 @@ object AreaCalculationTable:
         padding         := "0.25rem",
         backgroundColor := "#f9f9f9",
         textAlign       := "right",
-        f"${displayEntry.totalArea}%.2f"
+        child.text <-- dataEntries.signal.map { entries =>
+          if index < entries.length then f"${entries(index).totalArea}%.2f"
+          else "0.00"
+        }
       ),
 
       // Fläche Neu
@@ -332,7 +335,10 @@ object AreaCalculationTable:
         padding         := "0.25rem",
         backgroundColor := "#f9f9f9",
         textAlign       := "right",
-        f"${displayEntry.totalAreaNew}%.2f"
+        child.text <-- dataEntries.signal.map { entries =>
+          if index < entries.length then f"${entries(index).totalAreaNew}%.2f"
+          else "0.00"
+        }
       ),
 
       // Beschrieb Neu
