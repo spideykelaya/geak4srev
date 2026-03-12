@@ -87,7 +87,7 @@ Once both processes are running, open your browser and navigate to:
 http://localhost:5173
 ```
 
-You should see the Hello World demo with an interactive input field.
+You should now see the GEAK4S homepage.
 
 ## 🏗️ Building for Production
 
