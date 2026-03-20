@@ -17,8 +17,8 @@ object WorkflowState:
   
   /** Workflow steps matching the GEAK process */
   enum Step(val order: Int, val title: String, val description: String):
-    case ProjectSetup extends Step(1, "Projekt einrichten", "Projektinformationen und Ordnerstruktur")
-    case GISData extends Step(2, "GIS-Daten", "Gebäudedaten vom kantonalen GIS beziehen")
+    case GISData extends Step(1, "GIS-Daten", "Gebäudedaten vom kantonalen GIS beziehen")
+    case ProjectSetup extends Step(2, "Projekt einrichten", "Projektinformationen und Ordnerstruktur")
     case UWertCalculation extends Step(3, "U-Wert-Berechnung", "Wärmedurchgangskoeffizienten berechnen")
     case Calculations extends Step(4, "Flächenberechnung", "Gebäudehülle IST und SOLL")
     case Inspection extends Step(5, "Begehung", "Begehungsprotokoll vor Ort ausfüllen")
@@ -33,7 +33,7 @@ object WorkflowState:
     case Skipped
   
   /** Current workflow step */
-  val currentStep: Var[Step] = Var(Step.ProjectSetup)
+  val currentStep: Var[Step] = Var(Step.GISData)
   
   /** Status of each step */
   val stepStatuses: Var[Map[Step, StepStatus]] = Var(
@@ -73,7 +73,7 @@ object WorkflowState:
   
   /** Reset workflow */
   def reset(): Unit =
-    currentStep.set(Step.ProjectSetup)
+    currentStep.set(Step.GISData)
     stepStatuses.set(Step.values.map(step => step -> StepStatus.NotStarted).toMap)
   
   /** Calculate overall progress percentage */
