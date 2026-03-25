@@ -206,6 +206,7 @@ object WorkflowView:
     case Step.UWertCalculation => IconName.`temperature`
     case Step.Calculations => IconName.`number-sign`
     case Step.Inspection => IconName.`checklist-item`
+    case Step.ProjectSetupRepeat => IconName.`project-definition-triangle`
     case Step.DataEntry => IconName.`edit`
     case Step.Reports => IconName.`document`
 
@@ -250,6 +251,7 @@ object WorkflowView:
       case Step.UWertCalculation => renderUWertCalculation(project)
       case Step.Calculations => renderCalculations(project)
       case Step.Inspection => renderInspection(project)
+      case Step.ProjectSetupRepeat => renderProjectSetup(project)
       case Step.DataEntry => renderDataEntry(project)
       case Step.Reports => ReportView()
 

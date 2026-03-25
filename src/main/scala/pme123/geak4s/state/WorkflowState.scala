@@ -22,8 +22,9 @@ object WorkflowState:
     case UWertCalculation extends Step(3, "U-Wert-Berechnung", "Wärmedurchgangskoeffizienten berechnen")
     case Calculations extends Step(4, "Flächenberechnung", "Gebäudehülle IST und SOLL")
     case Inspection extends Step(5, "Begehung", "Begehungsprotokoll vor Ort ausfüllen")
-    case DataEntry extends Step(6, "Dateneingabe", "Gebäudehülle, HLKK, Energie")
-    case Reports extends Step(7, "Berichte", "GEAK-Bericht erstellen und exportieren")
+    case ProjectSetupRepeat extends Step(6, "Gebäudedaten für GEAK", "Gebäudedaten prüfen und ergänzen")
+    case DataEntry extends Step(7, "Dateneingabe", "Gebäudehülle, HLKK, Energie")
+    case Reports extends Step(8, "Berichte", "GEAK-Bericht erstellen und exportieren")
   
   /** Status of each workflow step */
   enum StepStatus:
