@@ -203,6 +203,7 @@ object WorkflowView:
   private def stepIcon(step: Step): IconName = step match
     case Step.ProjectSetup => IconName.`project-definition-triangle`
     case Step.GISData => IconName.`map`
+    case Step.EBFCalculation => IconName.`area-chart`
     case Step.UWertCalculation => IconName.`temperature`
     case Step.Calculations => IconName.`number-sign`
     case Step.Inspection => IconName.`checklist-item`
@@ -245,13 +246,36 @@ object WorkflowView:
 
   private def renderStep(step: Step, project: GeakProject): HtmlElement =
     step match
-      case Step.ProjectSetup => renderProjectSetup(project)
       case Step.GISData => renderGISData(project)
+      case Step.EBFCalculation => renderEBFStep(project)
+      case Step.ProjectSetup => renderProjectSetup(project)
       case Step.UWertCalculation => renderUWertCalculation(project)
       case Step.Calculations => renderCalculations(project)
       case Step.Inspection => renderInspection(project)
       case Step.DataEntry => renderDataEntry(project)
       case Step.Reports => ReportView()
+
+  // New Step: EBF Calculation
+  private def renderEBFStep(project: GeakProject): HtmlElement =
+    div(
+      className := "step-content",
+      Title(_.level := TitleLevel.H2, "EBF berechnen"),
+      MessageStrip(
+        _.design := MessageStripDesign.Information,
+        _.hideCloseButton := true,
+        "Berechnen Sie die Energiebezugsfläche (EBF) mit dem integrierten Tool."
+      ),
+      // Embed the actual EBF calculator (public/ebf/index.html) in a large iframe
+      div(
+        styleAttr := "display: flex; justify-content: center; align-items: flex-start; width: 100%; height: 90vh;",
+        iframe(
+          src := "/ebf/js/index.html",
+          width := "90%",
+          height := "85vh",
+          styleAttr := "border: 1px solid #ccc; border-radius: 8px; background: #fff; min-height: 800px; min-width: 1200px; box-shadow: 0 2px 16px #0002;"
+        )
+      )
+    )
 
   // Step 1: Project Setup
   private def renderProjectSetup(project: GeakProject): HtmlElement =
