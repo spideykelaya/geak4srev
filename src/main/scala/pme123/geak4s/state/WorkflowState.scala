@@ -34,7 +34,7 @@ object WorkflowState:
     case Skipped
   
   /** Current workflow step */
-  val currentStep: Var[Step] = Var(Step.ProjectSetup)
+  val currentStep: Var[Step] = Var(Step.GISData)
   
   /** Status of each step */
   val stepStatuses: Var[Map[Step, StepStatus]] = Var(
@@ -74,7 +74,7 @@ object WorkflowState:
   
   /** Reset workflow */
   def reset(): Unit =
-    currentStep.set(Step.ProjectSetup)
+    currentStep.set(Step.GISData)
     stepStatuses.set(Step.values.map(step => step -> StepStatus.NotStarted).toMap)
   
   /** Calculate overall progress percentage */
