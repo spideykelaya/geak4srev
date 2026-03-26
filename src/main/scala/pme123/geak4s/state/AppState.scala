@@ -128,9 +128,81 @@ object AppState:
   def saveAreaCalculations(): Unit =
     updateProject(project => AreaState.saveToProject(project))
 
-  /** Save GIS data to current project */
+  /** Save GIS data to current project and autofill project fields when empty */
   def saveGisData(gisData: pme123.geak4s.domain.gis.MaddResponse): Unit =
-    updateProject(project => project.copy(gisData = Some(gisData)))
+    updateProject(project =>
+      val filledProject = fillProjectFromGis(project, gisData)
+      filledProject.copy(gisData = Some(gisData))
+    )
+
+  /** Fill project fields from extracted GIS data without overriding existing input when present */
+  private def fillProjectFromGis(project: GeakProject, gisData: pme123.geak4s.domain.gis.MaddResponse): GeakProject =
+    val firstBuildingOpt = gisData.buildingList.headOption
+    val firstEntranceOpt = firstBuildingOpt.flatMap(_.buildingEntranceList.headOption)
+
+    def preferExistingString(existing: Option[String], extracted: Option[String]): Option[String] =
+      if existing.exists(_.trim.nonEmpty) then existing
+      else extracted
+
+    def preferExisting[T](existing: Option[T], extracted: Option[T]): Option[T] =
+      existing.orElse(extracted)
+
+    val extractedAddress = firstEntranceOpt.map { entrance =>
+      Address(
+        street = Some(entrance.buildingEntrance.street.streetName.descriptionLong).filter(_.trim.nonEmpty),
+        houseNumber = Some(entrance.buildingEntrance.buildingEntranceNo).filter(_.trim.nonEmpty),
+        zipCode = Some(entrance.buildingEntrance.locality.swissZipCode).filter(_.trim.nonEmpty),
+        city = Some(entrance.buildingEntrance.locality.placeName).filter(_.trim.nonEmpty),
+        country = Some("Schweiz"),
+        lat = Some(entrance.buildingEntrance.coordinates.east),
+        lon = Some(entrance.buildingEntrance.coordinates.north)
+      )
+    }
+
+    val newAddress = if project.project.buildingLocation.address == Address.empty then extractedAddress.getOrElse(project.project.buildingLocation.address) else project.project.buildingLocation.address
+
+    val firstBuilding = firstBuildingOpt
+
+    val newBuildingLocation = project.project.buildingLocation.copy(
+      address = newAddress,
+      municipality = preferExisting(project.project.buildingLocation.municipality, firstBuilding.map(_.municipality.municipalityName)),
+      buildingName = preferExisting(project.project.buildingLocation.buildingName, firstBuilding.flatMap(_.building.buildingClass)),
+      parcelNumber = preferExisting(project.project.buildingLocation.parcelNumber, firstBuilding.flatMap(_.realestateIdentificationList.headOption.map(_.number)))
+    )
+
+    val buildingData = project.project.buildingData
+    val newBuildingData = buildingData.copy(
+      constructionYear = buildingData.constructionYear.orElse(firstBuilding.flatMap(_.building.dateOfConstruction.flatMap(_.dateOfConstruction).flatMap(_.toIntOption))),
+      numberOfFloors = buildingData.numberOfFloors.orElse(firstBuilding.flatMap(_.building.numberOfFloors)),
+      energyReferenceArea = buildingData.energyReferenceArea.orElse(firstBuilding.flatMap(_.building.surfaceAreaOfBuilding).map(_.toDouble))
+    )
+
+    val egid = firstBuilding.flatMap(b => Some(b.egid).filter(_.nonEmpty))
+    val edid = firstEntranceOpt.map(_.edid).filter(_.nonEmpty)
+    val egidEntryAddress = extractedAddress.getOrElse(Address.empty)
+
+    val currentEntries = project.project.egidEdidGroup.entries
+    val newEgidEntries = if currentEntries.isEmpty then
+      List(EgidEdidEntry(egid = egid, edid = edid, address = egidEntryAddress))
+    else
+      currentEntries.zipWithIndex.map { (entry, idx) =>
+        if idx == 0 then
+          entry.copy(
+            egid = preferExisting(entry.egid, egid),
+            edid = preferExisting(entry.edid, edid),
+            address = if entry.address == Address.empty then egidEntryAddress else entry.address
+          )
+        else entry
+      }
+
+    project.copy(
+      project = project.project.copy(
+        projectName = project.project.projectName,
+        buildingLocation = newBuildingLocation,
+        buildingData = newBuildingData,
+        egidEdidGroup = project.project.egidEdidGroup.copy(entries = newEgidEntries)
+      )
+    )
 
   /** Initialize Google Drive integration */
   def initializeGoogleDrive(): Unit =
