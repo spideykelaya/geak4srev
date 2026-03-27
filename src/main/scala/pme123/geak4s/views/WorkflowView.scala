@@ -209,6 +209,7 @@ object WorkflowView:
     case Step.Inspection => IconName.`checklist-item`
     case Step.DataEntry => IconName.`edit`
     case Step.Reports => IconName.`document`
+    case Step.ProjectSetupRepeat => IconName.`project-definition-triangle`
 
   private def statusBadge(status: WorkflowState.StepStatus): HtmlElement =
     status match
@@ -254,6 +255,7 @@ object WorkflowView:
       case Step.Inspection => renderInspection(project)
       case Step.DataEntry => renderDataEntry(project)
       case Step.Reports => ReportView()
+      case Step.ProjectSetupRepeat => renderProjectSetup(project)
 
   // New Step: EBF Calculation
   private def renderEBFStep(project: GeakProject): HtmlElement =
@@ -277,7 +279,14 @@ object WorkflowView:
       )
     )
 
-  // Step 1: Project Setup
+   // Step 1: GIS Data
+  private def renderGISData(project: GeakProject): HtmlElement =
+    GisDataView()
+
+  def generateDoc(): Unit =
+   println("Dokument wird erstellt!")
+ 
+  // Step 2: Project Setup
   private def renderProjectSetup(project: GeakProject): HtmlElement =
     div(
       className := "step-content",
@@ -285,14 +294,25 @@ object WorkflowView:
       MessageStrip(
         _.design := MessageStripDesign.Information,
         _.hideCloseButton := true,
-        "Erfassen Sie die grundlegenden Projektinformationen und erstellen Sie die Ordnerstruktur."
+        "Erfassen Sie die grundlegenden Projektinformationen für die Begehung und exportieren Sie das Begehungsprotokoll."
       ),
-      ProjectView(project.project).render()
+
+      styleAttr := "display: flex; flex-direction: column; align-items: center; gap: 1rem; margin-top: 1rem;",
+      
+      // ProjectView bleibt oben
+      ProjectView(project.project).render(),
+      
+      // Button darunter
+      Button(
+        _.design := ButtonDesign.Default,
+        "Begehungsprotokoll erstellen",
+        _.events.onClick.mapTo(()) --> Observer[Unit] { _ =>
+          generateDoc()
+        },
+        styleAttr := "width: 270px; height: 50px; font-size: 1rem; font-weight: bold;"
+      )
     )
 
-  // Step 2: GIS Data
-  private def renderGISData(project: GeakProject): HtmlElement =
-    GisDataView()
 
   // Step 3: U-Wert Calculation
   private def renderUWertCalculation(project: GeakProject): HtmlElement =

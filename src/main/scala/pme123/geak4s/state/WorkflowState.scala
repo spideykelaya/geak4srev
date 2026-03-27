@@ -2,6 +2,7 @@ package pme123.geak4s.state
 
 import com.raquo.laminar.api.L.*
 
+
 /** 
  * Workflow state management for the GEAK process
  * 
@@ -23,8 +24,9 @@ object WorkflowState:
     case UWertCalculation extends Step(4, "U-Wert-Berechnung", "Wärmedurchgangskoeffizienten berechnen")
     case Calculations extends Step(5, "Flächenberechnung", "Gebäudehülle IST und SOLL")
     case Inspection extends Step(6, "Begehung", "Begehungsprotokoll vor Ort ausfüllen")
-    case DataEntry extends Step(7, "Dateneingabe", "Gebäudehülle, HLKK, Energie")
-    case Reports extends Step(8, "Berichte", "GEAK-Bericht erstellen und exportieren")
+    case ProjectSetupRepeat extends Step(7, "GEAK Daten", "ergänzen fehlender Daten, welche fürs GEAK wichtig sind")
+    case DataEntry extends Step(8, "Dateneingabe", "Gebäudehülle, HLKK, Energie")
+    case Reports extends Step(9, "Berichte", "GEAK-Bericht erstellen und exportieren")
   
   /** Status of each workflow step */
   enum StepStatus:

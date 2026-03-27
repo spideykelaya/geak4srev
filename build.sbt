@@ -4,7 +4,18 @@ ThisBuild / version := "0.1.0-SNAPSHOT"
 ThisBuild / scalaVersion := "3.6.2"
 Global / onChangedBuildSource := ReloadOnSourceChanges
 
+lazy val backend = (project in file("backend"))
+  .settings(
+    name := "backend",
+    scalaVersion := "3.6.2",
+    libraryDependencies ++= Seq(
+      "org.apache.poi" % "poi-ooxml" % "5.2.5",
+      "com.lihaoyi" %% "cask" % "0.9.1"
+    )
+  )
+
 lazy val root = (project in file("."))
+  .aggregate(backend)
   .settings(
     name                            := "geak4s",
     sourcesInBase                   := false,
@@ -25,3 +36,6 @@ lazy val root = (project in file("."))
     )
   )
   .enablePlugins(ScalaJSPlugin)
+
+
+
