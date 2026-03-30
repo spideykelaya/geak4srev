@@ -272,7 +272,7 @@ object WorkflowView:
       div(
         styleAttr := "display: flex; justify-content: center; align-items: flex-start; width: 100%; height: 90vh;",
         iframe(
-          src := "/ebf/js/index.html",
+          src := "/ebf/index.html",
           width := "90%",
           height := "85vh",
           styleAttr := "border: 1px solid #ccc; border-radius: 8px; background: #fff; min-height: 800px; min-width: 1200px; box-shadow: 0 2px 16px #0002;"
