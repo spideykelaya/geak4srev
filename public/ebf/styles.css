@@ -277,6 +277,15 @@ h1 {
 }
 .btn-delete:hover { color: var(--red); }
 
+.plan-delete {
+  font-size: 18px;
+  padding: 2px 4px;
+}
+.plan-delete:hover {
+  color: var(--red);
+  background: rgba(248,113,113,0.1);
+}
+
 .total {
   padding: 10px 12px;
   background: var(--surface);
@@ -470,6 +479,93 @@ h1 {
   flex-shrink: 0;
 }
 .calib-steps li strong { color: var(--text-1); }
+
+/* ── Plan list ── */
+
+.plan-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  max-height: 180px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--raised) transparent;
+}
+
+.plan-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  background: var(--surface);
+  border-radius: var(--r);
+  border: 1px solid transparent;
+  transition: border-color 0.12s;
+}
+.plan-item:hover { border-color: var(--border-hi); }
+
+.plan-item--active {
+  border-color: rgba(109,90,205,0.35) !important;
+  background: rgba(109,90,205,0.08);
+}
+
+.plan-icon {
+  font-size: 13px;
+  flex-shrink: 0;
+  line-height: 1;
+}
+
+.plan-label-editable {
+  flex: 1;
+  color: var(--text-1);
+  font-size: 12px;
+  outline: none;
+  cursor: text;
+  border-radius: 4px;
+  padding: 1px 4px;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.plan-label-editable:focus {
+  background: var(--raised);
+  box-shadow: 0 0 0 1.5px var(--accent);
+  white-space: normal;
+  overflow: visible;
+}
+
+.plan-active-badge {
+  font-size: 9px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--accent-hi);
+  background: rgba(109,90,205,0.18);
+  border: 1px solid rgba(109,90,205,0.3);
+  border-radius: 4px;
+  padding: 2px 6px;
+  flex-shrink: 0;
+}
+
+.btn-load-plan {
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--text-2);
+  cursor: pointer;
+  font-size: 10px;
+  line-height: 1;
+  padding: 4px 7px;
+  border-radius: 4px;
+  transition: background 0.1s, border-color 0.1s, color 0.1s;
+  flex-shrink: 0;
+}
+.btn-load-plan:hover {
+  background: rgba(109,90,205,0.15);
+  border-color: var(--accent);
+  color: var(--accent-hi);
+}
 
 /* ── Print ── */
 

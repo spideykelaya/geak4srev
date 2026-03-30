@@ -10,6 +10,7 @@ import pme123.geak4s.domain.energy.*
 import pme123.geak4s.domain.uwert.*
 import pme123.geak4s.domain.area.*
 import pme123.geak4s.domain.gis.*
+import pme123.geak4s.domain.ebf.*
 
 /**
  * Circe JSON codecs for all domain models using semiauto derivation
@@ -176,6 +177,22 @@ object JsonCodecs:
 
   given Encoder[MaddResponse] = deriveEncoder[MaddResponse]
   given Decoder[MaddResponse] = deriveDecoder[MaddResponse]
+
+  // EBF plans
+  given Encoder[EbfPoint] = deriveEncoder[EbfPoint]
+  given Decoder[EbfPoint] = deriveDecoder[EbfPoint]
+
+  given Encoder[EbfPolygon] = deriveEncoder[EbfPolygon]
+  given Decoder[EbfPolygon] = deriveDecoder[EbfPolygon]
+
+  given Encoder[EbfMeasurement] = deriveEncoder[EbfMeasurement]
+  given Decoder[EbfMeasurement] = deriveDecoder[EbfMeasurement]
+
+  given Encoder[EbfPlan] = deriveEncoder[EbfPlan]
+  given Decoder[EbfPlan] = deriveDecoder[EbfPlan]
+
+  given Encoder[EbfPlans] = deriveEncoder[EbfPlans]
+  given Decoder[EbfPlans] = deriveDecoder[EbfPlans]
 
   // Main project
   given Encoder[GeakProject] = deriveEncoder[GeakProject]

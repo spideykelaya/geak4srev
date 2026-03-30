@@ -1,25 +1,45 @@
 'use strict';
 
-import { S, initDom, canvas, s2w, w2s, setMode, px2m2 } from './state.js';
+import { S, initDom, canvas, s2w, w2s, setMode, px2m2, $, emitPolygonSyncEvent, emitPlansSyncEvent, EBF_LOAD_PLANS_EVENT } from './state.js';
 import { PDFJS_WORKER, COLORS, SNAP_RADIUS }             from './config.js';
 import { shoelace, findNearVertex, findNearEdge, dist }   from './geo.js';
 import { render }                                         from './render.js';
-import { updateSidebar }                                  from './sidebar.js';
-import { loadPDF, loadImg, exportData, exportExcel, exportXML, importData, printView } from './io.js';
+import { updateSidebar, nextPolygonLabel, setSwitchPlanHandler } from './sidebar.js';
+import { loadPDF, loadImg, exportData, exportExcel, exportXML, importData, printView, loadImageFromDataUrl } from './io.js';
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = PDFJS_WORKER;
 
-window.addEventListener('DOMContentLoaded', () => {
-  initDom();
+let currentUnmount = null;
+
+export function mountEbf(root = document) {
+  currentUnmount?.();
+
+  initDom(root);
   resizeCanvas();
-  bindUI();
+  bindUI(root.ownerDocument || document);
   render();
-});
-window.addEventListener('resize', () => { resizeCanvas(); render(); });
+
+  const onResize = () => { resizeCanvas(); render(); };
+  window.addEventListener('resize', onResize);
+
+  currentUnmount = () => {
+    window.removeEventListener('resize', onResize);
+  };
+
+  return currentUnmount;
+}
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('DOMContentLoaded', () => {
+    if (document.getElementById('main-canvas')) {
+      mountEbf(document);
+    }
+  });
+}
 
 // ── Canvas sizing ─────────────────────────────────────────────────────────────
 function resizeCanvas() {
-  const r = document.getElementById('canvas-container').getBoundingClientRect();
+  const r = $('canvas-container').getBoundingClientRect();
   canvas.width = r.width; canvas.height = r.height;
 }
 
@@ -31,33 +51,44 @@ function fitToCanvas() {
 }
 
 // ── UI bindings ───────────────────────────────────────────────────────────────
-function bindUI() {
-  document.getElementById('file-input').addEventListener('change', onFileChange);
-  document.getElementById('import-input').addEventListener('change', async e => {
+function bindUI(ownerDocument) {
+  setSwitchPlanHandler(switchToPlan);
+
+  $('file-input').addEventListener('change', onFileChange);
+  $('import-input').addEventListener('change', async e => {
     const f = e.target.files[0]; if (!f) return;
     const ok = await importData(f); e.target.value = '';
     if (!ok) return;
     applyScaleStatus();
     show('scale-section'); show('draw-section');
     updateSidebar(); render();
+    emitPolygonSyncEvent();
+    saveCurrentPlanState();
+    emitPlansSyncEvent();
   });
 
-  document.getElementById('calibrate-btn').addEventListener('click', startCalibration);
-  document.getElementById('confirm-scale').addEventListener('click', confirmScale);
-  document.getElementById('cancel-scale').addEventListener('click', cancelCalibration);
-  document.getElementById('draw-btn').addEventListener('click', startDrawing);
-  document.getElementById('measure-btn').addEventListener('click', startMeasuring);
-  document.getElementById('clear-btn').addEventListener('click', clearAll);
-  document.getElementById('export-btn').addEventListener('click', exportData);
-  document.getElementById('export-excel-btn').addEventListener('click', exportExcel);
-  document.getElementById('export-xml-btn').addEventListener('click', exportXML);
-  document.getElementById('import-btn').addEventListener('click', () => document.getElementById('import-input').click());
-  document.getElementById('print-btn').addEventListener('click', () => printView());
-  document.getElementById('clear-confirm-yes').addEventListener('click', clearAllConfirmed);
-  document.getElementById('clear-confirm-no').addEventListener('click', () => { document.getElementById('clear-confirm-modal').style.display = 'none'; });
-  document.getElementById('calib-intro-start').addEventListener('click', () => { document.getElementById('calib-intro-modal').style.display = 'none'; startCalibration(); });
-  document.getElementById('calib-intro-skip').addEventListener('click', () => { document.getElementById('calib-intro-modal').style.display = 'none'; setMode('idle'); });
-  document.getElementById('real-length').addEventListener('keydown', e => { if (e.key === 'Enter') confirmScale(); });
+  // Restore plans dispatched by Scala after project load
+  window.addEventListener(EBF_LOAD_PLANS_EVENT, onLoadPlans);
+
+  // Handle plan deletion
+  window.addEventListener('geak:ebf-delete-plan', onDeletePlan);
+
+  $('calibrate-btn').addEventListener('click', startCalibration);
+  $('confirm-scale').addEventListener('click', confirmScale);
+  $('cancel-scale').addEventListener('click', cancelCalibration);
+  $('draw-btn').addEventListener('click', startDrawing);
+  $('measure-btn').addEventListener('click', startMeasuring);
+  $('clear-btn').addEventListener('click', clearAll);
+  $('export-btn').addEventListener('click', exportData);
+  $('export-excel-btn').addEventListener('click', exportExcel);
+  $('export-xml-btn').addEventListener('click', exportXML);
+  $('import-btn').addEventListener('click', () => $('import-input').click());
+  $('print-btn').addEventListener('click', () => printView());
+  $('clear-confirm-yes').addEventListener('click', clearAllConfirmed);
+  $('clear-confirm-no').addEventListener('click', () => { $('clear-confirm-modal').style.display = 'none'; });
+  $('calib-intro-start').addEventListener('click', () => { $('calib-intro-modal').style.display = 'none'; startCalibration(); });
+  $('calib-intro-skip').addEventListener('click', () => { $('calib-intro-modal').style.display = 'none'; setMode('idle'); });
+  $('real-length').addEventListener('keydown', e => { if (e.key === 'Enter') confirmScale(); });
 
   canvas.addEventListener('mousedown',   onMouseDown);
   canvas.addEventListener('mousemove',   onMouseMove);
@@ -65,7 +96,7 @@ function bindUI() {
   canvas.addEventListener('dblclick',    onDblClick);
   canvas.addEventListener('wheel',       onWheel, { passive: false });
   canvas.addEventListener('contextmenu', e => e.preventDefault());
-  document.addEventListener('keydown',   e => { if (e.key === 'Escape') cancelCurrent(); });
+  ownerDocument.addEventListener('keydown',   e => { if (e.key === 'Escape') cancelCurrent(); });
 }
 
 // ── File loading ──────────────────────────────────────────────────────────────
@@ -75,13 +106,188 @@ async function onFileChange(e) {
     if (file.type === 'application/pdf') await loadPDF(file);
     else await loadImg(file);
   } catch (err) { alert('Laden fehlgeschlagen: ' + err.message); return; }
-  document.getElementById('file-name').textContent = file.name;
+
+  // Persist the outgoing plan before switching
+  saveCurrentPlanState();
+
+  // Build a new plan entry
+  const planId    = 'plan_' + Date.now();
+  const planLabel = file.name.replace(/\.[^/.]+$/, ''); // strip extension
+  const newPlan = {
+    id: planId,
+    label: planLabel,
+    driveFileId: null,
+    imageDataUrl: S.imageDataUrl,   // stored from loadPDF / loadImg
+    imageW: S.imageW,
+    imageH: S.imageH,
+    scale: null,
+    nextId: 1,
+    nextMeasId: 1,
+    polygons: [],
+    measurements: [],
+  };
+
+  // Cache image in localStorage (best-effort; might fail for very large images)
+  try { localStorage.setItem('ebf_plan_image_' + planId, S.imageDataUrl); } catch (_) {}
+
+  S.plans.push(newPlan);
+  S.activePlanId = planId;
+
+  $('file-name').textContent = planLabel;
   S.polygons = []; S.measurements = []; S.current = [];
+  S.scale = null; S.nextId = 1; S.nextMeasId = 1;
+
   fitToCanvas();
   show('scale-section'); show('draw-section');
   updateSidebar(); render();
-  document.getElementById('calib-intro-modal').style.display = 'flex';
+  emitPolygonSyncEvent();
+  emitPlansSyncEvent();
+
+  // Upload PDF to Google Drive
+  if (file.type === 'application/pdf') {
+    file.arrayBuffer().then(buffer => {
+      window.dispatchEvent(new CustomEvent('geak:ebf-plan-upload', {
+        detail: { planId, planLabel, fileName: file.name, mimeType: file.type, buffer },
+      }));
+    });
+  }
+
+  $('calib-intro-modal').style.display = 'flex';
 }
+
+// ── Plan management ───────────────────────────────────────────────────────────
+
+/** Snapshot the current working state back into the active plan entry. */
+function saveCurrentPlanState() {
+  if (!S.activePlanId) return;
+  const plan = S.plans.find(p => p.id === S.activePlanId);
+  if (!plan) return;
+  plan.polygons     = S.polygons.map(p => ({ ...p }));
+  plan.measurements = S.measurements.map(m => ({ ...m }));
+  plan.scale        = S.scale;
+  plan.nextId       = S.nextId;
+  plan.nextMeasId   = S.nextMeasId;
+  plan.imageW       = S.imageW;
+  plan.imageH       = S.imageH;
+  if (S.imageDataUrl) plan.imageDataUrl = S.imageDataUrl;
+}
+
+/** Switch to a different imported plan.  Saves the current plan first. */
+async function switchToPlan(planId) {
+  if (planId === S.activePlanId) return;
+
+  saveCurrentPlanState();
+
+  const plan = S.plans.find(p => p.id === planId);
+  if (!plan) return;
+
+  // Clear current state
+  S.image = null;
+  S.imageDataUrl = null;
+
+  // Restore image: try in-memory first, then localStorage
+  const imageDataUrl = plan.imageDataUrl || localStorage.getItem('ebf_plan_image_' + planId);
+
+  if (imageDataUrl) {
+    try {
+      await loadImageFromDataUrl(imageDataUrl);
+      plan.imageDataUrl = S.imageDataUrl; // keep in sync
+    } catch (err) {
+      dom.console.warn('Failed to load image:', err);
+      S.image = null;
+      S.imageW = plan.imageW;
+      S.imageH = plan.imageH;
+    }
+  } else {
+    S.image = null;
+    S.imageW = plan.imageW;
+    S.imageH = plan.imageH;
+  }
+
+  // Restore plan data
+  S.activePlanId  = planId;
+  S.polygons      = plan.polygons.map(p => ({ ...p }));
+  S.measurements  = plan.measurements.map(m => ({ ...m }));
+  S.scale         = plan.scale ?? null;
+  S.nextId        = plan.nextId ?? 1;
+  S.nextMeasId    = plan.nextMeasId ?? 1;
+  S.current       = [];
+
+  $('file-name').textContent = plan.label;
+
+  // Fit image to canvas if available
+  if (S.image) {
+    fitToCanvas();
+    applyScaleStatus();
+  }
+
+  show('scale-section');
+  show('draw-section');
+  updateSidebar();
+  render();
+  emitPolygonSyncEvent();
+  emitPlansSyncEvent();
+}
+
+/** Restore plans received from the Scala layer (project load). */
+async function onLoadPlans(event) {
+  const data = event.detail;
+  if (!data || !Array.isArray(data.plans) || data.plans.length === 0) return;
+
+  // Restore image data URLs from localStorage
+  S.plans = data.plans.map(plan => ({
+    ...plan,
+    imageDataUrl: localStorage.getItem('ebf_plan_image_' + plan.id) || null,
+  }));
+
+  const activeId = data.activePlanId || S.plans[0]?.id;
+  updateSidebar();
+
+  if (activeId) {
+    await switchToPlan(activeId);
+  }
+}
+
+/** Delete a plan after confirmation. */
+async function onDeletePlan(event) {
+  const { planId, planLabel } = event.detail;
+
+  // Remove the plan from S.plans
+  S.plans = S.plans.filter(p => p.id !== planId);
+
+  // If this was the active plan, switch to the first remaining plan (if any)
+  if (S.activePlanId === planId) {
+    if (S.plans.length > 0) {
+      // Switch to first plan
+      await switchToPlan(S.plans[0].id);
+    } else {
+      // No plans left
+      S.activePlanId = null;
+      S.image = null;
+      S.imageDataUrl = null;
+      S.polygons = [];
+      S.measurements = [];
+      S.scale = null;
+      S.nextId = 1;
+      S.nextMeasId = 1;
+      $('file-name').textContent = '';
+      updateSidebar();
+      render();
+      emitPolygonSyncEvent();
+      emitPlansSyncEvent();
+    }
+  } else {
+    // Just update the list and sync
+    updateSidebar();
+    emitPlansSyncEvent();
+  }
+
+  // Clear localStorage cache for deleted plan
+  try {
+    localStorage.removeItem('ebf_plan_image_' + planId);
+  } catch (_) {}
+}
+
 
 // ── Calibration ───────────────────────────────────────────────────────────────
 function startCalibration() {
@@ -92,35 +298,38 @@ function startCalibration() {
 }
 
 function confirmScale() {
-  const val  = parseFloat(document.getElementById('real-length').value);
-  const unit = parseFloat(document.getElementById('length-unit').value);
-  if (!val || val <= 0) { document.getElementById('real-length').focus(); return; }
+  const val  = parseFloat($('real-length').value);
+  const unit = parseFloat($('length-unit').value);
+  if (!val || val <= 0) { $('real-length').focus(); return; }
   S.scale = (val * unit) / dist(S.calibPt1, S.calibPt2);
-  document.getElementById('scale-dialog').style.display = 'none';
+  $('scale-dialog').style.display = 'none';
   applyScaleStatus();
   S.polygons.forEach(p => { p.area = px2m2(p.pixelArea); });
   S.calibPt1 = null; S.calibPt2 = null;
   setMode('idle'); setInstructions('');
   updateSidebar(); render();
+  emitPolygonSyncEvent();
+  saveCurrentPlanState();
+  emitPlansSyncEvent();
 }
 
 function cancelCalibration() {
-  document.getElementById('scale-dialog').style.display = 'none';
+  $('scale-dialog').style.display = 'none';
   S.calibPt1 = null; S.calibPt2 = null;
   setMode('idle'); setInstructions(''); render();
 }
 
 function applyScaleStatus() {
   if (!S.scale) return;
-  document.getElementById('scale-status').textContent = `1 m = ${(1 / S.scale).toFixed(1)} px`;
-  document.getElementById('scale-status').className   = 'scale-status calibrated';
-  document.getElementById('draw-btn').classList.add('btn-highlight');
+  $('scale-status').textContent = `1 m = ${(1 / S.scale).toFixed(1)} px`;
+  $('scale-status').className   = 'scale-status calibrated';
+  $('draw-btn').classList.add('btn-highlight');
 }
 
 // ── Drawing actions ───────────────────────────────────────────────────────────
 function startDrawing() {
   if (!S.image) return;
-  document.getElementById('draw-btn').classList.remove('btn-highlight');
+  $('draw-btn').classList.remove('btn-highlight');
   S.current = []; setMode('draw');
   setInstructions('Klicken Sie, um Punkte hinzuzufügen – Doppelklick oder Klicken auf den ersten Punkt zum Beenden');
 }
@@ -130,9 +339,13 @@ function finishPolygon() {
   if (pts.length < 3) { S.current = []; setMode('idle'); setInstructions(''); render(); return; }
   const pixelArea = shoelace(pts);
   const id = S.nextId++;
-  S.polygons.push({ id, label: 'Polygone ' + id, points: pts, color: COLORS[(id - 1) % COLORS.length], pixelArea, area: px2m2(pixelArea) });
+  const label = nextPolygonLabel();
+  S.polygons.push({ id, label, points: pts, color: COLORS[(id - 1) % COLORS.length], pixelArea, area: px2m2(pixelArea) });
   S.current = []; setMode('idle'); setInstructions('');
   updateSidebar(); render();
+  emitPolygonSyncEvent();
+  saveCurrentPlanState();
+  emitPlansSyncEvent();
 }
 
 function startMeasuring() {
@@ -143,14 +356,17 @@ function startMeasuring() {
 
 function clearAll() {
   if (!S.polygons.length && !S.current.length && !S.measurements.length) return;
-  document.getElementById('clear-confirm-modal').style.display = 'flex';
+  $('clear-confirm-modal').style.display = 'flex';
 }
 
 function clearAllConfirmed() {
-  document.getElementById('clear-confirm-modal').style.display = 'none';
+  $('clear-confirm-modal').style.display = 'none';
   S.polygons = []; S.measurements = []; S.current = [];
   setMode('idle'); setInstructions('');
   updateSidebar(); render();
+  emitPolygonSyncEvent();
+  saveCurrentPlanState();
+  emitPlansSyncEvent();
 }
 
 function cancelCurrent() {
@@ -179,9 +395,9 @@ function onMouseDown(e) {
   }
   if (S.mode === 'calibrate_2') {
     S.calibPt2 = wp; setMode('calibrate_confirm');
-    document.getElementById('real-length').value = '';
-    document.getElementById('scale-dialog').style.display = 'flex';
-    setTimeout(() => document.getElementById('real-length').focus(), 50);
+    $('real-length').value = '';
+    $('scale-dialog').style.display = 'flex';
+    setTimeout(() => $('real-length').focus(), 50);
     render(); return;
   }
   if (S.mode === 'draw') {
@@ -239,7 +455,13 @@ function onMouseMove(e) {
 }
 
 function onMouseUp() {
-  if (S.mode === 'drag_vertex') { S.dragVertex = null; setMode('idle'); canvas.style.cursor = 'grab'; return; }
+  if (S.mode === 'drag_vertex') {
+    S.dragVertex = null; setMode('idle'); canvas.style.cursor = 'grab';
+    emitPolygonSyncEvent();
+    saveCurrentPlanState();
+    emitPlansSyncEvent();
+    return;
+  }
   if (S.panning) { S.panning = false; canvas.style.cursor = S.mode === 'idle' ? 'grab' : 'crosshair'; }
 }
 
@@ -260,6 +482,6 @@ function onWheel(e) {
 }
 
 // ── Misc helpers ──────────────────────────────────────────────────────────────
-function show(id)              { document.getElementById(id).style.display = ''; }
-function setInstructions(t)    { document.getElementById('instructions').textContent = t; }
-function updateZoomIndicator() { document.getElementById('zoom-indicator').textContent = Math.round(S.zoom * 100) + '%'; }
+function show(id)              { $(id).style.display = ''; }
+function setInstructions(t)    { $('instructions').textContent = t; }
+function updateZoomIndicator() { $('zoom-indicator').textContent = Math.round(S.zoom * 100) + '%'; }

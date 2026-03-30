@@ -11,6 +11,7 @@ import pme123.geak4s.domain.envelope.*
 import pme123.geak4s.domain.hvac.*
 import pme123.geak4s.domain.energy.*
 import pme123.geak4s.services.GoogleDriveService
+import pme123.geak4s.state.EbfState
 
 /** Application state management */
 object AppState:
@@ -84,6 +85,8 @@ object AppState:
     UWertState.loadFromProject(project)
     // Initialize Area state from project
     AreaState.loadFromProject(project)
+    // Initialize EBF plans state from project
+    EbfState.loadFromProject(project)
     // Mark sync as initialized for loaded projects (existing projects should auto-sync)
     syncInitialized.set(true)
     // Auto-connect to Google Drive for loaded projects
@@ -100,6 +103,7 @@ object AppState:
     projectState.set(ProjectState.NoProject)
     UWertState.clear()
     AreaState.clear()
+    EbfState.clear()
     stopPeriodicSync()
     syncInitialized.set(false)
     // Don't clear projectsWithFolderStructure - keep track across sessions
@@ -127,6 +131,10 @@ object AppState:
   /** Save area calculations to current project */
   def saveAreaCalculations(): Unit =
     updateProject(project => AreaState.saveToProject(project))
+
+  /** Save EBF plans to current project */
+  def saveEbfPlans(): Unit =
+    updateProject(project => EbfState.saveToProject(project))
 
   /** Save GIS data to current project and autofill project fields when empty */
   def saveGisData(gisData: pme123.geak4s.domain.gis.MaddResponse): Unit =

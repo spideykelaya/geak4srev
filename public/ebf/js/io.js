@@ -2,6 +2,21 @@ import { S }                         from './state.js';
 import { PDFJS_WORKER }              from './config.js';
 import { dist, fmtArea, fmtLength, esc } from './geo.js';
 
+function normalizePolygonLabels(polygons) {
+  const used = new Set();
+  return polygons.map(poly => {
+    const base = (poly.label || '').trim() || 'Flaeche';
+    let label = base;
+    let idx = 2;
+    while (used.has(label)) {
+      label = `${base} ${idx}`;
+      idx += 1;
+    }
+    used.add(label);
+    return { ...poly, label };
+  });
+}
+
 // ── File loading ──────────────────────────────────────────────────────────────
 export async function loadPDF(file) {
   const url = URL.createObjectURL(file);
@@ -13,6 +28,7 @@ export async function loadPDF(file) {
     off.width = viewport.width; off.height = viewport.height;
     await page.render({ canvasContext: off.getContext('2d'), viewport }).promise;
     S.image = off; S.imageW = viewport.width; S.imageH = viewport.height;
+    S.imageDataUrl = off.toDataURL('image/jpeg', 0.85); // JPEG for smaller size
   } finally { URL.revokeObjectURL(url); }
 }
 
@@ -20,9 +36,36 @@ export async function loadImg(file) {
   const url = URL.createObjectURL(file);
   await new Promise((resolve, reject) => {
     const img = new Image();
-    img.onload  = () => { S.image = img; S.imageW = img.naturalWidth; S.imageH = img.naturalHeight; URL.revokeObjectURL(url); resolve(); };
+    img.onload  = () => {
+      S.image = img; S.imageW = img.naturalWidth; S.imageH = img.naturalHeight;
+      // Capture as data URL via offscreen canvas
+      const off = document.createElement('canvas');
+      off.width = img.naturalWidth; off.height = img.naturalHeight;
+      off.getContext('2d').drawImage(img, 0, 0);
+      S.imageDataUrl = off.toDataURL('image/jpeg', 0.85);
+      URL.revokeObjectURL(url);
+      resolve();
+    };
     img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('Image invalide')); };
     img.src = url;
+  });
+}
+
+/** Restore a plan image from a previously captured data URL. */
+export async function loadImageFromDataUrl(dataUrl) {
+  if (!dataUrl) return;
+  await new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      const off = document.createElement('canvas');
+      off.width = img.naturalWidth; off.height = img.naturalHeight;
+      off.getContext('2d').drawImage(img, 0, 0);
+      S.image = off; S.imageW = img.naturalWidth; S.imageH = img.naturalHeight;
+      S.imageDataUrl = dataUrl;
+      resolve();
+    };
+    img.onerror = () => reject(new Error('Could not restore plan image'));
+    img.src = dataUrl;
   });
 }
 
@@ -73,7 +116,7 @@ export async function importData(file) {
     const data = JSON.parse(await file.text());
     if (data.version !== 1) { alert('Format de fichier incompatible.'); return false; }
     S.scale        = data.scale        ?? null;
-    S.polygons     = data.polygons     ?? [];
+    S.polygons     = normalizePolygonLabels(data.polygons ?? []);
     S.measurements = data.measurements ?? [];
     S.nextId       = data.nextId       ?? S.nextId;
     S.nextMeasId   = data.nextMeasId   ?? S.nextMeasId;
@@ -112,7 +155,7 @@ function renderPrintCanvas() {
     c.closePath();
   };
 
-  S.polygons.forEach(({ points, color, area }) => {
+  S.polygons.forEach(({ points, color, area, label }) => {
     if (points.length < 2) return;
     const spts = points.map(p => px(p));
     c.beginPath();
@@ -125,11 +168,22 @@ function renderPrintCanvas() {
     let cx = 0, cy = 0;
     points.forEach(p => { cx += p.x; cy += p.y; });
     cx = cx / points.length * sc; cy = cy / points.length * sc;
-    const lbl = fmtArea(area), fsz = 14;
+    const titleLbl = (label || '').trim();
+    const areaLbl = fmtArea(area);
+    const fsz = 14;
     c.font = `bold ${fsz}px system-ui`; c.textAlign = 'center'; c.textBaseline = 'middle';
-    const tw = c.measureText(lbl).width;
-    c.fillStyle = 'rgba(0,0,0,0.65)'; pill(c, cx, cy, tw, fsz); c.fill();
-    c.fillStyle = '#fff'; c.fillText(lbl, cx, cy);
+    const titleW = titleLbl ? c.measureText(titleLbl).width : 0;
+    const areaW = c.measureText(areaLbl).width;
+    const tw = Math.max(titleW, areaW);
+    const y = titleLbl ? cy + (fsz * 0.25) : cy;
+    c.fillStyle = 'rgba(0,0,0,0.65)'; pill(c, cx, y, tw, fsz * (titleLbl ? 2 : 1)); c.fill();
+    c.fillStyle = '#fff';
+    if (titleLbl) {
+      c.fillText(titleLbl, cx, cy - (fsz * 0.45));
+      c.fillText(areaLbl, cx, cy + (fsz * 0.7));
+    } else {
+      c.fillText(areaLbl, cx, cy);
+    }
   });
 
   S.measurements.forEach(({ pt1, pt2, id }) => {

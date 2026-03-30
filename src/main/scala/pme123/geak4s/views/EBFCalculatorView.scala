@@ -1,0 +1,205 @@
+package pme123.geak4s.views
+
+import com.raquo.laminar.api.L.{*, given}
+import org.scalajs.dom
+import scala.scalajs.js
+import scala.scalajs.js.JSConverters.*
+import pme123.geak4s.state.{AreaState, AppState, EbfState}
+import pme123.geak4s.domain.JsonCodecs.given
+import pme123.geak4s.domain.ebf.EbfPlans
+import pme123.geak4s.services.GoogleDriveService
+import pme123.geak4s.config.GoogleDriveConfig
+import io.circe.parser.*
+import io.circe.syntax.*
+import scala.scalajs.concurrent.JSExecutionContext.Implicits.queue
+
+object EBFCalculatorView:
+
+  private val polygonSyncEvent = "geak:ebf-polygons-sync"
+  private val plansSyncEvent   = "geak:ebf-plans-sync"
+  private val planUploadEvent  = "geak:ebf-plan-upload"
+  private val loadPlansEvent   = "geak:ebf-load-plans"
+
+  private def decodePolygons(event: dom.Event): Seq[(String, Double)] =
+    val payload = event.asInstanceOf[dom.CustomEvent].detail.asInstanceOf[js.Array[js.Dynamic]]
+    payload.toSeq.flatMap { item =>
+      val rawLabel = item.selectDynamic("label")
+      val label =
+        if js.isUndefined(rawLabel) || rawLabel == null then ""
+        else rawLabel.toString.trim
+      if label.isEmpty then None
+      else
+        val rawArea = item.selectDynamic("area")
+        val parsed  = js.Dynamic.global.Number(rawArea).asInstanceOf[Double]
+        val area    = if parsed.isNaN || parsed < 0 then 0.0 else parsed
+        Some(label -> area)
+    }
+
+  def apply(): HtmlElement =
+    var unmountHandle:      Option[js.Function0[Unit]]           = None
+    var polygonSyncListener: Option[js.Function1[dom.Event, Unit]] = None
+    var plansSyncListener:   Option[js.Function1[dom.Event, Unit]] = None
+    var planUploadListener:  Option[js.Function1[dom.Event, Unit]] = None
+
+    div(
+      className := "ebf-calculator-host",
+      styleAttr := "display: block; width: 100%; height: 100%; min-height: 800px;",
+      onMountCallback { ctx =>
+        // ── polygon sync → AreaState ──
+        val polyListener: js.Function1[dom.Event, Unit] = (event: dom.Event) =>
+          val polygons = decodePolygons(event)
+          AreaState.syncEbfPolygons(polygons)
+          AppState.saveAreaCalculations()
+        dom.window.addEventListener(polygonSyncEvent, polyListener)
+        polygonSyncListener = Some(polyListener)
+
+        // ── plans sync → EbfState ──
+        val plansListener: js.Function1[dom.Event, Unit] = (event: dom.Event) =>
+          val detail  = event.asInstanceOf[dom.CustomEvent].detail
+          val jsonStr = js.JSON.stringify(detail.asInstanceOf[js.Any])
+          decode[EbfPlans](jsonStr) match
+            case Right(plans) =>
+              EbfState.updatePlans(plans)
+              AppState.saveEbfPlans()
+            case Left(err) =>
+              dom.console.error(s"ebf-plans-sync parse error: $err")
+        dom.window.addEventListener(plansSyncEvent, plansListener)
+        plansSyncListener = Some(plansListener)
+
+        // ── plan upload → Google Drive ──
+        val uploadListener: js.Function1[dom.Event, Unit] = (event: dom.Event) =>
+          val d        = event.asInstanceOf[dom.CustomEvent].detail.asInstanceOf[js.Dynamic]
+          val fileName = d.fileName.toString
+          val mimeType = d.mimeType.toString
+          val buffer   = d.buffer.asInstanceOf[js.typedarray.ArrayBuffer]
+          AppState.getCurrentProject.foreach { project =>
+            val projectName = project.project.projectName match
+              case name if name.nonEmpty => name
+              case _                     => "Unnamed_Project"
+            val sanitized  = projectName.replaceAll("[^a-zA-Z0-9-_]", "_")
+            val folderPath = s"${GoogleDriveConfig.rootFolder}/$sanitized/07_Unterlagen"
+            GoogleDriveService.uploadFile(folderPath, fileName, buffer, mimeType).foreach { ok =>
+              if ok then dom.console.log(s"✅ Plan PDF uploaded: $fileName")
+              else        dom.console.error(s"❌ Plan PDF upload failed: $fileName")
+            }
+          }
+        dom.window.addEventListener(planUploadEvent, uploadListener)
+        planUploadListener = Some(uploadListener)
+
+        // ── mount EBF component ──
+        val mountFn = dom.window.asInstanceOf[js.Dynamic].mountEbfCalculator
+        if js.isUndefined(mountFn) then
+          dom.console.error("window.mountEbfCalculator is not available")
+        else
+          mountFn(ctx.thisNode.ref)
+            .asInstanceOf[js.Promise[js.Function0[Unit]]]
+            .`then`[Unit] { (unmount: js.Function0[Unit]) =>
+              unmountHandle = Some(unmount)
+              // Restore saved plans into the EBF component after it is ready
+              val saved = EbfState.getEbfPlans
+              if saved.plans.nonEmpty then
+                val plansJson  = saved.asJson.noSpaces
+                val plansJsObj = js.JSON.parse(plansJson)
+                val init = js.Dynamic.literal(detail = plansJsObj, bubbles = false, cancelable = false)
+                dom.window.dispatchEvent(
+                  new dom.CustomEvent(loadPlansEvent, init.asInstanceOf[dom.CustomEventInit])
+                )
+            }
+            .`catch` { (error: scala.Any) =>
+              dom.console.error("Failed to mount EBF calculator", error)
+            }
+      },
+      onUnmountCallback { _ =>
+        polygonSyncListener.foreach(l => dom.window.removeEventListener(polygonSyncEvent, l))
+        plansSyncListener.foreach(l   => dom.window.removeEventListener(plansSyncEvent, l))
+        planUploadListener.foreach(l  => dom.window.removeEventListener(planUploadEvent, l))
+        polygonSyncListener = None; plansSyncListener = None; planUploadListener = None
+        unmountHandle.foreach(_())
+        unmountHandle = None
+      },
+      htmlTag("link")(rel := "stylesheet", href := "/ebf/styles.css?v=9"),
+      div(
+        className := "app",
+        styleAttr := "height: 100%;",
+        EBFSidebarView(),
+        EBFMainPanelView()
+      ),
+      calibrationIntroModal(),
+      clearConfirmModal(),
+      scaleDialog()
+    )
+
+  private def calibrationIntroModal(): HtmlElement =
+    div(
+      idAttr := "calib-intro-modal",
+      className := "dialog-overlay",
+      display := "none",
+      div(
+        className := "dialog",
+        h3("Massstabs-Kalibrierung"),
+        p("Um Flaechen zu berechnen, muss die App den Massstab des Plans kennen."),
+        ol(
+          className := "calib-steps",
+          li(span("Klicken Sie auf ", strong("2 Punkte"), ", deren echte Entfernung Sie kennen (z. B. eine Wand)")),
+          li(span("Geben Sie die ", strong("reale Entfernung"), " zwischen diesen 2 Punkten ein")),
+          li(span("Der Massstab wird berechnet und die Flaechen werden automatisch angezeigt"))
+        ),
+        div(
+          className := "dialog-buttons",
+          button(className := "btn btn-primary", idAttr := "calib-intro-start", "Starten"),
+          button(className := "btn", idAttr := "calib-intro-skip", "Ueberspringen")
+        )
+      )
+    )
+
+  private def clearConfirmModal(): HtmlElement =
+    div(
+      idAttr := "clear-confirm-modal",
+      className := "dialog-overlay",
+      display := "none",
+      div(
+        className := "dialog",
+        h3("Alles loeschen?"),
+        p("Alle Polygone und Messungen werden geloescht. Diese Aktion ist nicht umkehrbar."),
+        div(
+          className := "dialog-buttons",
+          button(className := "btn btn-danger-solid", idAttr := "clear-confirm-yes", "Loeschen"),
+          button(className := "btn", idAttr := "clear-confirm-no", "Abbrechen")
+        )
+      )
+    )
+
+  private def scaleDialog(): HtmlElement =
+    div(
+      idAttr := "scale-dialog",
+      className := "dialog-overlay",
+      display := "none",
+      div(
+        className := "dialog",
+        h3("Wahre Entfernung"),
+        p("Geben Sie die reale Laenge der Linie ein, die Sie gerade gezeichnet haben:"),
+        div(
+          className := "input-group",
+          input(
+            tpe := "number",
+            idAttr := "real-length",
+            minAttr := "0.001",
+            stepAttr := "any",
+            placeholder := "z. B. 5"
+          ),
+          select(
+            idAttr := "length-unit",
+            option(value := "1", "m"),
+            option(value := "0.01", "cm"),
+            option(value := "0.001", "mm")
+          )
+        ),
+        div(
+          className := "dialog-buttons",
+          button(className := "btn btn-primary", idAttr := "confirm-scale", "Bestaetigen"),
+          button(className := "btn", idAttr := "cancel-scale", "Abbrechen")
+        )
+      )
+    )
+
+end EBFCalculatorView
