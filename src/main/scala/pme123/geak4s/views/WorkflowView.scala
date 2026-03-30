@@ -7,6 +7,7 @@ import org.scalajs.dom
 import scala.scalajs.js
 import pme123.geak4s.state.{AppState, WorkflowState}
 import pme123.geak4s.state.WorkflowState.Step
+import pme123.geak4s.views.WordFormView
 import pme123.geak4s.domain.*
 
 /**
@@ -201,7 +202,7 @@ object WorkflowView:
     )
 
   private def stepIcon(step: Step): IconName = step match
-    case Step.ProjectSetup => IconName.`project-definition-triangle`
+    case Step.WordForm => IconName.`project-definition-triangle`
     case Step.GISData => IconName.`map`
     case Step.EBFCalculation => IconName.`area-chart`
     case Step.UWertCalculation => IconName.`temperature`
@@ -209,7 +210,7 @@ object WorkflowView:
     case Step.Inspection => IconName.`checklist-item`
     case Step.DataEntry => IconName.`edit`
     case Step.Reports => IconName.`document`
-    case Step.ProjectSetupRepeat => IconName.`project-definition-triangle`
+    case Step.ProjectSetup => IconName.`project-definition-triangle`
 
   private def statusBadge(status: WorkflowState.StepStatus): HtmlElement =
     status match
@@ -249,13 +250,13 @@ object WorkflowView:
     step match
       case Step.GISData => renderGISData(project)
       case Step.EBFCalculation => renderEBFStep(project)
-      case Step.ProjectSetup => renderProjectSetup(project)
+      case Step.WordForm => WordFormView()
       case Step.UWertCalculation => renderUWertCalculation(project)
       case Step.Calculations => renderCalculations(project)
       case Step.Inspection => renderInspection(project)
       case Step.DataEntry => renderDataEntry(project)
       case Step.Reports => ReportView()
-      case Step.ProjectSetupRepeat => renderProjectSetup(project)
+      case Step.ProjectSetup => renderProjectSetup(project)
 
   // New Step: EBF Calculation
   private def renderEBFStep(project: GeakProject): HtmlElement =
@@ -286,33 +287,11 @@ object WorkflowView:
   def generateDoc(): Unit =
    println("Dokument wird erstellt!")
  
-  // Step 2: Project Setup
+
+  // Step 2: Project Setup durch Word Form ersetzt
   private def renderProjectSetup(project: GeakProject): HtmlElement =
-    div(
-      className := "step-content",
-      Title(_.level := TitleLevel.H2, "Projekt einrichten"),
-      MessageStrip(
-        _.design := MessageStripDesign.Information,
-        _.hideCloseButton := true,
-        "Erfassen Sie die grundlegenden Projektinformationen für die Begehung und exportieren Sie das Begehungsprotokoll."
-      ),
-
-      styleAttr := "display: flex; flex-direction: column; align-items: center; gap: 1rem; margin-top: 1rem;",
-      
-      // ProjectView bleibt oben
-      ProjectView(project.project).render(),
-      
-      // Button darunter
-      Button(
-        _.design := ButtonDesign.Default,
-        "Begehungsprotokoll erstellen",
-        _.events.onClick.mapTo(()) --> Observer[Unit] { _ =>
-          generateDoc()
-        },
-        styleAttr := "width: 270px; height: 50px; font-size: 1rem; font-weight: bold;"
-      )
-    )
-
+    ProjectView(project.project).render()
+  
 
   // Step 3: U-Wert Calculation
   private def renderUWertCalculation(project: GeakProject): HtmlElement =

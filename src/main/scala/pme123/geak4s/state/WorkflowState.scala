@@ -20,11 +20,11 @@ object WorkflowState:
   enum Step(val order: Int, val title: String, val description: String):
     case GISData extends Step(1, "GIS-Daten", "Gebäudedaten vom kantonalen GIS beziehen")
     case EBFCalculation extends Step(2, "EBF-Berechnung", "Energiebezugsfläche (EBF) berechnen")
-    case ProjectSetup extends Step(3, "Projekt einrichten", "Projektinformationen und Ordnerstruktur")
+    case WordForm extends Step(3, "Daten fürs Begehungsprotokoll", "Formular ausfüllen und Protokoll erstellen")
     case UWertCalculation extends Step(4, "U-Wert-Berechnung", "Wärmedurchgangskoeffizienten berechnen")
     case Calculations extends Step(5, "Flächenberechnung", "Gebäudehülle IST und SOLL")
     case Inspection extends Step(6, "Begehung", "Begehungsprotokoll vor Ort ausfüllen")
-    case ProjectSetupRepeat extends Step(7, "GEAK Daten", "ergänzen fehlender Daten, welche fürs GEAK wichtig sind")
+    case ProjectSetup extends Step(7, "GEAK Daten", "ergänzen fehlender Daten, welche fürs GEAK wichtig sind")
     case DataEntry extends Step(8, "Dateneingabe", "Gebäudehülle, HLKK, Energie")
     case Reports extends Step(9, "Berichte", "GEAK-Bericht erstellen und exportieren")
   

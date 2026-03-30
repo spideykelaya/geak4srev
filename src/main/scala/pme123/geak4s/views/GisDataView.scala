@@ -17,6 +17,7 @@ import pme123.geak4s.domain.gis.MaddResponse
 import pme123.geak4s.services.GisXmlParser
 import pme123.geak4s.state.AppState
 import scala.util.{Success, Failure}
+import pme123.geak4s.views.WordFormView
 
 object GisDataView:
 
@@ -149,6 +150,39 @@ object GisDataView:
                                 AppState.saveGisData(maddResponse)
                                 dom.console.log("✅ GIS data saved to project state")
 
+                               // Auto-fill WordFormView
+                                val building = maddResponse.buildingList.headOption
+                                building.foreach { b =>
+                                  val entrance = b.buildingEntranceList.headOption
+                                  val addr = entrance.map(_.buildingEntrance)
+                                  val adresseStr = addr.map { a =>
+                                    s"${a.street.streetName.descriptionLong} ${a.buildingEntranceNo}, ${a.locality.swissZipCode} ${a.locality.placeName}"
+                                  }.getOrElse("")
+                                  val totalWohnungen = b.buildingEntranceList.flatMap(_.dwellingList).length
+
+                                  val heizung = b.building.thermotechnicalDeviceForHeating1
+                                    .flatMap(_.heatGenerator)
+                                    .map(translateHeatGenerator)
+                                    .getOrElse("")
+
+                                  val warmwasser = b.building.thermotechnicalDeviceForWarmWater1
+                                    .flatMap(_.heatGenerator)
+                                    .map(translateHeatGenerator)
+                                    .getOrElse("")
+
+                                  val gebäudeart = if totalWohnungen > 1 then "MFH" else "EFH"
+
+                                  WordFormView.formVar.update(old => old.copy(
+                                    adresse     = adresseStr,
+                                    egid        = b.egid.toString,
+                                    baujahr     = b.building.dateOfConstruction.flatMap(_.dateOfConstruction).getOrElse(""),
+                                    wohnungen   = totalWohnungen.toString,
+                                    gebäudeart  = gebäudeart,
+                                    heizung     = heizung,
+                                    warmwasser  = warmwasser
+                                    
+                                  ))
+                                }
                               case Failure(ex) =>
                                 uploadError.set(Some(s"Fehler beim Parsen der XML-Datei: ${ex.getMessage}"))
                                 dom.console.error("XML parsing error:", ex)
@@ -229,5 +263,35 @@ object GisDataView:
         )
       }
     )
+
+  private def translateHeatGenerator(code: String): String = code.toIntOption.getOrElse(0) match
+    case 7410 => "Wärmepumpe"
+    case 7420 => "Elektro-Direktheizung"
+    case 7430 => "Heizkessel"
+    case 7440 => "Fernwärme"
+    case 7450 => "Elektrowiderstandsheizung"
+    case 7499 => "Andere"
+    case 7610 => "Wärmepumpe Boiler"
+    case 7620 => "Elektro-Boiler"
+    case 7630 => "Boiler (konventionell)"
+    case 7640 => "Fernwärme Boiler"
+    case 7699 => "Andere"
+    case other => s"Code $other"
+
+  private def translateEnergySource(code: Int): String = code match
+    case 7500 => "Öl"
+    case 7501 => "Gas"
+    case 7510 => "Holz"
+    case 7511 => "Holzpellets"
+    case 7512 => "Holzschnitzel"
+    case 7520 => "Gas"
+    case 7530 => "Umweltwärme (Luft/Wasser/Erdreich)"
+    case 7540 => "Sonnenenergie"
+    case 7550 => "Fernwärme"
+    case 7560 => "Elektrizität"
+    case 7570 => "Kohle"
+    case 7580 => "Abwärme"
+    case 7599 => "Andere"
+    case other => s"Code $other"
 
 end GisDataView
