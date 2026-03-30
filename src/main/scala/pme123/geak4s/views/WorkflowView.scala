@@ -72,13 +72,7 @@ object WorkflowView:
         stepNavigator(),
 
         // Content area for current step
-        div(
-          className := "workflow-main",
-          child <-- WorkflowState.currentStep.signal.combineWith(projectSignal).map {
-            case (step, Some(project)) => renderStep(step, project)
-            case (step, None) => div("No project loaded")
-          }
-        )
+        workflowMain(projectSignal)
       ),
 
       // Bottom navigation
@@ -244,6 +238,61 @@ object WorkflowView:
         },
         "Weiter"
       )
+    )
+
+  /**
+   * Main content area.
+   *
+   * The EBF calculator carries heavy JS state (canvas drawings, loaded plan).
+   * To avoid losing that state on step navigation we keep the EBF element
+   * permanently in the DOM after the user first opens it, and merely toggle
+   * its CSS `display` property.  All other steps are rendered dynamically as
+   * before.
+   */
+  private def workflowMain(projectSignal: Signal[Option[GeakProject]]): HtmlElement =
+    // Becomes true the first time the user navigates to the EBF step.
+    // After that it is never reset, so the element stays mounted forever.
+    val ebfEverShown = Var(false)
+
+    div(
+      className := "workflow-main",
+
+      // Subscribe to step changes; flip the flag on first EBF visit.
+      WorkflowState.currentStep.signal --> Observer[Step] { step =>
+        if step == Step.EBFCalculation && !ebfEverShown.now() then
+          ebfEverShown.set(true)
+      },
+
+      // EBF calculator – created exactly once (on first visit) and kept in
+      // the DOM afterwards.  Visibility is controlled by `display`.
+      child.maybe <-- ebfEverShown.signal.map { hasShown =>
+        if !hasShown then None
+        else Some(
+          div(
+            display <-- WorkflowState.currentStep.signal.map(s =>
+              if s == Step.EBFCalculation then "block" else "none"
+            ),
+            height := "100%",
+            // When switching back, trigger a resize AFTER the browser has
+            // reflowed (display:none → block).  A synchronous dispatch would
+            // still see getBoundingClientRect() == 0×0.
+            WorkflowState.currentStep.signal --> Observer[Step] { step =>
+              if step == Step.EBFCalculation then
+                dom.window.requestAnimationFrame { _ =>
+                  dom.window.dispatchEvent(new dom.Event("resize"))
+                }
+            },
+            EBFCalculatorView()
+          )
+        )
+      },
+
+      // Every other step is rendered dynamically (existing behaviour).
+      child <-- WorkflowState.currentStep.signal.combineWith(projectSignal).map {
+        case (Step.EBFCalculation, _)      => emptyNode
+        case (step, Some(project))         => renderStep(step, project)
+        case (_, None)                     => div("No project loaded")
+      }
     )
 
   private def renderStep(step: Step, project: GeakProject): HtmlElement =
