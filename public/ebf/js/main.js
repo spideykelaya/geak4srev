@@ -1,10 +1,10 @@
 'use strict';
 
-import { S, initDom, canvas, s2w, w2s, setMode, px2m2, $ } from './state.js';
+import { S, initDom, canvas, s2w, w2s, setMode, px2m2, $, emitPolygonSyncEvent } from './state.js';
 import { PDFJS_WORKER, COLORS, SNAP_RADIUS }             from './config.js';
 import { shoelace, findNearVertex, findNearEdge, dist }   from './geo.js';
 import { render }                                         from './render.js';
-import { updateSidebar }                                  from './sidebar.js';
+import { updateSidebar, nextPolygonLabel }                from './sidebar.js';
 import { loadPDF, loadImg, exportData, exportExcel, exportXML, importData, printView } from './io.js';
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = PDFJS_WORKER;
@@ -60,6 +60,7 @@ function bindUI(ownerDocument) {
     applyScaleStatus();
     show('scale-section'); show('draw-section');
     updateSidebar(); render();
+    emitPolygonSyncEvent();
   });
 
   $('calibrate-btn').addEventListener('click', startCalibration);
@@ -100,6 +101,7 @@ async function onFileChange(e) {
   fitToCanvas();
   show('scale-section'); show('draw-section');
   updateSidebar(); render();
+  emitPolygonSyncEvent();
   $('calib-intro-modal').style.display = 'flex';
 }
 
@@ -122,6 +124,7 @@ function confirmScale() {
   S.calibPt1 = null; S.calibPt2 = null;
   setMode('idle'); setInstructions('');
   updateSidebar(); render();
+  emitPolygonSyncEvent();
 }
 
 function cancelCalibration() {
@@ -150,9 +153,11 @@ function finishPolygon() {
   if (pts.length < 3) { S.current = []; setMode('idle'); setInstructions(''); render(); return; }
   const pixelArea = shoelace(pts);
   const id = S.nextId++;
-  S.polygons.push({ id, label: 'Polygone ' + id, points: pts, color: COLORS[(id - 1) % COLORS.length], pixelArea, area: px2m2(pixelArea) });
+  const label = nextPolygonLabel();
+  S.polygons.push({ id, label, points: pts, color: COLORS[(id - 1) % COLORS.length], pixelArea, area: px2m2(pixelArea) });
   S.current = []; setMode('idle'); setInstructions('');
   updateSidebar(); render();
+  emitPolygonSyncEvent();
 }
 
 function startMeasuring() {
@@ -171,6 +176,7 @@ function clearAllConfirmed() {
   S.polygons = []; S.measurements = []; S.current = [];
   setMode('idle'); setInstructions('');
   updateSidebar(); render();
+  emitPolygonSyncEvent();
 }
 
 function cancelCurrent() {
@@ -259,7 +265,11 @@ function onMouseMove(e) {
 }
 
 function onMouseUp() {
-  if (S.mode === 'drag_vertex') { S.dragVertex = null; setMode('idle'); canvas.style.cursor = 'grab'; return; }
+  if (S.mode === 'drag_vertex') {
+    S.dragVertex = null; setMode('idle'); canvas.style.cursor = 'grab';
+    emitPolygonSyncEvent();
+    return;
+  }
   if (S.panning) { S.panning = false; canvas.style.cursor = S.mode === 'idle' ? 'grab' : 'crosshair'; }
 }
 

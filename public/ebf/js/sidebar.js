@@ -1,7 +1,29 @@
-import { S, $ }                    from './state.js';
+import { S, $, emitPolygonSyncEvent } from './state.js';
 import { MEAS_COLOR }              from './config.js';
 import { dist, fmtArea, fmtLength } from './geo.js';
 import { render }                  from './render.js';
+
+const DEFAULT_POLYGON_LABEL = 'Flaeche';
+
+export function createUniquePolygonLabel(rawLabel = DEFAULT_POLYGON_LABEL, currentPoly = null) {
+  const base = (rawLabel || '').trim() || DEFAULT_POLYGON_LABEL;
+  const used = new Set(
+    S.polygons
+      .filter(poly => poly !== currentPoly)
+      .map(poly => (poly.label || '').trim())
+      .filter(Boolean)
+  );
+
+  if (!used.has(base)) return base;
+
+  let idx = 2;
+  while (used.has(`${base} ${idx}`)) idx += 1;
+  return `${base} ${idx}`;
+}
+
+export function nextPolygonLabel() {
+  return createUniquePolygonLabel(DEFAULT_POLYGON_LABEL);
+}
 
 export function updateSidebar() {
   updatePolygonList();
@@ -23,6 +45,7 @@ function updatePolygonList() {
   S.polygons.forEach(poly => {
     const li = document.createElement('li');
     li.className = 'polygon-item';
+    li.dataset.polygonLabel = poly.label;
 
     const cdot = document.createElement('span');
     cdot.className = 'color-dot';
@@ -40,9 +63,11 @@ function updatePolygonList() {
       e.stopPropagation(); // prevent canvas shortcuts while typing
     });
     lbl.addEventListener('blur', () => {
-      poly.label = lbl.textContent.trim() || poly.label;
+      poly.label = createUniquePolygonLabel(lbl.textContent, poly);
+      li.dataset.polygonLabel = poly.label;
       lbl.textContent = poly.label;
       render();
+      emitPolygonSyncEvent();
     });
 
     const areaEl = document.createElement('span');
@@ -52,8 +77,9 @@ function updatePolygonList() {
     const del = document.createElement('button');
     del.className = 'btn-delete'; del.textContent = '\u00d7'; del.title = 'Supprimer';
     del.onclick = () => {
-      S.polygons = S.polygons.filter(p => p.id !== poly.id);
+      S.polygons = S.polygons.filter(p => p.label !== poly.label);
       updateSidebar(); render();
+      emitPolygonSyncEvent();
     };
 
     li.append(cdot, lbl, areaEl, del);

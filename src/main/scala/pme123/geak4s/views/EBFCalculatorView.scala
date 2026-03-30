@@ -3,16 +3,43 @@ package pme123.geak4s.views
 import com.raquo.laminar.api.L.{*, given}
 import org.scalajs.dom
 import scala.scalajs.js
+import scala.scalajs.js.JSConverters.*
+import pme123.geak4s.state.{AreaState, AppState}
 
 object EBFCalculatorView:
 
+  private val polygonSyncEvent = "geak:ebf-polygons-sync"
+
+  private def decodePolygons(event: dom.Event): Seq[(String, Double)] =
+    val payload = event.asInstanceOf[dom.CustomEvent].detail.asInstanceOf[js.Array[js.Dynamic]]
+    payload.toSeq.flatMap { item =>
+      val rawLabel = item.selectDynamic("label")
+      val label =
+        if js.isUndefined(rawLabel) || rawLabel == null then ""
+        else rawLabel.toString.trim
+      if label.isEmpty then None
+      else
+        val rawArea = item.selectDynamic("area")
+        val parsed = js.Dynamic.global.Number(rawArea).asInstanceOf[Double]
+        val area = if parsed.isNaN || parsed < 0 then 0.0 else parsed
+        Some(label -> area)
+    }
+
   def apply(): HtmlElement =
     var unmountHandle: Option[js.Function0[Unit]] = None
+    var polygonSyncListener: Option[js.Function1[dom.Event, Unit]] = None
 
     div(
       className := "ebf-calculator-host",
       styleAttr := "display: block; width: 100%; height: 100%; min-height: 800px;",
       onMountCallback { ctx =>
+        val listener: js.Function1[dom.Event, Unit] = (event: dom.Event) =>
+          val polygons = decodePolygons(event)
+          AreaState.syncEbfPolygons(polygons)
+          AppState.saveAreaCalculations()
+        dom.window.addEventListener(polygonSyncEvent, listener)
+        polygonSyncListener = Some(listener)
+
         val mountFn = dom.window.asInstanceOf[js.Dynamic].mountEbfCalculator
         if js.isUndefined(mountFn) then
           dom.console.error("window.mountEbfCalculator is not available")
@@ -27,6 +54,8 @@ object EBFCalculatorView:
             )
       },
       onUnmountCallback { _ =>
+        polygonSyncListener.foreach(listener => dom.window.removeEventListener(polygonSyncEvent, listener))
+        polygonSyncListener = None
         unmountHandle.foreach(_())
         unmountHandle = None
       },

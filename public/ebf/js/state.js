@@ -2,7 +2,7 @@
 export const S = {
   mode: 'idle', // idle | calibrate_1 | calibrate_2 | calibrate_confirm | draw | measure | drag_vertex
   scale: null,         // meters per world-pixel
-  polygons: [],        // [{id, label, points, color, pixelArea, area}]
+  polygons: [],        // [{id, label, points, color, pixelArea, area}] label is the external sync identifier
   measurements: [],    // [{id, pt1, pt2}]
   current: [],         // in-progress polygon world-coords
   calibPt1: null, calibPt2: null,
@@ -15,6 +15,8 @@ export const S = {
   dragVertex: null,    // {polyIdx, vtxIdx}
   hoverEdge: null,     // {wmx, wmy, len}
 };
+
+export const EBF_POLYGONS_SYNC_EVENT = 'geak:ebf-polygons-sync';
 
 // Canvas references — undefined until initDom() is called
 export let canvas, ctx;
@@ -46,3 +48,16 @@ export function setMode(m) {
   canvas.style.cursor = (m === 'draw' || m === 'measure' || m.startsWith('calibrate'))
     ? 'crosshair' : 'grab';
 }
+
+export function emitPolygonSyncEvent() {
+  if (typeof window === 'undefined' || typeof window.dispatchEvent !== 'function') return;
+  const polygons = S.polygons
+    .map(poly => ({
+      label: (poly.label || '').trim(),
+      area: Number.isFinite(poly.area) ? poly.area : 0,
+    }))
+    .filter(poly => poly.label);
+
+  window.dispatchEvent(new CustomEvent(EBF_POLYGONS_SYNC_EVENT, { detail: polygons }));
+}
+

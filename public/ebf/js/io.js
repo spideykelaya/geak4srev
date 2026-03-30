@@ -2,6 +2,21 @@ import { S }                         from './state.js';
 import { PDFJS_WORKER }              from './config.js';
 import { dist, fmtArea, fmtLength, esc } from './geo.js';
 
+function normalizePolygonLabels(polygons) {
+  const used = new Set();
+  return polygons.map(poly => {
+    const base = (poly.label || '').trim() || 'Flaeche';
+    let label = base;
+    let idx = 2;
+    while (used.has(label)) {
+      label = `${base} ${idx}`;
+      idx += 1;
+    }
+    used.add(label);
+    return { ...poly, label };
+  });
+}
+
 // ── File loading ──────────────────────────────────────────────────────────────
 export async function loadPDF(file) {
   const url = URL.createObjectURL(file);
@@ -73,7 +88,7 @@ export async function importData(file) {
     const data = JSON.parse(await file.text());
     if (data.version !== 1) { alert('Format de fichier incompatible.'); return false; }
     S.scale        = data.scale        ?? null;
-    S.polygons     = data.polygons     ?? [];
+    S.polygons     = normalizePolygonLabels(data.polygons ?? []);
     S.measurements = data.measurements ?? [];
     S.nextId       = data.nextId       ?? S.nextId;
     S.nextMeasId   = data.nextMeasId   ?? S.nextMeasId;
