@@ -1,9 +1,13 @@
-import { S, $, emitPolygonSyncEvent } from './state.js';
+import { S, $, emitPolygonSyncEvent, emitPlansSyncEvent } from './state.js';
 import { MEAS_COLOR }              from './config.js';
 import { dist, fmtArea, fmtLength } from './geo.js';
 import { render }                  from './render.js';
 
 const DEFAULT_POLYGON_LABEL = 'Flaeche';
+
+// Callback registered by main.js so the sidebar can trigger plan switches
+let _switchPlanHandler = null;
+export function setSwitchPlanHandler(fn) { _switchPlanHandler = fn; }
 
 export function createUniquePolygonLabel(rawLabel = DEFAULT_POLYGON_LABEL, currentPoly = null) {
   const base = (rawLabel || '').trim() || DEFAULT_POLYGON_LABEL;
@@ -26,8 +30,90 @@ export function nextPolygonLabel() {
 }
 
 export function updateSidebar() {
+  updatePlanList();
   updatePolygonList();
   updateMeasurementList();
+}
+
+// ── Plans ─────────────────────────────────────────────────────────────────────
+function updatePlanList() {
+  const section = $('plans-section');
+  const listEl  = $('plan-list');
+  if (!section || !listEl) return;
+
+  if (!S.plans.length) { section.style.display = 'none'; return; }
+  section.style.display = 'block';
+  listEl.innerHTML = '';
+
+  S.plans.forEach(plan => {
+    const li = document.createElement('li');
+    li.className = 'polygon-item plan-item';
+
+    const icon = document.createElement('span');
+    icon.className = 'plan-icon';
+    icon.textContent = '📄';
+
+    if (plan.id === S.activePlanId) {
+      // ── Active plan: editable label + "aktiv" badge + delete btn ──
+      li.classList.add('plan-item--active');
+
+      const lbl = document.createElement('span');
+      lbl.className = 'polygon-label plan-label-editable';
+      lbl.contentEditable = 'true';
+      lbl.spellcheck = false;
+      lbl.title = 'Klicken zum Umbenennen';
+      lbl.textContent = plan.label;
+      lbl.addEventListener('keydown', e => {
+        if (e.key === 'Enter') { e.preventDefault(); lbl.blur(); }
+        e.stopPropagation();
+      });
+      lbl.addEventListener('blur', () => {
+        const trimmed = lbl.textContent.trim();
+        if (trimmed) plan.label = trimmed;
+        lbl.textContent = plan.label;
+        emitPlansSyncEvent();
+      });
+
+      const badge = document.createElement('span');
+      badge.className = 'plan-active-badge';
+      badge.textContent = 'aktiv';
+
+      const delBtn = document.createElement('button');
+      delBtn.className = 'btn-delete plan-delete';
+      delBtn.textContent = '×';
+      delBtn.title = 'Plan löschen';
+      delBtn.onclick = (e) => {
+        e.stopPropagation();
+        showPlanDeleteConfirm(plan.id, plan.label);
+      };
+
+      li.append(icon, lbl, badge, delBtn);
+    } else {
+      // ── Inactive plan: label + load button + delete button ──
+      const lbl = document.createElement('span');
+      lbl.className = 'polygon-label';
+      lbl.textContent = plan.label;
+
+      const loadBtn = document.createElement('button');
+      loadBtn.className = 'btn-load-plan';
+      loadBtn.title = 'Plan öffnen';
+      loadBtn.innerHTML = '▶';
+      loadBtn.onclick = () => { if (_switchPlanHandler) _switchPlanHandler(plan.id); };
+
+      const delBtn = document.createElement('button');
+      delBtn.className = 'btn-delete plan-delete';
+      delBtn.textContent = '×';
+      delBtn.title = 'Plan löschen';
+      delBtn.onclick = (e) => {
+        e.stopPropagation();
+        showPlanDeleteConfirm(plan.id, plan.label);
+      };
+
+      li.append(icon, lbl, loadBtn, delBtn);
+    }
+
+    listEl.appendChild(li);
+  });
 }
 
 // ── Polygons ──────────────────────────────────────────────────────────────────
@@ -68,6 +154,7 @@ function updatePolygonList() {
       lbl.textContent = poly.label;
       render();
       emitPolygonSyncEvent();
+      emitPlansSyncEvent();
     });
 
     const areaEl = document.createElement('span');
@@ -80,6 +167,7 @@ function updatePolygonList() {
       S.polygons = S.polygons.filter(p => p.label !== poly.label);
       updateSidebar(); render();
       emitPolygonSyncEvent();
+      emitPlansSyncEvent();
     };
 
     li.append(cdot, lbl, areaEl, del);
@@ -131,3 +219,16 @@ function updateMeasurementList() {
     listEl.appendChild(li);
   });
 }
+
+// ── Plan deletion ──────────────────────────────────────────────────────────
+function showPlanDeleteConfirm(planId, planLabel) {
+  const message = `Plan "${planLabel}" wirklich löschen? Diese Aktion ist nicht umkehrbar.`;
+
+  if (!confirm(message)) return;
+
+  // Dispatch event to main.js for handling
+  window.dispatchEvent(new CustomEvent('geak:ebf-delete-plan', {
+    detail: { planId, planLabel }
+  }));
+}
+

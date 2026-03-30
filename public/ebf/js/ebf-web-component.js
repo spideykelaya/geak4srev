@@ -63,7 +63,7 @@ const TEMPLATE = `
 
     .app { height: 100% !important; }
   </style>
-  <link rel="stylesheet" href="/ebf/styles.css?v=8">
+  <link rel="stylesheet" href="/ebf/styles.css?v=9">
 
   <div class="app">
     <aside class="sidebar">
@@ -79,6 +79,11 @@ const TEMPLATE = `
             <input type="file" id="file-input" accept=".pdf,image/*" hidden>
           </label>
           <div id="file-name" class="file-name"></div>
+        </div>
+
+        <div class="section" id="plans-section" style="display:none">
+          <div class="section-label">Pläne</div>
+          <ul id="plan-list" class="plan-list"></ul>
         </div>
 
         <div class="section" id="scale-section" style="display:none">

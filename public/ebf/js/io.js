@@ -28,6 +28,7 @@ export async function loadPDF(file) {
     off.width = viewport.width; off.height = viewport.height;
     await page.render({ canvasContext: off.getContext('2d'), viewport }).promise;
     S.image = off; S.imageW = viewport.width; S.imageH = viewport.height;
+    S.imageDataUrl = off.toDataURL('image/jpeg', 0.85); // JPEG for smaller size
   } finally { URL.revokeObjectURL(url); }
 }
 
@@ -35,9 +36,36 @@ export async function loadImg(file) {
   const url = URL.createObjectURL(file);
   await new Promise((resolve, reject) => {
     const img = new Image();
-    img.onload  = () => { S.image = img; S.imageW = img.naturalWidth; S.imageH = img.naturalHeight; URL.revokeObjectURL(url); resolve(); };
+    img.onload  = () => {
+      S.image = img; S.imageW = img.naturalWidth; S.imageH = img.naturalHeight;
+      // Capture as data URL via offscreen canvas
+      const off = document.createElement('canvas');
+      off.width = img.naturalWidth; off.height = img.naturalHeight;
+      off.getContext('2d').drawImage(img, 0, 0);
+      S.imageDataUrl = off.toDataURL('image/jpeg', 0.85);
+      URL.revokeObjectURL(url);
+      resolve();
+    };
     img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('Image invalide')); };
     img.src = url;
+  });
+}
+
+/** Restore a plan image from a previously captured data URL. */
+export async function loadImageFromDataUrl(dataUrl) {
+  if (!dataUrl) return;
+  await new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      const off = document.createElement('canvas');
+      off.width = img.naturalWidth; off.height = img.naturalHeight;
+      off.getContext('2d').drawImage(img, 0, 0);
+      S.image = off; S.imageW = img.naturalWidth; S.imageH = img.naturalHeight;
+      S.imageDataUrl = dataUrl;
+      resolve();
+    };
+    img.onerror = () => reject(new Error('Could not restore plan image'));
+    img.src = dataUrl;
   });
 }
 

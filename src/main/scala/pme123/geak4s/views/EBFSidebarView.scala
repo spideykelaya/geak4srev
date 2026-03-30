@@ -15,6 +15,7 @@ object EBFSidebarView:
       div(
         className := "sidebar-body",
         planSection(),
+        plansSection(),
         scaleSection(),
         drawSection(),
         polygonsSection(),
@@ -44,6 +45,15 @@ object EBFSidebarView:
         input(tpe := "file", idAttr := "file-input", accept := ".pdf,image/*", hidden := true)
       ),
       div(idAttr := "file-name", className := "file-name")
+    )
+
+  private def plansSection(): HtmlElement =
+    div(
+      className := "section",
+      idAttr := "plans-section",
+      display := "none",
+      div(className := "section-label", "Pläne"),
+      ul(idAttr := "plan-list", className := "plan-list")
     )
 
   private def scaleSection(): HtmlElement =

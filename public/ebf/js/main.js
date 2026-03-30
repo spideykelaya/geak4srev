@@ -1,11 +1,11 @@
 'use strict';
 
-import { S, initDom, canvas, s2w, w2s, setMode, px2m2, $, emitPolygonSyncEvent } from './state.js';
+import { S, initDom, canvas, s2w, w2s, setMode, px2m2, $, emitPolygonSyncEvent, emitPlansSyncEvent, EBF_LOAD_PLANS_EVENT } from './state.js';
 import { PDFJS_WORKER, COLORS, SNAP_RADIUS }             from './config.js';
 import { shoelace, findNearVertex, findNearEdge, dist }   from './geo.js';
 import { render }                                         from './render.js';
-import { updateSidebar, nextPolygonLabel }                from './sidebar.js';
-import { loadPDF, loadImg, exportData, exportExcel, exportXML, importData, printView } from './io.js';
+import { updateSidebar, nextPolygonLabel, setSwitchPlanHandler } from './sidebar.js';
+import { loadPDF, loadImg, exportData, exportExcel, exportXML, importData, printView, loadImageFromDataUrl } from './io.js';
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = PDFJS_WORKER;
 
@@ -52,6 +52,8 @@ function fitToCanvas() {
 
 // ── UI bindings ───────────────────────────────────────────────────────────────
 function bindUI(ownerDocument) {
+  setSwitchPlanHandler(switchToPlan);
+
   $('file-input').addEventListener('change', onFileChange);
   $('import-input').addEventListener('change', async e => {
     const f = e.target.files[0]; if (!f) return;
@@ -61,7 +63,15 @@ function bindUI(ownerDocument) {
     show('scale-section'); show('draw-section');
     updateSidebar(); render();
     emitPolygonSyncEvent();
+    saveCurrentPlanState();
+    emitPlansSyncEvent();
   });
+
+  // Restore plans dispatched by Scala after project load
+  window.addEventListener(EBF_LOAD_PLANS_EVENT, onLoadPlans);
+
+  // Handle plan deletion
+  window.addEventListener('geak:ebf-delete-plan', onDeletePlan);
 
   $('calibrate-btn').addEventListener('click', startCalibration);
   $('confirm-scale').addEventListener('click', confirmScale);
@@ -96,14 +106,188 @@ async function onFileChange(e) {
     if (file.type === 'application/pdf') await loadPDF(file);
     else await loadImg(file);
   } catch (err) { alert('Laden fehlgeschlagen: ' + err.message); return; }
-  $('file-name').textContent = file.name;
+
+  // Persist the outgoing plan before switching
+  saveCurrentPlanState();
+
+  // Build a new plan entry
+  const planId    = 'plan_' + Date.now();
+  const planLabel = file.name.replace(/\.[^/.]+$/, ''); // strip extension
+  const newPlan = {
+    id: planId,
+    label: planLabel,
+    driveFileId: null,
+    imageDataUrl: S.imageDataUrl,   // stored from loadPDF / loadImg
+    imageW: S.imageW,
+    imageH: S.imageH,
+    scale: null,
+    nextId: 1,
+    nextMeasId: 1,
+    polygons: [],
+    measurements: [],
+  };
+
+  // Cache image in localStorage (best-effort; might fail for very large images)
+  try { localStorage.setItem('ebf_plan_image_' + planId, S.imageDataUrl); } catch (_) {}
+
+  S.plans.push(newPlan);
+  S.activePlanId = planId;
+
+  $('file-name').textContent = planLabel;
   S.polygons = []; S.measurements = []; S.current = [];
+  S.scale = null; S.nextId = 1; S.nextMeasId = 1;
+
   fitToCanvas();
   show('scale-section'); show('draw-section');
   updateSidebar(); render();
   emitPolygonSyncEvent();
+  emitPlansSyncEvent();
+
+  // Upload PDF to Google Drive
+  if (file.type === 'application/pdf') {
+    file.arrayBuffer().then(buffer => {
+      window.dispatchEvent(new CustomEvent('geak:ebf-plan-upload', {
+        detail: { planId, planLabel, fileName: file.name, mimeType: file.type, buffer },
+      }));
+    });
+  }
+
   $('calib-intro-modal').style.display = 'flex';
 }
+
+// ── Plan management ───────────────────────────────────────────────────────────
+
+/** Snapshot the current working state back into the active plan entry. */
+function saveCurrentPlanState() {
+  if (!S.activePlanId) return;
+  const plan = S.plans.find(p => p.id === S.activePlanId);
+  if (!plan) return;
+  plan.polygons     = S.polygons.map(p => ({ ...p }));
+  plan.measurements = S.measurements.map(m => ({ ...m }));
+  plan.scale        = S.scale;
+  plan.nextId       = S.nextId;
+  plan.nextMeasId   = S.nextMeasId;
+  plan.imageW       = S.imageW;
+  plan.imageH       = S.imageH;
+  if (S.imageDataUrl) plan.imageDataUrl = S.imageDataUrl;
+}
+
+/** Switch to a different imported plan.  Saves the current plan first. */
+async function switchToPlan(planId) {
+  if (planId === S.activePlanId) return;
+
+  saveCurrentPlanState();
+
+  const plan = S.plans.find(p => p.id === planId);
+  if (!plan) return;
+
+  // Clear current state
+  S.image = null;
+  S.imageDataUrl = null;
+
+  // Restore image: try in-memory first, then localStorage
+  const imageDataUrl = plan.imageDataUrl || localStorage.getItem('ebf_plan_image_' + planId);
+
+  if (imageDataUrl) {
+    try {
+      await loadImageFromDataUrl(imageDataUrl);
+      plan.imageDataUrl = S.imageDataUrl; // keep in sync
+    } catch (err) {
+      dom.console.warn('Failed to load image:', err);
+      S.image = null;
+      S.imageW = plan.imageW;
+      S.imageH = plan.imageH;
+    }
+  } else {
+    S.image = null;
+    S.imageW = plan.imageW;
+    S.imageH = plan.imageH;
+  }
+
+  // Restore plan data
+  S.activePlanId  = planId;
+  S.polygons      = plan.polygons.map(p => ({ ...p }));
+  S.measurements  = plan.measurements.map(m => ({ ...m }));
+  S.scale         = plan.scale ?? null;
+  S.nextId        = plan.nextId ?? 1;
+  S.nextMeasId    = plan.nextMeasId ?? 1;
+  S.current       = [];
+
+  $('file-name').textContent = plan.label;
+
+  // Fit image to canvas if available
+  if (S.image) {
+    fitToCanvas();
+    applyScaleStatus();
+  }
+
+  show('scale-section');
+  show('draw-section');
+  updateSidebar();
+  render();
+  emitPolygonSyncEvent();
+  emitPlansSyncEvent();
+}
+
+/** Restore plans received from the Scala layer (project load). */
+async function onLoadPlans(event) {
+  const data = event.detail;
+  if (!data || !Array.isArray(data.plans) || data.plans.length === 0) return;
+
+  // Restore image data URLs from localStorage
+  S.plans = data.plans.map(plan => ({
+    ...plan,
+    imageDataUrl: localStorage.getItem('ebf_plan_image_' + plan.id) || null,
+  }));
+
+  const activeId = data.activePlanId || S.plans[0]?.id;
+  updateSidebar();
+
+  if (activeId) {
+    await switchToPlan(activeId);
+  }
+}
+
+/** Delete a plan after confirmation. */
+async function onDeletePlan(event) {
+  const { planId, planLabel } = event.detail;
+
+  // Remove the plan from S.plans
+  S.plans = S.plans.filter(p => p.id !== planId);
+
+  // If this was the active plan, switch to the first remaining plan (if any)
+  if (S.activePlanId === planId) {
+    if (S.plans.length > 0) {
+      // Switch to first plan
+      await switchToPlan(S.plans[0].id);
+    } else {
+      // No plans left
+      S.activePlanId = null;
+      S.image = null;
+      S.imageDataUrl = null;
+      S.polygons = [];
+      S.measurements = [];
+      S.scale = null;
+      S.nextId = 1;
+      S.nextMeasId = 1;
+      $('file-name').textContent = '';
+      updateSidebar();
+      render();
+      emitPolygonSyncEvent();
+      emitPlansSyncEvent();
+    }
+  } else {
+    // Just update the list and sync
+    updateSidebar();
+    emitPlansSyncEvent();
+  }
+
+  // Clear localStorage cache for deleted plan
+  try {
+    localStorage.removeItem('ebf_plan_image_' + planId);
+  } catch (_) {}
+}
+
 
 // ── Calibration ───────────────────────────────────────────────────────────────
 function startCalibration() {
@@ -125,6 +309,8 @@ function confirmScale() {
   setMode('idle'); setInstructions('');
   updateSidebar(); render();
   emitPolygonSyncEvent();
+  saveCurrentPlanState();
+  emitPlansSyncEvent();
 }
 
 function cancelCalibration() {
@@ -158,6 +344,8 @@ function finishPolygon() {
   S.current = []; setMode('idle'); setInstructions('');
   updateSidebar(); render();
   emitPolygonSyncEvent();
+  saveCurrentPlanState();
+  emitPlansSyncEvent();
 }
 
 function startMeasuring() {
@@ -177,6 +365,8 @@ function clearAllConfirmed() {
   setMode('idle'); setInstructions('');
   updateSidebar(); render();
   emitPolygonSyncEvent();
+  saveCurrentPlanState();
+  emitPlansSyncEvent();
 }
 
 function cancelCurrent() {
@@ -268,6 +458,8 @@ function onMouseUp() {
   if (S.mode === 'drag_vertex') {
     S.dragVertex = null; setMode('idle'); canvas.style.cursor = 'grab';
     emitPolygonSyncEvent();
+    saveCurrentPlanState();
+    emitPlansSyncEvent();
     return;
   }
   if (S.panning) { S.panning = false; canvas.style.cursor = S.mode === 'idle' ? 'grab' : 'crosshair'; }
