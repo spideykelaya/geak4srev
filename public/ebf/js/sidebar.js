@@ -1,4 +1,4 @@
-import { S }                       from './state.js';
+import { S, $ }                    from './state.js';
 import { MEAS_COLOR }              from './config.js';
 import { dist, fmtArea, fmtLength } from './geo.js';
 import { render }                  from './render.js';
@@ -10,9 +10,9 @@ export function updateSidebar() {
 
 // ── Polygons ──────────────────────────────────────────────────────────────────
 function updatePolygonList() {
-  const section = document.getElementById('polygons-section');
-  const listEl  = document.getElementById('polygon-list');
-  const totalEl = document.getElementById('total-surface');
+  const section = $('polygons-section');
+  const listEl  = $('polygon-list');
+  const totalEl = $('total-surface');
 
   if (!S.polygons.length) { section.style.display = 'none'; return; }
   section.style.display = 'block';
@@ -72,8 +72,8 @@ function updatePolygonList() {
 
 // ── Measurements ──────────────────────────────────────────────────────────────
 function updateMeasurementList() {
-  const section = document.getElementById('measurements-section');
-  const listEl  = document.getElementById('measurement-list');
+  const section = $('measurements-section');
+  const listEl  = $('measurement-list');
 
   if (!S.measurements.length) { section.style.display = 'none'; return; }
   section.style.display = 'block';

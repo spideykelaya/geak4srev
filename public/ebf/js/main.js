@@ -1,6 +1,6 @@
 'use strict';
 
-import { S, initDom, canvas, s2w, w2s, setMode, px2m2 } from './state.js';
+import { S, initDom, canvas, s2w, w2s, setMode, px2m2, $ } from './state.js';
 import { PDFJS_WORKER, COLORS, SNAP_RADIUS }             from './config.js';
 import { shoelace, findNearVertex, findNearEdge, dist }   from './geo.js';
 import { render }                                         from './render.js';
@@ -9,17 +9,37 @@ import { loadPDF, loadImg, exportData, exportExcel, exportXML, importData, print
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = PDFJS_WORKER;
 
-window.addEventListener('DOMContentLoaded', () => {
-  initDom();
+let currentUnmount = null;
+
+export function mountEbf(root = document) {
+  currentUnmount?.();
+
+  initDom(root);
   resizeCanvas();
-  bindUI();
+  bindUI(root.ownerDocument || document);
   render();
-});
-window.addEventListener('resize', () => { resizeCanvas(); render(); });
+
+  const onResize = () => { resizeCanvas(); render(); };
+  window.addEventListener('resize', onResize);
+
+  currentUnmount = () => {
+    window.removeEventListener('resize', onResize);
+  };
+
+  return currentUnmount;
+}
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('DOMContentLoaded', () => {
+    if (document.getElementById('main-canvas')) {
+      mountEbf(document);
+    }
+  });
+}
 
 // ── Canvas sizing ─────────────────────────────────────────────────────────────
 function resizeCanvas() {
-  const r = document.getElementById('canvas-container').getBoundingClientRect();
+  const r = $('canvas-container').getBoundingClientRect();
   canvas.width = r.width; canvas.height = r.height;
 }
 
@@ -31,9 +51,9 @@ function fitToCanvas() {
 }
 
 // ── UI bindings ───────────────────────────────────────────────────────────────
-function bindUI() {
-  document.getElementById('file-input').addEventListener('change', onFileChange);
-  document.getElementById('import-input').addEventListener('change', async e => {
+function bindUI(ownerDocument) {
+  $('file-input').addEventListener('change', onFileChange);
+  $('import-input').addEventListener('change', async e => {
     const f = e.target.files[0]; if (!f) return;
     const ok = await importData(f); e.target.value = '';
     if (!ok) return;
@@ -42,22 +62,22 @@ function bindUI() {
     updateSidebar(); render();
   });
 
-  document.getElementById('calibrate-btn').addEventListener('click', startCalibration);
-  document.getElementById('confirm-scale').addEventListener('click', confirmScale);
-  document.getElementById('cancel-scale').addEventListener('click', cancelCalibration);
-  document.getElementById('draw-btn').addEventListener('click', startDrawing);
-  document.getElementById('measure-btn').addEventListener('click', startMeasuring);
-  document.getElementById('clear-btn').addEventListener('click', clearAll);
-  document.getElementById('export-btn').addEventListener('click', exportData);
-  document.getElementById('export-excel-btn').addEventListener('click', exportExcel);
-  document.getElementById('export-xml-btn').addEventListener('click', exportXML);
-  document.getElementById('import-btn').addEventListener('click', () => document.getElementById('import-input').click());
-  document.getElementById('print-btn').addEventListener('click', () => printView());
-  document.getElementById('clear-confirm-yes').addEventListener('click', clearAllConfirmed);
-  document.getElementById('clear-confirm-no').addEventListener('click', () => { document.getElementById('clear-confirm-modal').style.display = 'none'; });
-  document.getElementById('calib-intro-start').addEventListener('click', () => { document.getElementById('calib-intro-modal').style.display = 'none'; startCalibration(); });
-  document.getElementById('calib-intro-skip').addEventListener('click', () => { document.getElementById('calib-intro-modal').style.display = 'none'; setMode('idle'); });
-  document.getElementById('real-length').addEventListener('keydown', e => { if (e.key === 'Enter') confirmScale(); });
+  $('calibrate-btn').addEventListener('click', startCalibration);
+  $('confirm-scale').addEventListener('click', confirmScale);
+  $('cancel-scale').addEventListener('click', cancelCalibration);
+  $('draw-btn').addEventListener('click', startDrawing);
+  $('measure-btn').addEventListener('click', startMeasuring);
+  $('clear-btn').addEventListener('click', clearAll);
+  $('export-btn').addEventListener('click', exportData);
+  $('export-excel-btn').addEventListener('click', exportExcel);
+  $('export-xml-btn').addEventListener('click', exportXML);
+  $('import-btn').addEventListener('click', () => $('import-input').click());
+  $('print-btn').addEventListener('click', () => printView());
+  $('clear-confirm-yes').addEventListener('click', clearAllConfirmed);
+  $('clear-confirm-no').addEventListener('click', () => { $('clear-confirm-modal').style.display = 'none'; });
+  $('calib-intro-start').addEventListener('click', () => { $('calib-intro-modal').style.display = 'none'; startCalibration(); });
+  $('calib-intro-skip').addEventListener('click', () => { $('calib-intro-modal').style.display = 'none'; setMode('idle'); });
+  $('real-length').addEventListener('keydown', e => { if (e.key === 'Enter') confirmScale(); });
 
   canvas.addEventListener('mousedown',   onMouseDown);
   canvas.addEventListener('mousemove',   onMouseMove);
@@ -65,7 +85,7 @@ function bindUI() {
   canvas.addEventListener('dblclick',    onDblClick);
   canvas.addEventListener('wheel',       onWheel, { passive: false });
   canvas.addEventListener('contextmenu', e => e.preventDefault());
-  document.addEventListener('keydown',   e => { if (e.key === 'Escape') cancelCurrent(); });
+  ownerDocument.addEventListener('keydown',   e => { if (e.key === 'Escape') cancelCurrent(); });
 }
 
 // ── File loading ──────────────────────────────────────────────────────────────
@@ -75,12 +95,12 @@ async function onFileChange(e) {
     if (file.type === 'application/pdf') await loadPDF(file);
     else await loadImg(file);
   } catch (err) { alert('Laden fehlgeschlagen: ' + err.message); return; }
-  document.getElementById('file-name').textContent = file.name;
+  $('file-name').textContent = file.name;
   S.polygons = []; S.measurements = []; S.current = [];
   fitToCanvas();
   show('scale-section'); show('draw-section');
   updateSidebar(); render();
-  document.getElementById('calib-intro-modal').style.display = 'flex';
+  $('calib-intro-modal').style.display = 'flex';
 }
 
 // ── Calibration ───────────────────────────────────────────────────────────────
@@ -92,11 +112,11 @@ function startCalibration() {
 }
 
 function confirmScale() {
-  const val  = parseFloat(document.getElementById('real-length').value);
-  const unit = parseFloat(document.getElementById('length-unit').value);
-  if (!val || val <= 0) { document.getElementById('real-length').focus(); return; }
+  const val  = parseFloat($('real-length').value);
+  const unit = parseFloat($('length-unit').value);
+  if (!val || val <= 0) { $('real-length').focus(); return; }
   S.scale = (val * unit) / dist(S.calibPt1, S.calibPt2);
-  document.getElementById('scale-dialog').style.display = 'none';
+  $('scale-dialog').style.display = 'none';
   applyScaleStatus();
   S.polygons.forEach(p => { p.area = px2m2(p.pixelArea); });
   S.calibPt1 = null; S.calibPt2 = null;
@@ -105,22 +125,22 @@ function confirmScale() {
 }
 
 function cancelCalibration() {
-  document.getElementById('scale-dialog').style.display = 'none';
+  $('scale-dialog').style.display = 'none';
   S.calibPt1 = null; S.calibPt2 = null;
   setMode('idle'); setInstructions(''); render();
 }
 
 function applyScaleStatus() {
   if (!S.scale) return;
-  document.getElementById('scale-status').textContent = `1 m = ${(1 / S.scale).toFixed(1)} px`;
-  document.getElementById('scale-status').className   = 'scale-status calibrated';
-  document.getElementById('draw-btn').classList.add('btn-highlight');
+  $('scale-status').textContent = `1 m = ${(1 / S.scale).toFixed(1)} px`;
+  $('scale-status').className   = 'scale-status calibrated';
+  $('draw-btn').classList.add('btn-highlight');
 }
 
 // ── Drawing actions ───────────────────────────────────────────────────────────
 function startDrawing() {
   if (!S.image) return;
-  document.getElementById('draw-btn').classList.remove('btn-highlight');
+  $('draw-btn').classList.remove('btn-highlight');
   S.current = []; setMode('draw');
   setInstructions('Klicken Sie, um Punkte hinzuzufügen – Doppelklick oder Klicken auf den ersten Punkt zum Beenden');
 }
@@ -143,11 +163,11 @@ function startMeasuring() {
 
 function clearAll() {
   if (!S.polygons.length && !S.current.length && !S.measurements.length) return;
-  document.getElementById('clear-confirm-modal').style.display = 'flex';
+  $('clear-confirm-modal').style.display = 'flex';
 }
 
 function clearAllConfirmed() {
-  document.getElementById('clear-confirm-modal').style.display = 'none';
+  $('clear-confirm-modal').style.display = 'none';
   S.polygons = []; S.measurements = []; S.current = [];
   setMode('idle'); setInstructions('');
   updateSidebar(); render();
@@ -179,9 +199,9 @@ function onMouseDown(e) {
   }
   if (S.mode === 'calibrate_2') {
     S.calibPt2 = wp; setMode('calibrate_confirm');
-    document.getElementById('real-length').value = '';
-    document.getElementById('scale-dialog').style.display = 'flex';
-    setTimeout(() => document.getElementById('real-length').focus(), 50);
+    $('real-length').value = '';
+    $('scale-dialog').style.display = 'flex';
+    setTimeout(() => $('real-length').focus(), 50);
     render(); return;
   }
   if (S.mode === 'draw') {
@@ -260,6 +280,6 @@ function onWheel(e) {
 }
 
 // ── Misc helpers ──────────────────────────────────────────────────────────────
-function show(id)              { document.getElementById(id).style.display = ''; }
-function setInstructions(t)    { document.getElementById('instructions').textContent = t; }
-function updateZoomIndicator() { document.getElementById('zoom-indicator').textContent = Math.round(S.zoom * 100) + '%'; }
+function show(id)              { $(id).style.display = ''; }
+function setInstructions(t)    { $('instructions').textContent = t; }
+function updateZoomIndicator() { $('zoom-indicator').textContent = Math.round(S.zoom * 100) + '%'; }

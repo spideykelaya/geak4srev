@@ -18,9 +18,20 @@ export const S = {
 
 // Canvas references — undefined until initDom() is called
 export let canvas, ctx;
+let domRoot = document;
 
-export function initDom() {
-  canvas = document.getElementById('main-canvas');
+export function setDomRoot(root) {
+  domRoot = root || document;
+}
+
+export function $(id) {
+  if (typeof domRoot.getElementById === 'function') return domRoot.getElementById(id);
+  return domRoot.querySelector(`#${id}`);
+}
+
+export function initDom(root = document) {
+  setDomRoot(root);
+  canvas = $('main-canvas');
   ctx    = canvas.getContext('2d');
 }
 

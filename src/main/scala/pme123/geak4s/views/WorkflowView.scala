@@ -268,14 +268,11 @@ object WorkflowView:
         _.hideCloseButton := true,
         "Berechnen Sie die Energiebezugsfläche (EBF) mit dem integrierten Tool."
       ),
-      // Embed the actual EBF calculator (public/ebf/index.html) in a large iframe
+      // Render the EBF calculator as a web component (no iframe)
       div(
         styleAttr := "display: flex; justify-content: center; align-items: flex-start; width: 100%; height: 90vh;",
-        iframe(
-          src := "/ebf/index.html",
-          width := "90%",
-          height := "85vh",
-          styleAttr := "border: 1px solid #ccc; border-radius: 8px; background: #fff; min-height: 800px; min-width: 1200px; box-shadow: 0 2px 16px #0002;"
+        htmlTag("ebf-calculator")(
+          styleAttr := "display: block; width: 90%; height: 85vh; min-height: 800px; min-width: 1200px;"
         )
       )
     )
