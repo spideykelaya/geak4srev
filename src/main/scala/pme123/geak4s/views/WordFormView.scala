@@ -21,7 +21,7 @@ case class WordFormData(
   egid: String = "",
   heizung: String = "",
   warmwasser: String = "",
-  gebäudeart: String = "",
+  gebaudeart: String = "",
   ebf: String = "",
   wohnungen: String = "",
   energieart: String = "",
@@ -77,7 +77,7 @@ object WordFormView:
       textInput("Warmwasser", _.warmwasser, (d,v) => d.copy(warmwasser=v)),
 
       h3("Gebäude"),
-      textInput("Gebäudeart", _.gebäudeart, (d,v) => d.copy(gebäudeart=v)),
+      textInput("Gebäudeart", _.gebaudeart, (d,v) => d.copy(gebaudeart=v)),
       textInput("EBF", _.ebf, (d,v) => d.copy(ebf=v)),
       textInput("Wohnungen", _.wohnungen, (d,v) => d.copy(wohnungen=v)),
       textInput("Energieart", _.energieart, (d,v) => d.copy(energieart=v)),
@@ -106,10 +106,21 @@ object WordFormView:
     val dataJson = write(formVar.now())
     val url = "/generate"
     dom.fetch(
-        url,
-        new dom.RequestInit {
+      url,
+      new dom.RequestInit {
         method = dom.HttpMethod.POST
         body = dataJson
         headers = new dom.Headers(js.Array(js.Array("Content-Type", "application/json")))
-        }
-    )
+      }
+    ).`then`[Unit] { response =>
+      response.blob().`then`[Unit] { blob =>
+        val objectUrl = dom.URL.createObjectURL(blob)
+        val link = dom.document.createElement("a").asInstanceOf[dom.html.Anchor]
+        link.href = objectUrl
+        link.download = "Begehungsprotokoll.docx"
+        dom.document.body.appendChild(link)
+        link.click()
+        dom.document.body.removeChild(link)
+        dom.URL.revokeObjectURL(objectUrl)
+      }
+    }
