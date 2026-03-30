@@ -19,6 +19,16 @@ function ensurePdfJsLoaded() {
   return pdfJsLoadPromise;
 }
 
+async function mountEbfCalculator(root) {
+  await ensurePdfJsLoaded();
+  const module = await import('/ebf/js/main.js');
+  return module.mountEbf(root || document);
+}
+
+if (typeof window !== 'undefined') {
+  window.mountEbfCalculator = mountEbfCalculator;
+}
+
 const TEMPLATE = `
   <style>
     :host {
@@ -186,9 +196,7 @@ class EbfCalculator extends HTMLElement {
     this.shadowRoot.innerHTML = TEMPLATE;
 
     try {
-      await ensurePdfJsLoaded();
-      const module = await import('/ebf/js/main.js');
-      this.unmount = module.mountEbf(this.shadowRoot);
+      this.unmount = await mountEbfCalculator(this.shadowRoot);
     } catch (error) {
       console.error('EBF component failed to initialize', error);
       this.shadowRoot.innerHTML = '<div style="padding:16px;color:#b91c1c">EBF-Rechner konnte nicht geladen werden.</div>';
