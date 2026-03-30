@@ -9,8 +9,14 @@ export default defineConfig({
   ],
   base: process.env.NODE_ENV === 'production' ? '/geak4s/' : '/',
   server: {
-    https: true, // Required for Google OAuth
+    https: true,
     port: 5173,
-    host: 'localhost'
+    host: 'localhost',
+    proxy: {
+      '/generate': {
+        target: 'http://localhost:8080',
+        changeOrigin: true
+      }
+    }
   }
 });
