@@ -260,22 +260,7 @@ object WorkflowView:
 
   // New Step: EBF Calculation
   private def renderEBFStep(project: GeakProject): HtmlElement =
-    div(
-      className := "step-content",
-      Title(_.level := TitleLevel.H2, "EBF berechnen"),
-      MessageStrip(
-        _.design := MessageStripDesign.Information,
-        _.hideCloseButton := true,
-        "Berechnen Sie die Energiebezugsfläche (EBF) mit dem integrierten Tool."
-      ),
-      // Render the EBF calculator as a web component (no iframe)
-      div(
-        styleAttr := "display: flex; justify-content: center; align-items: flex-start; width: 100%; height: 90vh;",
-        htmlTag("ebf-calculator")(
-          styleAttr := "display: block; width: 90%; height: 85vh; min-height: 800px; min-width: 1200px;"
-        )
-      )
-    )
+      EBFCalculatorView()
 
    // Step 1: GIS Data
   private def renderGISData(project: GeakProject): HtmlElement =
@@ -394,5 +379,4 @@ object WorkflowView:
     )
 
 end WorkflowView
-
 
