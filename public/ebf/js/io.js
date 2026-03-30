@@ -127,7 +127,7 @@ function renderPrintCanvas() {
     c.closePath();
   };
 
-  S.polygons.forEach(({ points, color, area }) => {
+  S.polygons.forEach(({ points, color, area, label }) => {
     if (points.length < 2) return;
     const spts = points.map(p => px(p));
     c.beginPath();
@@ -140,11 +140,22 @@ function renderPrintCanvas() {
     let cx = 0, cy = 0;
     points.forEach(p => { cx += p.x; cy += p.y; });
     cx = cx / points.length * sc; cy = cy / points.length * sc;
-    const lbl = fmtArea(area), fsz = 14;
+    const titleLbl = (label || '').trim();
+    const areaLbl = fmtArea(area);
+    const fsz = 14;
     c.font = `bold ${fsz}px system-ui`; c.textAlign = 'center'; c.textBaseline = 'middle';
-    const tw = c.measureText(lbl).width;
-    c.fillStyle = 'rgba(0,0,0,0.65)'; pill(c, cx, cy, tw, fsz); c.fill();
-    c.fillStyle = '#fff'; c.fillText(lbl, cx, cy);
+    const titleW = titleLbl ? c.measureText(titleLbl).width : 0;
+    const areaW = c.measureText(areaLbl).width;
+    const tw = Math.max(titleW, areaW);
+    const y = titleLbl ? cy + (fsz * 0.25) : cy;
+    c.fillStyle = 'rgba(0,0,0,0.65)'; pill(c, cx, y, tw, fsz * (titleLbl ? 2 : 1)); c.fill();
+    c.fillStyle = '#fff';
+    if (titleLbl) {
+      c.fillText(titleLbl, cx, cy - (fsz * 0.45));
+      c.fillText(areaLbl, cx, cy + (fsz * 0.7));
+    } else {
+      c.fillText(areaLbl, cx, cy);
+    }
   });
 
   S.measurements.forEach(({ pt1, pt2, id }) => {

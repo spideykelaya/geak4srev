@@ -59,14 +59,19 @@ object AreaState:
             length = 0.0,
             width = 0.0,
             area = polygonArea,
-            totalArea = polygonArea * current.quantity
+            totalArea = polygonArea * current.quantity,
+            areaNew = polygonArea,
+            totalAreaNew = polygonArea * current.quantityNew
           )
         else
           AreaEntry.empty((entries.length + 1).toString).copy(
             description = label,
             area = polygonArea,
             quantity = 1,
-            totalArea = polygonArea
+            totalArea = polygonArea,
+            areaNew = polygonArea,
+            quantityNew = 1,
+            totalAreaNew = polygonArea
           )
 
       if idx >= 0 then entries.updated(idx, updatedEntry)
