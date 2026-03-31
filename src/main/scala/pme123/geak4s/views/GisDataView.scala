@@ -170,14 +170,14 @@ object GisDataView:
                                     .map(translateHeatGenerator)
                                     .getOrElse("")
 
-                                  val gebäudeart = if totalWohnungen > 1 then "MFH" else "EFH"
+                                  val gebaudeart = if totalWohnungen > 1 then "MFH" else "EFH"
 
                                   WordFormView.formVar.update(old => old.copy(
                                     adresse     = adresseStr,
                                     egid        = b.egid.toString,
                                     baujahr     = b.building.dateOfConstruction.flatMap(_.dateOfConstruction).getOrElse(""),
                                     wohnungen   = totalWohnungen.toString,
-                                    gebäudeart  = gebäudeart,
+                                    gebaudeart  = gebaudeart,
                                     heizung     = heizung,
                                     warmwasser  = warmwasser
                                     

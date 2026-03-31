@@ -8,12 +8,15 @@ lazy val backend = (project in file("backend"))
   .settings(
     name := "backend",
     scalaVersion := "3.6.2",
+    javaOptions += "-Dfile.encoding=UTF-8",
+    fork := true,
     libraryDependencies ++= Seq(
       "org.apache.poi" % "poi-ooxml" % "5.2.5",
-      "com.lihaoyi" %% "cask" % "0.9.1"
+      "com.lihaoyi" %% "cask" % "0.9.1",
+      "com.lihaoyi" %% "upickle" % "3.3.1",        // ← neu
+      "org.apache.logging.log4j" % "log4j-core" % "2.20.0"
     )
   )
-
 lazy val root = (project in file("."))
   .aggregate(backend)
   .settings(
