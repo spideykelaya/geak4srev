@@ -6,34 +6,12 @@ object WordService {
     val templateStream = getClass.getClassLoader.getResourceAsStream("BegehungVorlage.docx")
     println(s"Template stream: $templateStream")
     val doc = new XWPFDocument(templateStream)
-    doc.getTables.forEach { table =>
-      table.getRows.forEach { row =>
-        row.getTableCells.forEach { cell =>
-          cell.getParagraphs.forEach { p =>
-            if p.getText.contains("$") then
-              println(s"Paragraph text: '${p.getText}'")
-              p.getRuns.forEach { run =>
-                println(s"  Run: '${run.getText(0)}'")
-              }
-          }
-        }
-      }
-    }
+
     println(s"Template loaded, paragraphs: ${doc.getParagraphs.size}")
 
     // Platzhalter in Paragraphen ersetzen
     doc.getParagraphs.forEach { p =>
-      p.getRuns.forEach { run =>
-        val text = run.getText(0)
-        if text != null then
-          var replaced = text
-          data.foreach { (key, value) =>
-            replaced = replaced.replace(s"$${$key}", value)
-          }
-          if replaced != text then
-            println(s"Replaced: $text -> $replaced")
-            run.setText(replaced, 0)
-      }
+      replacePlaceholdersInParagraph(p, data)
     }
 
     // Platzhalter auch in Tabellen ersetzen
@@ -41,17 +19,7 @@ object WordService {
       table.getRows.forEach { row =>
         row.getTableCells.forEach { cell =>
           cell.getParagraphs.forEach { p =>
-            p.getRuns.forEach { run =>
-              val text = run.getText(0)
-              if text != null then
-                var replaced = text
-                data.foreach { (key, value) =>
-                  replaced = replaced.replace(s"$${$key}", value)
-                }
-                if replaced != text then
-                  println(s"Replaced in table: $text -> $replaced")
-                  run.setText(replaced, 0)
-            }
+            replacePlaceholdersInParagraph(p, data)
           }
         }
       }
@@ -61,5 +29,34 @@ object WordService {
     doc.write(baos)
     doc.close()
     baos.toByteArray
+  }
+
+  private def replacePlaceholdersInParagraph(p: XWPFParagraph, data: Map[String, String]): Unit = {
+    // Get the full text of the paragraph
+    var fullText = p.getText
+    println(s"Paragraph text before: '$fullText'")
+
+    // Replace all placeholders
+    data.foreach { (key, value) =>
+      fullText = fullText.replace(s"$${$key}", value)
+    }
+
+    if fullText != p.getText then
+      println(s"Paragraph text after: '$fullText'")
+      // Clear all runs and add new single run with replaced text
+      p.getRuns.size match {
+        case 0 =>
+          // No runs, create one
+          val run = p.createRun()
+          run.setText(fullText)
+        case _ =>
+          // Replace content: clear all runs and use the first one
+          while p.getRuns.size > 1 do
+            p.removeRun(1)
+
+          val firstRun = p.getRuns.get(0)
+          firstRun.setText(fullText, 0)
+      }
+    end if
   }
 }
