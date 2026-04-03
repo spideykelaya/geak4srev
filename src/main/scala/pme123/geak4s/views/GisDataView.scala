@@ -160,27 +160,42 @@ object GisDataView:
                                   }.getOrElse("")
                                   val totalWohnungen = b.buildingEntranceList.flatMap(_.dwellingList).length
 
-                                  val heizung = b.building.thermotechnicalDeviceForHeating1
-                                    .flatMap(_.heatGenerator)
-                                    .map(translateHeatGenerator)
+                                  val heizungEnergySource = b.building.thermotechnicalDeviceForHeating1
+                                    .flatMap(_.energySource)
+                                  val warmwasserEnergySource = b.building.thermotechnicalDeviceForWarmWater1
+                                    .flatMap(_.energySource)
+
+                                  val energieart = heizungEnergySource
+                                    .flatMap(_.toIntOption)
+                                    .map(translateEnergySource)
                                     .getOrElse("")
 
-                                  val warmwasser = b.building.thermotechnicalDeviceForWarmWater1
-                                    .flatMap(_.heatGenerator)
-                                    .map(translateHeatGenerator)
-                                    .getOrElse("")
+                                  val heizung = if energieart.nonEmpty then energieart + "heizung" else ""
+
+                                  val warmwasser =
+                                    if warmwasserEnergySource == heizungEnergySource && heizungEnergySource.isDefined
+                                    then "über die Heizung"
+                                    else warmwasserEnergySource
+                                      .flatMap(_.toIntOption)
+                                      .map(translateEnergySource)
+                                      .getOrElse("")
 
                                   val gebaudeart = if totalWohnungen > 1 then "MFH" else "EFH"
+
+                                  val baujahr = b.building.dateOfConstruction
+                                    .flatMap(_.dateOfConstruction)
+                                    .map(d => d.take(4))
+                                    .getOrElse("")
 
                                   WordFormView.formVar.update(old => old.copy(
                                     adresse     = adresseStr,
                                     egid        = b.egid.toString,
-                                    baujahr     = b.building.dateOfConstruction.flatMap(_.dateOfConstruction).getOrElse(""),
+                                    baujahr     = baujahr,
                                     wohnungen   = totalWohnungen.toString,
                                     gebaudeart  = gebaudeart,
                                     heizung     = heizung,
-                                    warmwasser  = warmwasser
-                                    
+                                    warmwasser  = warmwasser,
+                                    energieart  = energieart
                                   ))
                                 }
                               case Failure(ex) =>
