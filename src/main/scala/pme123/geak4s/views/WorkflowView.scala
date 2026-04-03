@@ -201,7 +201,6 @@ object WorkflowView:
     case Step.EBFCalculation => IconName.`area-chart`
     case Step.UWertCalculation => IconName.`temperature`
     case Step.Calculations => IconName.`number-sign`
-    case Step.Inspection => IconName.`checklist-item`
     case Step.DataEntry => IconName.`edit`
     case Step.Reports => IconName.`document`
     case Step.ProjectSetup => IconName.`project-definition-triangle`
@@ -302,7 +301,6 @@ object WorkflowView:
       case Step.WordForm => WordFormView()
       case Step.UWertCalculation => renderUWertCalculation(project)
       case Step.Calculations => renderCalculations(project)
-      case Step.Inspection => renderInspection(project)
       case Step.DataEntry => renderDataEntry(project)
       case Step.Reports => ReportView()
       case Step.ProjectSetup => renderProjectSetup(project)
@@ -350,32 +348,6 @@ object WorkflowView:
       AreaView()
     )
 
-
-  // Step 4: Inspection
-  private def renderInspection(project: GeakProject): HtmlElement =
-    div(
-      className := "step-content",
-      Title(_.level := TitleLevel.H2, "Begehung"),
-      MessageStrip(
-        _.design := MessageStripDesign.Information,
-        _.hideCloseButton := true,
-        "Begehungsprotokoll vor Ort ausfüllen. Tablet-freundlich mit Handschrifterkennung."
-      ),
-      Card(
-        _.slots.header := CardHeader(
-          _.titleText := "Begehungsprotokoll",
-          _.subtitleText := "Vor Ort Datenerfassung"
-        ),
-        div(
-          className := "card-content",
-          Label("Funktion wird implementiert: Interaktives Begehungsprotokoll"),
-          Label("• Tablet-optimierte Eingabe"),
-          Label("• Handschrifterkennung"),
-          Label("• Foto-Upload"),
-          Label("• Offline-Fähigkeit")
-        )
-      )
-    )
 
   // Step 5: Data Entry
   private def renderDataEntry(project: GeakProject): HtmlElement =
