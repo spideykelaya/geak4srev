@@ -50,22 +50,20 @@ object AreaState:
       .map(_.entries)
       .getOrElse(List.empty)
 
-    val syncedEntries = normalized.foldLeft(existingEntries) { case (entries, (label, polygonArea)) =>
-      val idx = entries.indexWhere(_.description == label)
-      val updatedEntry =
-        if idx >= 0 then
-          val current = entries(idx)
+    // Rebuild from polygon sync: only keep entries that exist in the current polygon list,
+    // preserving manually-set fields (quantity, orientation) for matching labels.
+    val currentLabels = normalized.map(_._1).toSet
+    val syncedEntries = normalized.zipWithIndex.map { case ((label, polygonArea), idx) =>
+      existingEntries.find(_.description == label) match
+        case Some(current) =>
           current.copy(
-            description = label,
-            length = 0.0,
-            width = 0.0,
             area = polygonArea,
             totalArea = polygonArea * current.quantity,
             areaNew = polygonArea,
             totalAreaNew = polygonArea * current.quantityNew
           )
-        else
-          AreaEntry.empty((entries.length + 1).toString).copy(
+        case None =>
+          AreaEntry.empty((idx + 1).toString).copy(
             description = label,
             area = polygonArea,
             quantity = 1,
@@ -74,10 +72,7 @@ object AreaState:
             quantityNew = 1,
             totalAreaNew = polygonArea
           )
-
-      if idx >= 0 then entries.updated(idx, updatedEntry)
-      else entries :+ updatedEntry
-    }
+    }.toList
 
     val renumbered = syncedEntries.zipWithIndex.map { case (entry, index) =>
       entry.copy(nr = (index + 1).toString)

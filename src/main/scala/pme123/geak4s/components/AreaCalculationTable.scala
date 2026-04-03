@@ -125,7 +125,7 @@ object AreaCalculationTable:
               padding    := "0.5rem",
               textAlign  := "right",
               fontWeight := "600",
-              f"${displayEntries.map(_.totalArea).sum}%.2f"
+              displayEntries.map(e => math.round(e.totalArea)).sum.toString
             ),
 
             // Empty cell for Fläche Neu - column 9
@@ -146,7 +146,7 @@ object AreaCalculationTable:
               padding    := "0.5rem",
               textAlign  := "right",
               fontWeight := "600",
-              f"${displayEntries.map(_.totalAreaNew).sum}%.2f"
+              displayEntries.map(e => math.round(e.totalAreaNew)).sum.toString
             ),
 
             // Empty cells for Beschrieb Neu and Delete button - columns 12-13
@@ -286,7 +286,7 @@ object AreaCalculationTable:
         backgroundColor := "#f9f9f9",
         textAlign       := "right",
         child.text <-- dataEntries.signal.map { entries =>
-          if index < entries.length then f"${entries(index).totalArea}%.2f"
+          if index < entries.length then f"${entries(index).totalArea}%.0f"
           else "0.00"
         }
       ),
@@ -336,7 +336,7 @@ object AreaCalculationTable:
         backgroundColor := "#f9f9f9",
         textAlign       := "right",
         child.text <-- dataEntries.signal.map { entries =>
-          if index < entries.length then f"${entries(index).totalAreaNew}%.2f"
+          if index < entries.length then f"${entries(index).totalAreaNew}%.0f"
           else "0.00"
         }
       ),
