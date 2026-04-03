@@ -4,6 +4,7 @@ import com.raquo.laminar.api.L.*
 import pme123.geak4s.domain.area.*
 import pme123.geak4s.domain.uwert.ComponentType
 import pme123.geak4s.domain.GeakProject
+import pme123.geak4s.views.WordFormView
 import scala.scalajs.js
 
 /**
@@ -83,6 +84,10 @@ object AreaState:
     }
 
     updateAreaCalculation(ComponentType.EBF, renumbered)
+
+    val totalEbf = renumbered.map(_.totalArea).sum
+    val totalEbfStr = f"$totalEbf%.0f"
+    WordFormView.formVar.update(_.copy(ebf = totalEbfStr))
 
   /** Get entries for a specific component type */
   def getEntries(componentType: ComponentType): Signal[List[AreaEntry]] =
