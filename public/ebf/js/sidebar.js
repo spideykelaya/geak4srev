@@ -5,6 +5,12 @@ import { render }                  from './render.js';
 
 const DEFAULT_POLYGON_LABEL = 'Flaeche';
 
+let currentAreaTypeLabel = DEFAULT_POLYGON_LABEL;
+
+export function setCurrentAreaTypeLabel(label) {
+  currentAreaTypeLabel = (label && label.trim()) || DEFAULT_POLYGON_LABEL;
+}
+
 // Callback registered by main.js so the sidebar can trigger plan switches
 let _switchPlanHandler = null;
 export function setSwitchPlanHandler(fn) { _switchPlanHandler = fn; }
@@ -26,7 +32,7 @@ export function createUniquePolygonLabel(rawLabel = DEFAULT_POLYGON_LABEL, curre
 }
 
 export function nextPolygonLabel() {
-  return createUniquePolygonLabel(DEFAULT_POLYGON_LABEL);
+  return createUniquePolygonLabel(currentAreaTypeLabel);
 }
 
 export function updateSidebar() {

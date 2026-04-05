@@ -19,7 +19,7 @@ object WorkflowState:
   /** Workflow steps matching the GEAK process */
   enum Step(val order: Int, val title: String, val description: String):
     case GISData extends Step(1, "GIS-Daten", "Gebäudedaten vom kantonalen GIS beziehen")
-    case EBFCalculation extends Step(2, "EBF-Berechnung", "Energiebezugsfläche (EBF) berechnen")
+    case EBFCalculation extends Step(2, "Flächenauszug", "Energiebezugsfläche (EBF) und Gebäudehülle berechnen")
     case WordForm extends Step(3, "Daten fürs Begehungsprotokoll", "Formular ausfüllen und Protokoll erstellen")
     case UWertCalculation extends Step(4, "U-Wert-Berechnung", "Wärmedurchgangskoeffizienten berechnen")
     case Calculations extends Step(5, "Flächenberechnung", "Gebäudehülle IST und SOLL")

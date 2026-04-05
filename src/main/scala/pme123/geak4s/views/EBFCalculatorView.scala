@@ -48,7 +48,7 @@ object EBFCalculatorView:
         // ── polygon sync → AreaState ──
         val polyListener: js.Function1[dom.Event, Unit] = (event: dom.Event) =>
           val polygons = decodePolygons(event)
-          AreaState.syncEbfPolygons(polygons)
+          AreaState.syncPolygons(polygons)
           AppState.saveAreaCalculations()
         dom.window.addEventListener(polygonSyncEvent, polyListener)
         polygonSyncListener = Some(polyListener)

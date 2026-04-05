@@ -36,53 +36,58 @@ object AreaState:
       Some(area.update(calculation))
 
   /**
-    * Upsert EBF rows from polygon data using polygon label as `description` key.
-    * - missing description: append new entry
-    * - existing description: replace its area values
+    * Sync polygon data to their respective ComponentType sections.
+    * Groups polygons by label prefix, routes each group to the matching ComponentType.
+    * Preserves manually-set fields (quantity, orientation) for matching labels.
     */
-  def syncEbfPolygons(polygons: Seq[(String, Double)]): Unit =
+  def syncPolygons(polygons: Seq[(String, Double)]): Unit =
     val normalized = polygons
       .map((label, area) => (label.trim, if area.isNaN || area < 0 then 0.0 else area))
       .filter(_._1.nonEmpty)
 
-    val existingEntries = areaCalculations.now()
-      .flatMap(_.get(ComponentType.EBF))
-      .map(_.entries)
-      .getOrElse(List.empty)
+    val byType: Map[ComponentType, Seq[(String, Double)]] =
+      normalized
+        .groupBy { case (label, _) => ComponentType.fromPolygonLabel(label) }
+        .collect { case (Some(ct), entries) => ct -> entries }
 
-    // Rebuild from polygon sync: only keep entries that exist in the current polygon list,
-    // preserving manually-set fields (quantity, orientation) for matching labels.
-    val currentLabels = normalized.map(_._1).toSet
-    val syncedEntries = normalized.zipWithIndex.map { case ((label, polygonArea), idx) =>
-      existingEntries.find(_.description == label) match
-        case Some(current) =>
-          current.copy(
-            area = polygonArea,
-            totalArea = polygonArea * current.quantity,
-            areaNew = polygonArea,
-            totalAreaNew = polygonArea * current.quantityNew
-          )
-        case None =>
-          AreaEntry.empty((idx + 1).toString).copy(
-            description = label,
-            area = polygonArea,
-            quantity = 1,
-            totalArea = polygonArea,
-            areaNew = polygonArea,
-            quantityNew = 1,
-            totalAreaNew = polygonArea
-          )
-    }.toList
+    byType.foreach { case (compType, typePolygons) =>
+      val existingEntries = areaCalculations.now()
+        .flatMap(_.get(compType))
+        .map(_.entries)
+        .getOrElse(List.empty)
 
-    val renumbered = syncedEntries.zipWithIndex.map { case (entry, index) =>
-      entry.copy(nr = (index + 1).toString)
+      val syncedEntries = typePolygons.zipWithIndex.map { case ((label, polygonArea), idx) =>
+        existingEntries.find(_.description == label) match
+          case Some(current) =>
+            current.copy(
+              area = polygonArea,
+              totalArea = polygonArea * current.quantity,
+              areaNew = polygonArea,
+              totalAreaNew = polygonArea * current.quantityNew
+            )
+          case None =>
+            AreaEntry.empty((idx + 1).toString).copy(
+              description = label,
+              area = polygonArea,
+              quantity = 1,
+              totalArea = polygonArea,
+              areaNew = polygonArea,
+              quantityNew = 1,
+              totalAreaNew = polygonArea
+            )
+      }.toList
+
+      val renumbered = syncedEntries.zipWithIndex.map { case (entry, index) =>
+        entry.copy(nr = (index + 1).toString)
+      }
+
+      updateAreaCalculation(compType, renumbered)
+
+      if compType == ComponentType.EBF then
+        val totalEbf    = renumbered.map(_.totalArea).sum
+        val totalEbfStr = f"$totalEbf%.0f"
+        WordFormView.formVar.update(_.copy(ebf = totalEbfStr))
     }
-
-    updateAreaCalculation(ComponentType.EBF, renumbered)
-
-    val totalEbf = renumbered.map(_.totalArea).sum
-    val totalEbfStr = f"$totalEbf%.0f"
-    WordFormView.formVar.update(_.copy(ebf = totalEbfStr))
 
   /** Get entries for a specific component type */
   def getEntries(componentType: ComponentType): Signal[List[AreaEntry]] =

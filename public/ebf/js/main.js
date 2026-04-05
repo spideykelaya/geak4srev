@@ -4,7 +4,7 @@ import { S, initDom, canvas, s2w, w2s, setMode, px2m2, $, emitPolygonSyncEvent, 
 import { PDFJS_WORKER, COLORS, SNAP_RADIUS }             from './config.js';
 import { shoelace, findNearVertex, findNearEdge, dist }   from './geo.js';
 import { render }                                         from './render.js';
-import { updateSidebar, nextPolygonLabel, setSwitchPlanHandler } from './sidebar.js';
+import { updateSidebar, nextPolygonLabel, setSwitchPlanHandler, setCurrentAreaTypeLabel } from './sidebar.js';
 import { loadPDF, loadImg, exportData, exportExcel, exportXML, importData, printView, loadImageFromDataUrl } from './io.js';
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = PDFJS_WORKER;
@@ -60,7 +60,7 @@ function bindUI(ownerDocument) {
     const ok = await importData(f); e.target.value = '';
     if (!ok) return;
     applyScaleStatus();
-    show('scale-section'); show('draw-section');
+    show('scale-section'); show('area-type-section'); show('draw-section');
     updateSidebar(); render();
     emitPolygonSyncEvent();
     saveCurrentPlanState();
@@ -72,6 +72,11 @@ function bindUI(ownerDocument) {
 
   // Handle plan deletion
   window.addEventListener('geak:ebf-delete-plan', onDeletePlan);
+
+  // Area type selection from Scala sidebar
+  window.addEventListener('geak:ebf-area-type-selected', e => {
+    setCurrentAreaTypeLabel(e.detail);
+  });
 
   $('calibrate-btn').addEventListener('click', startCalibration);
   $('confirm-scale').addEventListener('click', confirmScale);
@@ -138,7 +143,7 @@ async function onFileChange(e) {
   S.scale = null; S.nextId = 1; S.nextMeasId = 1;
 
   fitToCanvas();
-  show('scale-section'); show('draw-section');
+  show('scale-section'); show('area-type-section'); show('draw-section');
   updateSidebar(); render();
   emitPolygonSyncEvent();
   emitPlansSyncEvent();
@@ -222,6 +227,7 @@ async function switchToPlan(planId) {
   }
 
   show('scale-section');
+  show('area-type-section');
   show('draw-section');
   updateSidebar();
   render();
