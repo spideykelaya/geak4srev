@@ -1,10 +1,10 @@
 'use strict';
 
 import { S, initDom, canvas, s2w, w2s, setMode, px2m2, $, emitPolygonSyncEvent, emitPlansSyncEvent, EBF_LOAD_PLANS_EVENT } from './state.js';
-import { PDFJS_WORKER, COLORS, SNAP_RADIUS }             from './config.js';
+import { PDFJS_WORKER, SNAP_RADIUS }                      from './config.js';
 import { shoelace, findNearVertex, findNearEdge, dist }   from './geo.js';
 import { render }                                         from './render.js';
-import { updateSidebar, nextPolygonLabel, setSwitchPlanHandler, setCurrentAreaTypeLabel } from './sidebar.js';
+import { updateSidebar, nextPolygonLabel, setSwitchPlanHandler, setCurrentAreaTypeLabel, colorForCurrentAreaType, getCurrentAreaTypeLabel } from './sidebar.js';
 import { loadPDF, loadImg, exportData, exportExcel, exportXML, importData, printView, loadImageFromDataUrl } from './io.js';
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = PDFJS_WORKER;
@@ -346,7 +346,7 @@ function finishPolygon() {
   const pixelArea = shoelace(pts);
   const id = S.nextId++;
   const label = nextPolygonLabel();
-  S.polygons.push({ id, label, points: pts, color: COLORS[(id - 1) % COLORS.length], pixelArea, area: px2m2(pixelArea) });
+  S.polygons.push({ id, label, areaType: getCurrentAreaTypeLabel(), points: pts, color: colorForCurrentAreaType(), pixelArea, area: px2m2(pixelArea) });
   S.current = []; setMode('idle'); setInstructions('');
   updateSidebar(); render();
   emitPolygonSyncEvent();
@@ -488,6 +488,12 @@ function onWheel(e) {
 }
 
 // ── Misc helpers ──────────────────────────────────────────────────────────────
-function show(id)              { $(id).style.display = ''; }
+function show(id) {
+  $(id).style.display = '';
+  if (id === 'area-type-section') {
+    const sel = $('area-type-select');
+    if (sel) setCurrentAreaTypeLabel(sel.value);
+  }
+}
 function setInstructions(t)    { $('instructions').textContent = t; }
 function updateZoomIndicator() { $('zoom-indicator').textContent = Math.round(S.zoom * 100) + '%'; }

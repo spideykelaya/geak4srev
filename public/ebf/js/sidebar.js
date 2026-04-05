@@ -7,8 +7,30 @@ const DEFAULT_POLYGON_LABEL = 'Flaeche';
 
 let currentAreaTypeLabel = DEFAULT_POLYGON_LABEL;
 
+const AREA_TYPE_COLORS = {
+  'EBF':                   '#fb923c', // orange
+  'Dach gegen Aussenluft': '#a78bfa', // violet
+  'Decke gegen unbeheizt': '#a78bfa', // violet
+  'Wand gegen Aussenluft': '#fbbf24', // gelb
+  'Wand gegen Erdreich':   '#34d399', // grün
+  'Wand gegen unbeheizt':  '#60a5fa', // blau
+  'Fenster':               '#f472b6', // pink
+  'Tür':                   '#f472b6', // pink
+  'Boden gegen Erdreich':  '#34d399', // grün
+  'Boden gegen unbeheizt': '#60a5fa', // blau
+  'Boden gegen aussen':    '#fbbf24', // gelb
+};
+
 export function setCurrentAreaTypeLabel(label) {
   currentAreaTypeLabel = (label && label.trim()) || DEFAULT_POLYGON_LABEL;
+}
+
+export function colorForCurrentAreaType() {
+  return AREA_TYPE_COLORS[currentAreaTypeLabel] ?? '#8888aa';
+}
+
+export function getCurrentAreaTypeLabel() {
+  return currentAreaTypeLabel;
 }
 
 // Callback registered by main.js so the sidebar can trigger plan switches

@@ -46,20 +46,20 @@ enum ComponentType:
    * Returns a light pastel color for visual distinction
    */
   def color: String = this match
-    case EBF                    => "#fff9c4" // Light yellow
-    case BasementFloor          => "#e3f2fd" // Light blue
-    case BasementWallToOutside  => "#f3e5f5" // Light purple
-    case BasementWallToEarth    => "#e8f5e9" // Light green
-    case BasementWallToUnheated => "#fff3e0" // Light orange
-    case BasementCeiling        => "#fce4ec" // Light pink
-    case ExteriorWall           => "#e0f2f1" // Light teal
-    case FloorToOutside         => "#f1f8e9" // Light lime
-    case AtticFloor             => "#ede7f6" // Light deep purple
-    case PitchedRoof            => "#e1f5fe" // Light cyan
-    case FlatRoof               => "#f3e5f5" // Light purple (alternate)
-    case ShutterBoxCover        => "#fff3e0" // Light orange (alternate)
-    case Window                 => "#e8eaf6" // Light indigo
-    case Door                   => "#fbe9e7" // Light deep orange
+    case EBF                    => "#fed7aa" // orange
+    case PitchedRoof            => "#ddd6fe" // violet
+    case AtticFloor             => "#ddd6fe" // violet
+    case ExteriorWall           => "#fde68a" // gelb
+    case BasementWallToEarth    => "#a7f3d0" // grün
+    case BasementWallToUnheated => "#bfdbfe" // blau
+    case Window                 => "#fbcfe8" // pink
+    case Door                   => "#fbcfe8" // pink
+    case BasementFloor          => "#a7f3d0" // grün
+    case BasementCeiling        => "#bfdbfe" // blau
+    case FloorToOutside         => "#fde68a" // gelb
+    case BasementWallToOutside  => "#f3e5f5" // legacy
+    case FlatRoof               => "#ddd6fe" // legacy
+    case ShutterBoxCover        => "#fff3e0" // legacy
 
 end ComponentType
 

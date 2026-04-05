@@ -1,6 +1,7 @@
 import { S, canvas, ctx, w2s }                          from './state.js';
-import { COLORS, CLOSE_VERTEX_RADIUS, SNAP_RADIUS, MEAS_COLOR } from './config.js';
+import { CLOSE_VERTEX_RADIUS, SNAP_RADIUS, MEAS_COLOR } from './config.js';
 import { dist, labelPoint, clamp, fmtArea, fmtLength }   from './geo.js';
+import { colorForCurrentAreaType }                        from './sidebar.js';
 
 // ── Entry point ───────────────────────────────────────────────────────────────
 export function render() {
@@ -137,7 +138,7 @@ function drawCalibLine() {
 // ── In-progress polygon ───────────────────────────────────────────────────────
 function drawCurrentPolygon() {
   if (!S.current.length) return;
-  const color = COLORS[(S.nextId - 1) % COLORS.length];
+  const color = colorForCurrentAreaType();
   const r     = CLOSE_VERTEX_RADIUS / S.zoom;
   const snap  = S.current.length >= 3 && S.mouse && (() => {
     const fs = w2s(S.current[0].x, S.current[0].y);

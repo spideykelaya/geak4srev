@@ -40,15 +40,19 @@ object AreaState:
     * Groups polygons by label prefix, routes each group to the matching ComponentType.
     * Preserves manually-set fields (quantity, orientation) for matching labels.
     */
-  def syncPolygons(polygons: Seq[(String, Double)]): Unit =
+  def syncPolygons(polygons: Seq[(String, String, Double)]): Unit =
     val normalized = polygons
-      .map((label, area) => (label.trim, if area.isNaN || area < 0 then 0.0 else area))
+      .map((label, areaType, area) => (label.trim, areaType.trim, if area.isNaN || area < 0 then 0.0 else area))
       .filter(_._1.nonEmpty)
 
+    // Route each polygon to a ComponentType using areaType if present, else fall back to label inference
     val byType: Map[ComponentType, Seq[(String, Double)]] =
       normalized
-        .groupBy { case (label, _) => ComponentType.fromPolygonLabel(label) }
-        .collect { case (Some(ct), entries) => ct -> entries }
+        .groupBy { case (label, areaType, _) =>
+          if areaType.nonEmpty then ComponentType.fromPolygonLabel(areaType)
+          else ComponentType.fromPolygonLabel(label)
+        }
+        .collect { case (Some(ct), entries) => ct -> entries.map((label, _, area) => (label, area)) }
 
     byType.foreach { case (compType, typePolygons) =>
       val existingEntries = areaCalculations.now()
