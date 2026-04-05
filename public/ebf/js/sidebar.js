@@ -7,6 +7,20 @@ const DEFAULT_POLYGON_LABEL = 'Flaeche';
 
 let currentAreaTypeLabel = DEFAULT_POLYGON_LABEL;
 
+const POLYGON_PREFIXES = {
+  'EBF':                   'EBF',
+  'Dach gegen Aussenluft': 'DA',
+  'Decke gegen unbeheizt': 'DU',
+  'Wand gegen Aussenluft': 'WA',
+  'Wand gegen Erdreich':   'WE',
+  'Wand gegen unbeheizt':  'WU',
+  'Fenster':               'FE',
+  'Tür':                   'FE',
+  'Boden gegen Erdreich':  'BE',
+  'Boden gegen unbeheizt': 'BU',
+  'Boden gegen aussen':    'BA',
+};
+
 const AREA_TYPE_COLORS = {
   'EBF':                   '#fb923c', // orange
   'Dach gegen Aussenluft': '#a78bfa', // violet
@@ -54,7 +68,11 @@ export function createUniquePolygonLabel(rawLabel = DEFAULT_POLYGON_LABEL, curre
 }
 
 export function nextPolygonLabel() {
-  return createUniquePolygonLabel(currentAreaTypeLabel);
+  const prefix = POLYGON_PREFIXES[currentAreaTypeLabel] ?? currentAreaTypeLabel;
+  const used = new Set(S.polygons.map(p => (p.label || '').trim()));
+  let idx = 1;
+  while (used.has(`${prefix}${idx}`)) idx++;
+  return `${prefix}${idx}`;
 }
 
 export function updateSidebar() {

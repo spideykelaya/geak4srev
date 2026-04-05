@@ -12,7 +12,7 @@ import pme123.geak4s.domain.uwert.ComponentType
  * Area calculation view (Flächenberechnung)
  * A section appears only when the ComponentType has polygon data OR a U-Wert calculation.
  * - Area exists, no U-Wert → "U-Wert fehlt"  (only for types where U-Wert applies)
- * - U-Wert exists, no area → "fehlende Fläche oder überschüssiger U-Wert"
+ * - U-Wert exists, no area → "fehlende Fläche oder überflüssiger U-Wert"
  */
 object AreaView:
 
@@ -115,7 +115,7 @@ object AreaView:
           MessageStrip(
             _.design          := MessageStripDesign.Warning,
             _.hideCloseButton := true,
-            "fehlende Fläche oder überschüssiger U-Wert"
+            "fehlende Fläche oder überflüssiger U-Wert"
           )
         )
       },
