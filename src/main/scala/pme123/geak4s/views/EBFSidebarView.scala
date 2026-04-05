@@ -1,22 +1,30 @@
 package pme123.geak4s.views
 
 import com.raquo.laminar.api.L.{*, given}
+import com.raquo.laminar.codecs.StringAsIsCodec
+import org.scalajs.dom
+import scala.scalajs.js
+import pme123.geak4s.domain.uwert.ComponentType
 
 /** Sidebar controls for the EBF calculator. */
 object EBFSidebarView:
+
+  private val areaTypeEvent    = "geak:ebf-area-type-selected"
+  private val optgroupLabelAttr = htmlAttr("label", StringAsIsCodec)
 
   def apply(): HtmlElement =
     htmlTag("aside")(
       className := "sidebar",
       div(
         className := "sidebar-header",
-        h1("EBF-Rechner")
+        h1("Flächen-Rechner")
       ),
       div(
         className := "sidebar-body",
         planSection(),
         plansSection(),
         scaleSection(),
+        areaTypeSection(),
         drawSection(),
         polygonsSection(),
         measurementsSection()
@@ -64,6 +72,34 @@ object EBFSidebarView:
       div(className := "section-label", "Massstab"),
       div(idAttr := "scale-status", className := "scale-status uncalibrated", "Nicht kalibriert"),
       button(className := "btn", idAttr := "calibrate-btn", "Massstab neu kalibrieren")
+    )
+
+  private def areaTypeSection(): HtmlElement =
+    div(
+      className := "section",
+      idAttr := "area-type-section",
+      display := "none",
+      div(className := "section-label", "Flächentyp"),
+      select(
+        idAttr := "area-type-select",
+        styleAttr := "width:100%;padding:0.35rem 0.5rem;background:var(--surface);color:var(--text-1);border:1px solid var(--border-hi);border-radius:var(--r);font-size:0.85rem;cursor:pointer;",
+        htmlTag("optgroup")(
+          optgroupLabelAttr := "EBF",
+          option(value := ComponentType.EBF.polygonLabel, ComponentType.EBF.label)
+        ),
+        htmlTag("optgroup")(
+          (Seq(optgroupLabelAttr := "Gebäudehülle") ++
+            ComponentType.orderedVisibleTypes
+              .filterNot(_ == ComponentType.EBF)
+              .map(ct => option(value := ct.polygonLabel, ct.label))
+          )*
+        ),
+        onChange --> Observer[dom.Event] { e =>
+          val sel  = e.target.asInstanceOf[dom.html.Select]
+          val init = js.Dynamic.literal(detail = sel.value, bubbles = false, cancelable = false)
+          dom.window.dispatchEvent(new dom.CustomEvent(areaTypeEvent, init.asInstanceOf[dom.CustomEventInit]))
+        }
+      )
     )
 
   private def drawSection(): HtmlElement =

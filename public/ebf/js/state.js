@@ -60,7 +60,8 @@ export function emitPolygonSyncEvent() {
   if (typeof window === 'undefined' || typeof window.dispatchEvent !== 'function') return;
   const polygons = S.polygons
     .map(poly => ({
-      label: (poly.label || '').trim(),
+      label:    (poly.label    || '').trim(),
+      areaType: (poly.areaType || '').trim(),
       area: Number.isFinite(poly.area) ? poly.area : 0,
     }))
     .filter(poly => poly.label);

@@ -20,7 +20,7 @@ object EBFCalculatorView:
   private val planUploadEvent  = "geak:ebf-plan-upload"
   private val loadPlansEvent   = "geak:ebf-load-plans"
 
-  private def decodePolygons(event: dom.Event): Seq[(String, Double)] =
+  private def decodePolygons(event: dom.Event): Seq[(String, String, Double)] =
     val payload = event.asInstanceOf[dom.CustomEvent].detail.asInstanceOf[js.Array[js.Dynamic]]
     payload.toSeq.flatMap { item =>
       val rawLabel = item.selectDynamic("label")
@@ -29,10 +29,14 @@ object EBFCalculatorView:
         else rawLabel.toString.trim
       if label.isEmpty then None
       else
+        val rawAreaType = item.selectDynamic("areaType")
+        val areaType =
+          if js.isUndefined(rawAreaType) || rawAreaType == null then ""
+          else rawAreaType.toString.trim
         val rawArea = item.selectDynamic("area")
         val parsed  = js.Dynamic.global.Number(rawArea).asInstanceOf[Double]
         val area    = if parsed.isNaN || parsed < 0 then 0.0 else parsed
-        Some(label -> area)
+        Some((label, areaType, area))
     }
 
   def apply(): HtmlElement =
@@ -48,7 +52,7 @@ object EBFCalculatorView:
         // ── polygon sync → AreaState ──
         val polyListener: js.Function1[dom.Event, Unit] = (event: dom.Event) =>
           val polygons = decodePolygons(event)
-          AreaState.syncEbfPolygons(polygons)
+          AreaState.syncPolygons(polygons)
           AppState.saveAreaCalculations()
         dom.window.addEventListener(polygonSyncEvent, polyListener)
         polygonSyncListener = Some(polyListener)

@@ -14,40 +14,79 @@ enum ComponentType:
   case PitchedRoof            // Steildach
   case FlatRoof               // Flachdach
   case ShutterBoxCover
+  case Window                 // Fenster
+  case Door                   // Tür
 
   def label: String = this match
   case EBF                    => "EBF - Energiebezugsfläche"
-  case BasementFloor          => "Kellerboden"
+  case PitchedRoof            => "Dach gegen Aussenluft"
+  case AtticFloor             => "Decke gegen unbeheizt"
+  case ExteriorWall           => "Wand gegen Aussenluft"
+  case BasementWallToEarth    => "Wand gegen Erdreich"
+  case BasementWallToUnheated => "Wand gegen unbeheizt"
+  case Window                 => "Fenster"
+  case Door                   => "Tür"
+  case BasementFloor          => "Boden gegen Erdreich"
+  case BasementCeiling        => "Boden gegen unbeheizt"
+  case FloorToOutside         => "Boden gegen aussen"
+  // legacy — no longer shown in UI
   case BasementWallToOutside  => "Kellerwand gg. Aussen"
-  case BasementWallToEarth    => "Kellerwand gg. Erdreich"
-  case BasementWallToUnheated => "Kellerwand gg. Unbeheizt"
-  case BasementCeiling        => "Keller-Decke"
-  case ExteriorWall           => "Aussenwand"
-  case FloorToOutside         => "Boden gg. Aussen"
-  case AtticFloor             => "Estrichboden"
-  case PitchedRoof            => "Steildach"
   case FlatRoof               => "Flachdach"
   case ShutterBoxCover        => "Storenabdeckung mit Aerogel"
+
+  /** Short label used as polygon prefix in the Flächen-Rechner */
+  def polygonLabel: String = this match
+    case EBF    => "EBF"
+    case Window => "Fenster"
+    case Door   => "Tür"
+    case _      => label
 
   /**
    * Get background color for this component type
    * Returns a light pastel color for visual distinction
    */
   def color: String = this match
-    case EBF                    => "#fff9c4" // Light yellow
-    case BasementFloor          => "#e3f2fd" // Light blue
-    case BasementWallToOutside  => "#f3e5f5" // Light purple
-    case BasementWallToEarth    => "#e8f5e9" // Light green
-    case BasementWallToUnheated => "#fff3e0" // Light orange
-    case BasementCeiling        => "#fce4ec" // Light pink
-    case ExteriorWall           => "#e0f2f1" // Light teal
-    case FloorToOutside         => "#f1f8e9" // Light lime
-    case AtticFloor             => "#ede7f6" // Light deep purple
-    case PitchedRoof            => "#e1f5fe" // Light cyan
-    case FlatRoof               => "#f3e5f5" // Light purple (alternate)
-    case ShutterBoxCover        => "#fff3e0" // Light orange (alternate)
+    case EBF                    => "#fed7aa" // orange
+    case PitchedRoof            => "#ddd6fe" // violet
+    case AtticFloor             => "#ddd6fe" // violet
+    case ExteriorWall           => "#fde68a" // gelb
+    case BasementWallToEarth    => "#a7f3d0" // grün
+    case BasementWallToUnheated => "#bfdbfe" // blau
+    case Window                 => "#fbcfe8" // pink
+    case Door                   => "#fbcfe8" // pink
+    case BasementFloor          => "#a7f3d0" // grün
+    case BasementCeiling        => "#bfdbfe" // blau
+    case FloorToOutside         => "#fde68a" // gelb
+    case BasementWallToOutside  => "#f3e5f5" // legacy
+    case FlatRoof               => "#ddd6fe" // legacy
+    case ShutterBoxCover        => "#fff3e0" // legacy
 
 end ComponentType
+
+object ComponentType:
+  /** Fixed display order — only these types are shown in the UI. */
+  val orderedVisibleTypes: Seq[ComponentType] = Seq(
+    EBF,
+    PitchedRoof,
+    AtticFloor,
+    ExteriorWall,
+    BasementWallToEarth,
+    BasementWallToUnheated,
+    Window,
+    Door,
+    BasementFloor,
+    BasementCeiling,
+    FloorToOutside
+  )
+
+  /** Types for which a U-Wert calculation makes sense (excludes EBF, Fenster, Tür). */
+  val uWertTypes: Seq[ComponentType] =
+    orderedVisibleTypes.filterNot(Set(EBF, Window, Door).contains)
+
+  /** Match a polygon label (possibly with trailing number) back to its ComponentType. */
+  def fromPolygonLabel(rawLabel: String): Option[ComponentType] =
+    val base = rawLabel.trim.replaceAll(""" \d+$""", "").trim
+    ComponentType.values.find(_.polygonLabel == base)
 
 case class BuildingComponent(
     compType: ComponentType,
@@ -65,63 +104,17 @@ case class HeatTransfer(
     thermalConductivity: Double
 )
 
+// buildingComponents in the fixed display order (uWertTypes only — no EBF, Window, Door)
 lazy val buildingComponents: Seq[BuildingComponent] =
   Seq(
-    BuildingComponent(
-      compType = ComponentType.BasementFloor,
-      heatTransferFromInside = transferFromInside,
-      heatTransferToOutside = transferToGround
-    ),
-    BuildingComponent(
-      compType = ComponentType.BasementWallToOutside,
-      heatTransferFromInside = transferFromInside,
-      heatTransferToOutside = transferToOutside
-    ),
-    BuildingComponent(
-      compType = ComponentType.BasementWallToEarth,
-      heatTransferFromInside = transferFromInside,
-      heatTransferToOutside = transferToGround
-    ),
-    BuildingComponent(
-      compType = ComponentType.BasementWallToUnheated,
-      heatTransferFromInside = transferFromInside,
-      heatTransferToOutside = transferToOutsideUnheated
-    ),
-    BuildingComponent(
-      compType = ComponentType.BasementCeiling,
-      heatTransferFromInside = transferFromInside,
-      heatTransferToOutside = transferToOutsideUnheated
-    ),
-    BuildingComponent(
-      compType = ComponentType.ExteriorWall,
-      heatTransferFromInside = transferFromInside,
-      heatTransferToOutside = transferToOutside
-    ),
-    BuildingComponent(
-      compType = ComponentType.FloorToOutside,
-      heatTransferFromInside = transferFromInside,
-      heatTransferToOutside = transferToOutside
-    ),
-    BuildingComponent(
-      compType = ComponentType.ShutterBoxCover,
-      heatTransferFromInside = transferFromInside,
-      heatTransferToOutside = transferToOutside
-    ),
-    BuildingComponent(
-      compType = ComponentType.AtticFloor,
-      heatTransferFromInside = transferFromInside,
-      heatTransferToOutside = transferToOutsideUnheated
-    ),
-    BuildingComponent(
-      compType = ComponentType.PitchedRoof,
-      heatTransferFromInside = transferFromInside,
-      heatTransferToOutside = transferToOutsideVentilated
-    ),
-    BuildingComponent(
-      compType = ComponentType.FlatRoof,
-      heatTransferFromInside = transferFromInside,
-      heatTransferToOutside = transferToOutside
-    )
+    BuildingComponent(ComponentType.PitchedRoof,            transferFromInside, transferToOutsideVentilated),
+    BuildingComponent(ComponentType.AtticFloor,             transferFromInside, transferToOutsideUnheated),
+    BuildingComponent(ComponentType.ExteriorWall,           transferFromInside, transferToOutside),
+    BuildingComponent(ComponentType.BasementWallToEarth,    transferFromInside, transferToGround),
+    BuildingComponent(ComponentType.BasementWallToUnheated, transferFromInside, transferToOutsideUnheated),
+    BuildingComponent(ComponentType.BasementFloor,          transferFromInside, transferToGround),
+    BuildingComponent(ComponentType.BasementCeiling,        transferFromInside, transferToOutsideUnheated),
+    BuildingComponent(ComponentType.FloorToOutside,         transferFromInside, transferToOutside)
   )
 
 // Heat transfer definitions

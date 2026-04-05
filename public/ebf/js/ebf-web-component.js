@@ -68,7 +68,7 @@ const TEMPLATE = `
   <div class="app">
     <aside class="sidebar">
       <div class="sidebar-header">
-        <h1>EBF-Rechner</h1>
+        <h1>Flächen-Rechner</h1>
       </div>
 
       <div class="sidebar-body">
@@ -204,7 +204,7 @@ class EbfCalculator extends HTMLElement {
       this.unmount = await mountEbfCalculator(this.shadowRoot);
     } catch (error) {
       console.error('EBF component failed to initialize', error);
-      this.shadowRoot.innerHTML = '<div style="padding:16px;color:#b91c1c">EBF-Rechner konnte nicht geladen werden.</div>';
+      this.shadowRoot.innerHTML = '<div style="padding:16px;color:#b91c1c">Flächen-Rechner konnte nicht geladen werden.</div>';
     }
   }
 
