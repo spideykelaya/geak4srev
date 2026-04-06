@@ -199,6 +199,7 @@ object WorkflowView:
     case Step.WordForm => IconName.`project-definition-triangle`
     case Step.GISData => IconName.`map`
     case Step.EBFCalculation => IconName.`area-chart`
+    case Step.EnergyCalculation => IconName.`energy-saving-lightbulb`
     case Step.UWertCalculation => IconName.`temperature`
     case Step.Calculations => IconName.`number-sign`
     case Step.DataEntry => IconName.`edit`
@@ -298,6 +299,7 @@ object WorkflowView:
     step match
       case Step.GISData => renderGISData(project)
       case Step.EBFCalculation => renderEBFStep(project)
+      case Step.EnergyCalculation => EnergyCalculationView()
       case Step.WordForm => WordFormView()
       case Step.UWertCalculation => renderUWertCalculation(project)
       case Step.Calculations => renderCalculations(project)
