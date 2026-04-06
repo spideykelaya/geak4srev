@@ -30,7 +30,6 @@ object ReportView:
           // Header
           div(
             marginBottom := "2rem",
-            Title(_.level := TitleLevel.H2, "Berichte"),
             MessageStrip(
               _.design := MessageStripDesign.Positive,
               _.hideCloseButton := true,
