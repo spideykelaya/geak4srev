@@ -8,6 +8,7 @@ import pme123.geak4s.domain.energy.*
 import pme123.geak4s.domain.uwert.UWertCalculation
 import pme123.geak4s.domain.area.BuildingEnvelopeArea
 import pme123.geak4s.domain.ebf.EbfPlans
+import pme123.geak4s.domain.energy.EnergyConsumptionData
 import scala.scalajs.js
 
 /** GEAK Domain Model Package
@@ -51,7 +52,8 @@ package object domain:
       uwertCalculations: List[UWertCalculation] = List.empty,
       areaCalculations: Option[BuildingEnvelopeArea] = None,
       gisData: Option[gis.MaddResponse] = None,
-      ebfPlans: Option[EbfPlans] = None
+      ebfPlans: Option[EbfPlans] = None,
+      energyConsumption: Option[EnergyConsumptionData] = None
   )
 
   object GeakProject:

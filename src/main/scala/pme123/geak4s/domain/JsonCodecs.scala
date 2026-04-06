@@ -11,6 +11,7 @@ import pme123.geak4s.domain.uwert.*
 import pme123.geak4s.domain.area.*
 import pme123.geak4s.domain.gis.*
 import pme123.geak4s.domain.ebf.*
+import pme123.geak4s.domain.energy.*
 
 /**
  * Circe JSON codecs for all domain models using semiauto derivation
@@ -193,6 +194,28 @@ object JsonCodecs:
 
   given Encoder[EbfPlans] = deriveEncoder[EbfPlans]
   given Decoder[EbfPlans] = deriveDecoder[EbfPlans]
+
+  // Energy consumption data
+  given Encoder[FuelType] = Encoder.encodeString.contramap(_.toString)
+  given Decoder[FuelType] = Decoder.decodeString.map(FuelType.valueOf)
+
+  given Encoder[ElectricityEntry] = deriveEncoder[ElectricityEntry]
+  given Decoder[ElectricityEntry] = deriveDecoder[ElectricityEntry]
+
+  given Encoder[FuelEntry] = deriveEncoder[FuelEntry]
+  given Decoder[FuelEntry] = deriveDecoder[FuelEntry]
+
+  given Encoder[WaterEntry] = deriveEncoder[WaterEntry]
+  given Decoder[WaterEntry] = deriveDecoder[WaterEntry]
+
+  given Encoder[HeatingPowerSettings] = deriveEncoder[HeatingPowerSettings]
+  given Decoder[HeatingPowerSettings] = deriveDecoder[HeatingPowerSettings]
+
+  given Encoder[EwsSettings] = deriveEncoder[EwsSettings]
+  given Decoder[EwsSettings] = deriveDecoder[EwsSettings]
+
+  given Encoder[EnergyConsumptionData] = deriveEncoder[EnergyConsumptionData]
+  given Decoder[EnergyConsumptionData] = deriveDecoder[EnergyConsumptionData]
 
   // Main project
   given Encoder[GeakProject] = deriveEncoder[GeakProject]

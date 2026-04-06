@@ -20,12 +20,13 @@ object WorkflowState:
   enum Step(val order: Int, val title: String, val description: String):
     case GISData extends Step(1, "GIS-Daten", "Gebäudedaten vom kantonalen GIS beziehen")
     case EBFCalculation extends Step(2, "Flächenauszug", "Energiebezugsfläche (EBF) und Gebäudehülle berechnen")
-    case WordForm extends Step(3, "Daten fürs Begehungsprotokoll", "Formular ausfüllen und Protokoll erstellen")
-    case UWertCalculation extends Step(4, "U-Wert-Berechnung", "Wärmedurchgangskoeffizienten berechnen")
-    case Calculations extends Step(5, "Flächenberechnung", "Gebäudehülle IST und SOLL")
-    case ProjectSetup extends Step(6, "GEAK Daten", "ergänzen fehlender Daten, welche fürs GEAK wichtig sind")
-    case DataEntry extends Step(7, "Dateneingabe", "Gebäudehülle, HLKK, Energie")
-    case Reports extends Step(8, "Berichte", "GEAK-Bericht erstellen und exportieren")
+    case EnergyCalculation extends Step(3, "Energieberechnung", "Energieverbrauch erfassen und Heizleistung berechnen")
+    case WordForm extends Step(4, "Daten fürs Begehungsprotokoll", "Formular ausfüllen und Protokoll erstellen")
+    case UWertCalculation extends Step(5, "U-Wert-Berechnung", "Wärmedurchgangskoeffizienten berechnen")
+    case Calculations extends Step(6, "Flächenberechnung", "Gebäudehülle IST und SOLL")
+    case ProjectSetup extends Step(7, "GEAK Daten", "ergänzen fehlender Daten, welche fürs GEAK wichtig sind")
+    case DataEntry extends Step(8, "Dateneingabe", "Gebäudehülle, HLKK, Energie")
+    case Reports extends Step(9, "Berichte", "GEAK-Bericht erstellen und exportieren")
   
   /** Status of each workflow step */
   enum StepStatus:
