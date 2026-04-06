@@ -19,13 +19,13 @@ import pme123.geak4s.state.AppState
 import scala.util.{Success, Failure}
 import pme123.geak4s.views.WordFormView
 
-object GisDataView:
+object DataView:
 
   // State for file upload
   private val fileInputRef = Var[Option[dom.html.Input]](None)
   private val xmlContent = Var[Option[String]](None)
   private val uploadError = Var[Option[String]](None)
-  private val parsedGisData = Var[Option[MaddResponse]](None)
+  private val parsedData = Var[Option[MaddResponse]](None)
 
   def apply(): HtmlElement =
     div(
@@ -33,7 +33,6 @@ object GisDataView:
       MessageStrip(
         _.design := MessageStripDesign.Information,
         _.hideCloseButton := true,
-        marginBottom := "1.5rem",
         "Beziehen Sie Gebäudedaten vom Geoportal."
       ),
       Card(
@@ -42,8 +41,8 @@ object GisDataView:
           case Some(project) =>
             val address = project.project.buildingLocation.address
 
-            // Initialize parsedGisData from project if available
-            project.gisData.foreach(gisData => parsedGisData.set(Some(gisData)))
+            // Initialize parsedData from project if available
+            project.gisData.foreach(data => parsedData.set(Some(data)))
 
             div(
               className := "card-content",
@@ -56,7 +55,7 @@ object GisDataView:
                     "_blank"
                   )
                 },
-                "Geoportal"
+                "Geoportal ZH"
               ),
 
               // XML File Upload Section
@@ -86,7 +85,7 @@ object GisDataView:
                     _.hideCloseButton := true,
                     _.events.onClose.mapTo(()) --> Observer[Unit] { _ =>
                       xmlContent.set(None)
-                      parsedGisData.set(None)
+                      parsedData.set(None)
                     },
                     s"XML-Datei erfolgreich geladen (${content.length} Zeichen)"
                   )
@@ -132,7 +131,7 @@ object GisDataView:
                             // Parse XML to case classes
                             GisXmlParser.parse(content) match
                               case Success(maddResponse) =>
-                                parsedGisData.set(Some(maddResponse))
+                                parsedData.set(Some(maddResponse))
 
                                 // Save to AppState
                                 AppState.saveGisData(maddResponse)
@@ -242,4 +241,4 @@ object GisDataView:
     case 7599 => "Andere"
     case other => s"Code $other"
 
-end GisDataView
+end DataView

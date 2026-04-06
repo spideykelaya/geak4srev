@@ -328,10 +328,10 @@ object WorkflowView:
   private def renderUWertCalculation(project: GeakProject): HtmlElement =
     div(
       className := "step-content",
-      Title(_.level := TitleLevel.H2, "U-Wert-Berechnung"),
       MessageStrip(
         _.design := MessageStripDesign.Information,
         _.hideCloseButton := true,
+        marginBottom := "1.5rem",
         "Berechnen Sie die Wärmedurchgangskoeffizienten (U-Werte) für verschiedene Bauteile."
       ),
       UWertView()
@@ -341,10 +341,10 @@ object WorkflowView:
   private def renderCalculations(project: GeakProject): HtmlElement =
     div(
       className := "step-content",
-      Title(_.level := TitleLevel.H2, "Flächenberechnung"),
       MessageStrip(
         _.design := MessageStripDesign.Information,
         _.hideCloseButton := true,
+        marginBottom := "1.5rem",
         "Erfassen Sie die Flächen der Gebäudehülle (IST und SOLL Zustand)."
       ),
       AreaView()
@@ -355,10 +355,10 @@ object WorkflowView:
   private def renderDataEntry(project: GeakProject): HtmlElement =
     div(
       className := "step-content",
-      Title(_.level := TitleLevel.H2, "Dateneingabe"),
       MessageStrip(
         _.design := MessageStripDesign.Information,
         _.hideCloseButton := true,
+        marginBottom := "1.5rem",
         "Erfassen Sie alle Gebäudedaten: Hülle, HLKK-Systeme, Energieproduktion."
       ),
       div(

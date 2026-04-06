@@ -107,13 +107,15 @@ function bindUI(ownerDocument) {
 // ── File loading ──────────────────────────────────────────────────────────────
 async function onFileChange(e) {
   const file = e.target.files[0]; if (!file) return;
+
+  // Persist the outgoing plan BEFORE loading the new image, so the old plan
+  // keeps its own imageDataUrl, scale, and polygons intact.
+  saveCurrentPlanState();
+
   try {
     if (file.type === 'application/pdf') await loadPDF(file);
     else await loadImg(file);
   } catch (err) { alert('Laden fehlgeschlagen: ' + err.message); return; }
-
-  // Persist the outgoing plan before switching
-  saveCurrentPlanState();
 
   // Build a new plan entry
   const planId    = 'plan_' + Date.now();
@@ -198,7 +200,7 @@ async function switchToPlan(planId) {
       await loadImageFromDataUrl(imageDataUrl);
       plan.imageDataUrl = S.imageDataUrl; // keep in sync
     } catch (err) {
-      dom.console.warn('Failed to load image:', err);
+      console.warn('Failed to load image:', err);
       S.image = null;
       S.imageW = plan.imageW;
       S.imageH = plan.imageH;
