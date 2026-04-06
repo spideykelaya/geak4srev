@@ -30,11 +30,10 @@ object GisDataView:
   def apply(): HtmlElement =
     div(
       className := "step-content",
-      Title(_.level := TitleLevel.H2, "GIS-Daten beziehen"),
       MessageStrip(
         _.design := MessageStripDesign.Information,
         _.hideCloseButton := true,
-        "Beziehen Sie Gebäudedaten vom kantonalen GIS (Zürich)."
+        "Beziehen Sie Gebäudedaten vom Geoportal."
       ),
       Card(
         // Reactively display address and coordinates from AppState
@@ -56,7 +55,7 @@ object GisDataView:
                     "_blank"
                   )
                 },
-                "Auf Geoportal anzeigen"
+                "Geoportal"
               ),
 
               // XML File Upload Section
@@ -64,7 +63,7 @@ object GisDataView:
                 marginTop := "1.5rem",
                 Label(
                   fontWeight := "600",
-                  "GIS-Daten aus XML importieren:"
+                  "GEO-Daten aus XML importieren:"
                 ),
 
                 // Error message
@@ -91,11 +90,7 @@ object GisDataView:
                     s"XML-Datei erfolgreich geladen (${content.length} Zeichen)"
                   )
                 }),
-
-                // Display parsed GIS data
-                child.maybe <-- parsedGisData.signal.map(_.map { maddResponse =>
-                  renderGisDataSummary(maddResponse)
-                }),
+                
 
                 div(
                   marginTop := "0.5rem",
@@ -137,14 +132,6 @@ object GisDataView:
                             GisXmlParser.parse(content) match
                               case Success(maddResponse) =>
                                 parsedGisData.set(Some(maddResponse))
-
-                                // Print summary to console
-                                val summary = MaddResponse.summary(maddResponse)
-                                dom.console.log(summary)
-
-                                // Print detailed structure
-                                dom.console.log("Parsed GIS Data Structure:")
-                                dom.console.log(maddResponse)
 
                                 // Save to AppState
                                 AppState.saveGisData(maddResponse)
@@ -218,65 +205,10 @@ object GisDataView:
                   )
                 )
               ),
-
-              Label(s"Address: ${address.asCopyString}"),
-              Label(s"Coordinates: ${address.coordString}"),
-              Label("• Energiebezugsfläche (EBF)"),
-              Label("• Gebäudetyp und Baujahr"),
-              Label("• EGID/EDID Daten")
             )
           case None          =>
             div(Label("No project loaded"))
       )
-    )
-
-  /** Render a summary of the parsed GIS data */
-  private def renderGisDataSummary(maddResponse: MaddResponse): HtmlElement =
-    div(
-      marginTop := "1.5rem",
-      maddResponse.buildingList.map { buildingItem =>
-        Card(
-          _.slots.header := CardHeader(
-            _.titleText := s"Gebäude EGID: ${buildingItem.egid}",
-            _.subtitleText := s"${buildingItem.municipality.municipalityName} (${buildingItem.municipality.cantonAbbreviation})"
-          ),
-          div(
-            className := "card-content",
-
-            // Building info
-            Title(_.level := TitleLevel.H4, "Gebäudeinformationen"),
-            Label(s"Gebäudenummer: ${buildingItem.building.officialBuildingNo.getOrElse("N/A")}"),
-            Label(s"Koordinaten: E=${buildingItem.building.coordinates.east}, N=${buildingItem.building.coordinates.north}"),
-            Label(s"Gebäudefläche: ${buildingItem.building.surfaceAreaOfBuilding.getOrElse("N/A")} m²"),
-            Label(s"Anzahl Stockwerke: ${buildingItem.building.numberOfFloors.getOrElse("N/A")}"),
-            Label(s"Baujahr: ${buildingItem.building.dateOfConstruction.flatMap(_.dateOfConstruction).getOrElse("N/A")}"),
-
-            // Entrances
-            div(
-              marginTop := "1rem",
-              Title(_.level := TitleLevel.H4, s"Eingänge (${buildingItem.buildingEntranceList.length})"),
-              buildingItem.buildingEntranceList.map { entrance =>
-                val addr = entrance.buildingEntrance
-                div(
-                  marginTop := "0.5rem",
-                  Label(
-                    fontWeight := "600",
-                    s"${addr.street.streetName.descriptionLong} ${addr.buildingEntranceNo}, ${addr.locality.swissZipCode} ${addr.locality.placeName}"
-                  ),
-                  Label(s"  Wohnungen: ${entrance.dwellingList.length}"),
-                  entrance.dwellingList.map { dwelling =>
-                    Label(
-                      marginLeft := "1rem",
-                      fontSize := "0.875rem",
-                      s"• Whg ${dwelling.dwelling.administrativeDwellingNo}: ${dwelling.dwelling.noOfHabitableRooms.getOrElse("?")} Zimmer, ${dwelling.dwelling.surfaceAreaOfDwelling.getOrElse("?")} m²"
-                    )
-                  }
-                )
-              }
-            )
-          )
-        )
-      }
     )
 
   private def translateHeatGenerator(code: String): String = code.toIntOption.getOrElse(0) match
