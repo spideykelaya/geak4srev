@@ -775,8 +775,6 @@ object EnergyCalculationView:
         case (d, ebf) => syncToWordForm(d, ebf)
       },
 
-      Title(_.level := TitleLevel.H2, "Energieberechnung"),
-
       MessageStrip(
         _.design := MessageStripDesign.Information,
         _.hideCloseButton := true,

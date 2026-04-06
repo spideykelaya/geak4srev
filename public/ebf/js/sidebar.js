@@ -69,7 +69,11 @@ export function createUniquePolygonLabel(rawLabel = DEFAULT_POLYGON_LABEL, curre
 
 export function nextPolygonLabel() {
   const prefix = POLYGON_PREFIXES[currentAreaTypeLabel] ?? currentAreaTypeLabel;
-  const used = new Set(S.polygons.map(p => (p.label || '').trim()));
+  // Collect used labels across ALL plans so numbering is globally unique.
+  const allPolygons = S.plans.flatMap(plan =>
+    plan.id === S.activePlanId ? S.polygons : plan.polygons
+  );
+  const used = new Set(allPolygons.map(p => (p.label || '').trim()));
   let idx = 1;
   while (used.has(`${prefix}${idx}`)) idx++;
   return `${prefix}${idx}`;

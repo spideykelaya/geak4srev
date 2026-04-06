@@ -58,13 +58,27 @@ export function setMode(m) {
 
 export function emitPolygonSyncEvent() {
   if (typeof window === 'undefined' || typeof window.dispatchEvent !== 'function') return;
-  const polygons = S.polygons
-    .map(poly => ({
-      label:    (poly.label    || '').trim(),
-      areaType: (poly.areaType || '').trim(),
-      area: Number.isFinite(poly.area) ? poly.area : 0,
-    }))
-    .filter(poly => poly.label);
+
+  // Aggregate polygons from all plans.
+  // Use the live S.polygons for the active plan so unsaved changes are included.
+  const allRaw = S.plans.flatMap(plan =>
+    (plan.id === S.activePlanId ? S.polygons : plan.polygons)
+      .map(poly => ({
+        label:    (poly.label    || '').trim(),
+        areaType: (poly.areaType || '').trim(),
+        area: Number.isFinite(poly.area) ? poly.area : 0,
+      }))
+      .filter(poly => poly.label)
+  );
+
+  // Re-number labels sequentially per prefix across all plans so there are no
+  // duplicates (e.g. two plans each having "EBF1" become "EBF1" and "EBF2").
+  const prefixCounters = {};
+  const polygons = allRaw.map(poly => {
+    const prefix = poly.label.replace(/\d+$/, '') || poly.label;
+    prefixCounters[prefix] = (prefixCounters[prefix] || 0) + 1;
+    return { ...poly, label: prefix + prefixCounters[prefix] };
+  });
 
   window.dispatchEvent(new CustomEvent(EBF_POLYGONS_SYNC_EVENT, { detail: polygons }));
 }

@@ -57,39 +57,43 @@ object WordFormView:
 
   def apply(): HtmlElement =
     div(
-      className := "word-form",
-      h2("Begehungsprotokoll erfassen"),
+      className := "project-view",
 
-      h3("Projektinfos"),
-      textInput("Projektnummer", _.projektnummer, (d,v) => d.copy(projektnummer=v)),
-      textInput("AuftraggeberIn", _.auftraggeberin, (d,v) => d.copy(auftraggeberin=v)),
-      textInput("Mail", _.mail, (d,v) => d.copy(mail=v)),
-      textInput("Tel.", _.tel, (d,v) => d.copy(tel=v)),
-       textInput("Datum", _.datum, (d,v) => d.copy(datum=v)),
-      textInput("Adresse", _.adresse, (d,v) => d.copy(adresse=v)),
-      textInput("Baujahr", _.baujahr, (d,v) => d.copy(baujahr=v)),
-      textInput("EGID", _.egid, (d,v) => d.copy(egid=v)),
+      renderSection("Projektinfos", div(
+        textInput("Projektnummer", _.projektnummer, (d,v) => d.copy(projektnummer=v)),
+        textInput("AuftraggeberIn", _.auftraggeberin, (d,v) => d.copy(auftraggeberin=v)),
+        textInput("Mail", _.mail, (d,v) => d.copy(mail=v)),
+        textInput("Tel.", _.tel, (d,v) => d.copy(tel=v)),
+        textInput("Datum", _.datum, (d,v) => d.copy(datum=v)),
+        textInput("Adresse", _.adresse, (d,v) => d.copy(adresse=v)),
+        textInput("Baujahr", _.baujahr, (d,v) => d.copy(baujahr=v)),
+        textInput("EGID", _.egid, (d,v) => d.copy(egid=v)),
+      )),
 
-      h3("Heizung"),
-      textInput("Heizung", _.heizung, (d,v) => d.copy(heizung=v)),
+      renderSection("Heizung", div(
+        textInput("Heizung", _.heizung, (d,v) => d.copy(heizung=v)),
+      )),
 
-      h3("Warmwasser"),
-      textInput("Warmwasser", _.warmwasser, (d,v) => d.copy(warmwasser=v)),
+      renderSection("Warmwasser", div(
+        textInput("Warmwasser", _.warmwasser, (d,v) => d.copy(warmwasser=v)),
+      )),
 
-      h3("Gebäude"),
-      textInput("Gebäudeart", _.gebaudeart, (d,v) => d.copy(gebaudeart=v)),
-      textInput("EBF", _.ebf, (d,v) => d.copy(ebf=v)),
-      textInput("Wohnungen", _.wohnungen, (d,v) => d.copy(wohnungen=v)),
-      textInput("Energieart", _.energieart, (d,v) => d.copy(energieart=v)),
-      textInput("Energieverbrauch", _.energieverbrauch, (d,v) => d.copy(energieverbrauch=v)),
-      textInput("Energiekennzahl", _.energiekennzahl, (d,v) => d.copy(energiekennzahl=v)),
+      renderSection("Gebäude", div(
+        textInput("Gebäudeart", _.gebaudeart, (d,v) => d.copy(gebaudeart=v)),
+        textInput("EBF", _.ebf, (d,v) => d.copy(ebf=v)),
+        textInput("Wohnungen", _.wohnungen, (d,v) => d.copy(wohnungen=v)),
+        textInput("Energieart", _.energieart, (d,v) => d.copy(energieart=v)),
+        textInput("Energieverbrauch", _.energieverbrauch, (d,v) => d.copy(energieverbrauch=v)),
+        textInput("Energiekennzahl", _.energiekennzahl, (d,v) => d.copy(energiekennzahl=v)),
+      )),
 
-      h3("zukünftige Heizung"),
-      textInput("Erdsonde erlaubt", _.erdsonde, (d,v) => d.copy(erdsonde=v)),
-      textInput("Fernwärme vorhanden", _.fernwärme, (d,v) => d.copy(fernwärme=v)),
-      textInput("Fossil-Leistung", _.fossil, (d,v) => d.copy(fossil=v)),
-      textInput("WP-Leistung", _.wp, (d,v) => d.copy(wp=v)),
-      textInput("Sondentiefe", _.sondentiefe, (d,v) => d.copy(sondentiefe=v)),
+      renderSection("zukünftige Heizung", div(
+        textInput("Erdsonde erlaubt", _.erdsonde, (d,v) => d.copy(erdsonde=v)),
+        textInput("Fernwärme vorhanden", _.fernwärme, (d,v) => d.copy(fernwärme=v)),
+        textInput("Fossil-Leistung", _.fossil, (d,v) => d.copy(fossil=v)),
+        textInput("WP-Leistung", _.wp, (d,v) => d.copy(wp=v)),
+        textInput("Sondentiefe", _.sondentiefe, (d,v) => d.copy(sondentiefe=v)),
+      )),
 
       // Button zum Generieren
       Button(
@@ -99,6 +103,16 @@ object WordFormView:
           sendToBackend()
         }
       )
+    )
+
+  private def renderSection(title: String, content: HtmlElement): HtmlElement =
+    div(
+      className := "form-section",
+      div(
+        className := "section-header",
+        Title(_.level := TitleLevel.H3, title)
+      ),
+      content
     )
 
   // Funktion für POST
