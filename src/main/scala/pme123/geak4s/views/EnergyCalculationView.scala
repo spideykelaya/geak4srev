@@ -42,14 +42,19 @@ object EnergyCalculationView:
   // Helpers
   // -------------------------------------------------------------------------
 
+  private def addThousandsSep(intPart: String): String =
+    intPart.reverse.grouped(3).mkString("'").reverse
+
   private def fmtNum(v: Double, decimals: Int = 0): String =
     val factor  = math.pow(10, decimals)
     val rounded = math.round(v * factor).toDouble / factor
-    if decimals == 0 then rounded.toLong.toString
+    if decimals == 0 then
+      addThousandsSep(rounded.toLong.toString)
     else
-      val parts = rounded.toString.split('.')
-      val dec   = if parts.length > 1 then parts(1).take(decimals).padTo(decimals, '0') else "0" * decimals
-      s"${parts(0)}.${dec}"
+      val parts   = rounded.toString.split('.')
+      val intPart = addThousandsSep(parts(0))
+      val dec     = if parts.length > 1 then parts(1).take(decimals).padTo(decimals, '0') else "0" * decimals
+      s"$intPart.$dec"
 
   private def fmtOpt(opt: Option[Double], decimals: Int = 0): String =
     opt.map(fmtNum(_, decimals)).getOrElse("–")
@@ -68,6 +73,33 @@ object EnergyCalculationView:
         .map(_.entries.map(_.totalArea).sum)
         .getOrElse(0.0)
     }
+
+  // -------------------------------------------------------------------------
+  // Sync computed values → WordForm (Step 4)
+  // -------------------------------------------------------------------------
+
+  private def syncToWordForm(d: EnergyConsumptionData, ebf: Double): Unit =
+    val vals = d.fuelEntries.flatMap(_.correctedKwh(d.calorificValue))
+    if vals.nonEmpty then
+      val s         = d.heatingPowerSettings
+      val avg       = vals.sum / vals.length
+      val nwb       = avg * s.wirkungsgrad
+      val hl        = math.round(nwb / s.volllaststunden * 10.0).toDouble / 10.0
+      val hlr       = math.round(hl * (1 + s.reserve) * 10.0).toDouble / 10.0
+      val z         = if hlr >= 15.0 then 0.2 else 0.0
+      val hlNew     = math.round(hlr * (1 + z) * 10.0).toDouble / 10.0
+      val ekz       = if ebf > 0 then fmtNum(avg / ebf, 1) else ""
+      val ews       = d.ewsSettings
+      val tiefeTotal    = hlNew * 1000.0 * ews.bezugAusErdreich / ews.spezifischeEntnahmeleistung
+      val tiefeProSonde = tiefeTotal / ews.anzahlSonden
+      val sondentiefe   = s"${ews.anzahlSonden} × ${fmtNum(tiefeProSonde, 1)} m"
+      WordFormView.formVar.update(_.copy(
+        energieverbrauch = fmtNum(avg, 0),
+        energiekennzahl  = ekz,
+        fossil           = fmtNum(hlr, 1),
+        wp               = fmtNum(hlNew, 1),
+        sondentiefe      = sondentiefe
+      ))
 
   // -------------------------------------------------------------------------
   // Section header helper
@@ -505,9 +537,13 @@ object EnergyCalculationView:
         hl.map(h => math.round(h * (1 + s.reserve) * 10.0).toDouble / 10.0)
       }
 
+    // Zuschlag automatisch: >= 15 kW → 20%, sonst 0%
+    val zuschlagEWSignal: Signal[Double] =
+      heizleistungMitReserve.map(hlr => if hlr.exists(_ >= 15.0) then 0.2 else 0.0)
+
     val heizleistungNeueAnlage: Signal[Option[Double]] =
-      heizleistungMitReserve.combineWith(settings).map { case (hlr, s) =>
-        hlr.map(h => math.round(h * (1 + s.zuschlagEW) * 10.0).toDouble / 10.0)
+      heizleistungMitReserve.combineWith(zuschlagEWSignal).map { case (hlr, z) =>
+        hlr.map(h => math.round(h * (1 + z) * 10.0).toDouble / 10.0)
       }
 
     def updateSettings(f: HeatingPowerSettings => HeatingPowerSettings): Unit =
@@ -546,11 +582,7 @@ object EnergyCalculationView:
             tbody(
               tr(
                 td(labelCell, "Klimaregion"),
-                td(cellStyle, colSpan := 2,
-                  settingsNumInput(data.now().heatingPowerSettings.klimaregion, "200px") { v =>
-                    data.update(d => d.copy(heatingPowerSettings = d.heatingPowerSettings.copy(klimaregion = v)))
-                  }
-                )
+                td(cellStyle, colSpan := 2, color := "black", "Zürich-MeteoSchweiz")
               ),
               tr(
                 td(labelCell, "Gebäudekategorie"),
@@ -580,16 +612,17 @@ object EnergyCalculationView:
                   CheckBox(
                     _.checked <-- settings.map(_.warmwasserUeberHeizung),
                     _.events.onChange.map(_.target.checked) --> Observer[Boolean] { v =>
-                      updateSettings(_.copy(warmwasserUeberHeizung = v))
+                      updateSettings(_.copy(
+                        warmwasserUeberHeizung = v,
+                        volllaststunden = if v then 2700.0 else 2300.0
+                      ))
                     }
                   )
                 )
               ),
               tr(
                 td(labelCell, "Volllaststunden"),
-                td(cellStyle, settingsNumInput(data.now().heatingPowerSettings.volllaststunden.toString) { v =>
-                  parseDouble(v).foreach(n => updateSettings(_.copy(volllaststunden = n)))
-                }),
+                td(resultCell, child.text <-- settings.map(s => fmtNum(s.volllaststunden, 0))),
                 td(cellStyle, "h")
               ),
               tr(
@@ -607,11 +640,11 @@ object EnergyCalculationView:
                 td(cellStyle, "[-]")
               ),
               tr(
-                td(labelCell, "Zuschlag 2×2h Sperrung EW"),
-                td(cellStyle, settingsNumInput(data.now().heatingPowerSettings.zuschlagEW.toString) { v =>
-                  parseDouble(v).foreach(n => updateSettings(_.copy(zuschlagEW = n)))
-                }),
-                td(cellStyle, "[-]")
+                td(labelCell, "Zuschlag 2×2h Sperrung EW*"),
+                td(resultCell, child.text <-- zuschlagEWSignal.map(z =>
+                  if z > 0 then "20% (≥ 15 kW)" else "0% (< 15 kW)"
+                )),
+                td(cellStyle, "")
               )
             )
           )
@@ -628,17 +661,11 @@ object EnergyCalculationView:
               resultRow("Energiekennzahl",           energiekennzahl,       "kWh/m²"),
               resultRow("Nutzwärmebedarf",           nutzwaermebedarf,      "kWh", 0),
               resultRow("Heizleistung",              heizleistung,          "kW"),
-              resultRow("Spez. Heizleistung",        spezHeizleistung,      "W/m²"),
-              resultRow("Heizleistung mit Reserve",  heizleistungMitReserve,"kW"),
-              resultRow("Heizleistung neue Anlage",  heizleistungNeueAnlage,"kW")
+              resultRow("spezifische Heizleistung",        spezHeizleistung,      "W/m²"),
+              resultRow("Heizleistung Öl-/Gasheizung mit Reserve",  heizleistungMitReserve,"kW"),
+              resultRow("Heizleistung WP",  heizleistungNeueAnlage,"kW")
             )
           ),
-          MessageStrip(
-            _.design := MessageStripDesign.Information,
-            _.hideCloseButton := true,
-            marginTop := "0.75rem",
-            "* Beim EKZ-Gebiet erst ab 4 kW Kompressorleistung (rund 15 kW WP)"
-          )
         )
       )
     )
@@ -662,7 +689,8 @@ object EnergyCalculationView:
           val nwb   = avg * s.wirkungsgrad
           val hl    = math.round(nwb / s.volllaststunden * 10.0).toDouble / 10.0
           val hlr   = math.round(hl * (1 + s.reserve) * 10.0).toDouble / 10.0
-          Some(math.round(hlr * (1 + s.zuschlagEW) * 10.0).toDouble / 10.0)
+          val z     = if hlr >= 15.0 then 0.2 else 0.0
+          Some(math.round(hlr * (1 + z) * 10.0).toDouble / 10.0)
       }
 
     val tiefeTotalSignal: Signal[Option[Double]] =
@@ -696,17 +724,18 @@ object EnergyCalculationView:
         tbody(
           tr(
             td(labelCell, "Spezifische Entnahmeleistung"),
-            td(cellStyle, ewsInput(data.now().ewsSettings.spezifischeEntnahmeleistung.toString) { v =>
-              parseDouble(v).foreach(n => updateSettings(_.copy(spezifischeEntnahmeleistung = n)))
-            }),
+            td(cellStyle, color := "black", "35"),
             td(cellStyle, "W/m")
           ),
           tr(
             td(labelCell, "Bezug aus Erdreich"),
-            td(cellStyle, ewsInput(data.now().ewsSettings.bezugAusErdreich.toString) { v =>
-              parseDouble(v).foreach(n => updateSettings(_.copy(bezugAusErdreich = n)))
-            }),
+            td(cellStyle, color := "black", "0.75"),
             td(cellStyle, "[-]")
+          ),
+          tr(
+            td(labelCell, fontWeight := "bold", "Tiefe Erdwärmesonde total"),
+            td(resultCell, fontWeight := "bold", child.text <-- tiefeTotalSignal.map(fmtOpt(_, 1))),
+            td(cellStyle, "m")
           ),
           tr(
             td(labelCell, "Anzahl Erdwärmesonden"),
@@ -714,11 +743,6 @@ object EnergyCalculationView:
               parseInt(v).foreach(n => updateSettings(_.copy(anzahlSonden = n)))
             }),
             td(cellStyle, "Stück")
-          ),
-          tr(
-            td(labelCell, fontWeight := "bold", "Tiefe Erdwärmesonde total"),
-            td(resultCell, fontWeight := "bold", child.text <-- tiefeTotalSignal.map(fmtOpt(_, 1))),
-            td(cellStyle, "m")
           ),
           tr(
             td(labelCell, fontWeight := "bold", "Tiefe Erdwärmesonde pro Sonde"),
@@ -745,6 +769,10 @@ object EnergyCalculationView:
         if elecDisplay.now().length  != d.electricityEntries.length then elecDisplay.set(d.electricityEntries)
         if fuelDisplay.now().length  != d.fuelEntries.length         then fuelDisplay.set(d.fuelEntries)
         if waterDisplay.now().length != d.waterEntries.length        then waterDisplay.set(d.waterEntries)
+      },
+      // Push calculated values to WordForm (Step 4) whenever data or EBF changes
+      EnergyState.energyData.signal.combineWith(ebfSignal) --> Observer[(EnergyConsumptionData, Double)] {
+        case (d, ebf) => syncToWordForm(d, ebf)
       },
 
       Title(_.level := TitleLevel.H2, "Energieberechnung"),
