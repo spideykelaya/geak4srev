@@ -180,7 +180,7 @@ object EBFCalculatorView:
       display := "none",
       div(
         className := "dialog",
-        h3("Wahre Entfernung"),
+        h3(idAttr := "scale-dialog-title", "Wahre Entfernung"),
         p("Geben Sie die reale Laenge der Linie ein, die Sie gerade gezeichnet haben:"),
         div(
           className := "input-group",

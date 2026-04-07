@@ -89,7 +89,13 @@ const TEMPLATE = `
         <div class="section" id="scale-section" style="display:none">
           <div class="section-label">Massstab</div>
           <div id="scale-status" class="scale-status uncalibrated">Nicht kalibriert</div>
-          <button class="btn" id="calibrate-btn">Massstab neu kalibrieren</button>
+          <button class="btn" id="calibrate-btn">Massstab kalibrieren</button>
+          <div class="tools-divider"></div>
+          <div class="section-label" style="font-size:0.78rem;opacity:0.7">Separate Massstäbe (verzerrte Pläne)</div>
+          <div class="btn-row">
+            <button class="btn" id="calibrate-y-btn" title="Vertikalen Massstab kalibrieren">Vertikal</button>
+            <button class="btn" id="calibrate-x-btn" title="Horizontalen Massstab kalibrieren">Horizontal</button>
+          </div>
         </div>
 
         <div class="section" id="draw-section" style="display:none">
@@ -143,23 +149,7 @@ const TEMPLATE = `
     </main>
   </div>
 
-  <div id="calib-intro-modal" class="dialog-overlay" style="display:none">
-    <div class="dialog">
-      <h3>Massstabs-Kalibrierung</h3>
-      <p>Um Flaechen zu berechnen, muss die App den Massstab des Plans kennen.</p>
-      <ol class="calib-steps">
-        <li><span>Klicken Sie auf <strong>2 Punkte</strong>, deren echte Entfernung Sie kennen (z. B. eine Wand)</span></li>
-        <li><span>Geben Sie die <strong>reale Entfernung</strong> zwischen diesen 2 Punkten ein</span></li>
-        <li><span>Der Massstab wird berechnet und die Flaechen werden automatisch angezeigt</span></li>
-      </ol>
-      <div class="dialog-buttons">
-        <button class="btn btn-primary" id="calib-intro-start">Starten</button>
-        <button class="btn" id="calib-intro-skip">Ueberspringen</button>
-      </div>
-    </div>
-  </div>
-
-  <div id="clear-confirm-modal" class="dialog-overlay" style="display:none">
+<div id="clear-confirm-modal" class="dialog-overlay" style="display:none">
     <div class="dialog">
       <h3>Alles loeschen?</h3>
       <p>Alle Polygone und Messungen werden geloescht. Diese Aktion ist nicht umkehrbar.</p>
@@ -172,7 +162,7 @@ const TEMPLATE = `
 
   <div id="scale-dialog" class="dialog-overlay" style="display:none">
     <div class="dialog">
-      <h3>Wahre Entfernung</h3>
+      <h3 id="scale-dialog-title">Wahre Entfernung</h3>
       <p>Geben Sie die reale Laenge der Linie ein, die Sie gerade gezeichnet haben:</p>
       <div class="input-group">
         <input type="number" id="real-length" min="0.001" step="any" placeholder="z. B. 5">

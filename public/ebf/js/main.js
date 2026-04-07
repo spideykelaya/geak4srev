@@ -78,7 +78,9 @@ function bindUI(ownerDocument) {
     setCurrentAreaTypeLabel(e.detail);
   });
 
-  $('calibrate-btn').addEventListener('click', startCalibration);
+  $('calibrate-btn').addEventListener('click', () => startCalibration('uniform'));
+  $('calibrate-x-btn')?.addEventListener('click', () => startCalibration('x'));
+  $('calibrate-y-btn')?.addEventListener('click', () => startCalibration('y'));
   $('confirm-scale').addEventListener('click', confirmScale);
   $('cancel-scale').addEventListener('click', cancelCalibration);
   $('draw-btn').addEventListener('click', startDrawing);
@@ -91,9 +93,7 @@ function bindUI(ownerDocument) {
   $('print-btn').addEventListener('click', () => printView());
   $('clear-confirm-yes').addEventListener('click', clearAllConfirmed);
   $('clear-confirm-no').addEventListener('click', () => { $('clear-confirm-modal').style.display = 'none'; });
-  $('calib-intro-start').addEventListener('click', () => { $('calib-intro-modal').style.display = 'none'; startCalibration(); });
-  $('calib-intro-skip').addEventListener('click', () => { $('calib-intro-modal').style.display = 'none'; setMode('idle'); });
-  $('real-length').addEventListener('keydown', e => { if (e.key === 'Enter') confirmScale(); });
+$('real-length').addEventListener('keydown', e => { if (e.key === 'Enter') confirmScale(); });
 
   canvas.addEventListener('mousedown',   onMouseDown);
   canvas.addEventListener('mousemove',   onMouseMove);
@@ -127,7 +127,7 @@ async function onFileChange(e) {
     imageDataUrl: S.imageDataUrl,   // stored from loadPDF / loadImg
     imageW: S.imageW,
     imageH: S.imageH,
-    scale: null,
+    scale: null, scaleX: null, scaleY: null,
     nextId: 1,
     nextMeasId: 1,
     polygons: [],
@@ -142,7 +142,8 @@ async function onFileChange(e) {
 
   $('file-name').textContent = planLabel;
   S.polygons = []; S.measurements = []; S.current = [];
-  S.scale = null; S.nextId = 1; S.nextMeasId = 1;
+  S.scale = null; S.scaleX = null; S.scaleY = null; S.scaleDirX = null; S.scaleDirY = null;
+  S.nextId = 1; S.nextMeasId = 1;
 
   fitToCanvas();
   show('scale-section'); show('area-type-section'); show('draw-section');
@@ -159,7 +160,6 @@ async function onFileChange(e) {
     });
   }
 
-  $('calib-intro-modal').style.display = 'flex';
 }
 
 // ── Plan management ───────────────────────────────────────────────────────────
@@ -172,6 +172,10 @@ function saveCurrentPlanState() {
   plan.polygons     = S.polygons.map(p => ({ ...p }));
   plan.measurements = S.measurements.map(m => ({ ...m }));
   plan.scale        = S.scale;
+  plan.scaleX       = S.scaleX;
+  plan.scaleY       = S.scaleY;
+  plan.scaleDirX    = S.scaleDirX;
+  plan.scaleDirY    = S.scaleDirY;
   plan.nextId       = S.nextId;
   plan.nextMeasId   = S.nextMeasId;
   plan.imageW       = S.imageW;
@@ -215,7 +219,11 @@ async function switchToPlan(planId) {
   S.activePlanId  = planId;
   S.polygons      = plan.polygons.map(p => ({ ...p }));
   S.measurements  = plan.measurements.map(m => ({ ...m }));
-  S.scale         = plan.scale ?? null;
+  S.scale         = plan.scale     ?? null;
+  S.scaleX        = plan.scaleX    ?? plan.scale ?? null;
+  S.scaleY        = plan.scaleY    ?? plan.scale ?? null;
+  S.scaleDirX     = plan.scaleDirX ?? null;
+  S.scaleDirY     = plan.scaleDirY ?? null;
   S.nextId        = plan.nextId ?? 1;
   S.nextMeasId    = plan.nextMeasId ?? 1;
   S.current       = [];
@@ -258,7 +266,7 @@ async function onLoadPlans(event) {
 
 /** Delete a plan after confirmation. */
 async function onDeletePlan(event) {
-  const { planId, planLabel } = event.detail;
+  const { planId } = event.detail;
 
   // Remove the plan from S.plans
   S.plans = S.plans.filter(p => p.id !== planId);
@@ -298,10 +306,16 @@ async function onDeletePlan(event) {
 
 
 // ── Calibration ───────────────────────────────────────────────────────────────
-function startCalibration() {
+function startCalibration(direction = 'uniform') {
+  S.calibDirection = direction;
   S.calibPt1 = null; S.calibPt2 = null;
   setMode('calibrate_1');
-  setInstructions('Klicken Sie auf den ersten Referenzpunkt');
+  const hint = direction === 'x'
+    ? 'Horizontale Kalibrierung: Klicken Sie auf den ersten Punkt einer bekannten horizontalen Strecke'
+    : direction === 'y'
+    ? 'Vertikale Kalibrierung: Klicken Sie auf den ersten Punkt einer bekannten vertikalen Strecke'
+    : 'Klicken Sie auf den ersten Referenzpunkt';
+  setInstructions(hint);
   render();
 }
 
@@ -309,7 +323,37 @@ function confirmScale() {
   const val  = parseFloat($('real-length').value);
   const unit = parseFloat($('length-unit').value);
   if (!val || val <= 0) { $('real-length').focus(); return; }
-  S.scale = (val * unit) / dist(S.calibPt1, S.calibPt2);
+
+  const direction = S.calibDirection || 'uniform';
+  const pixelDist = dist(S.calibPt1, S.calibPt2);
+  if (!pixelDist) { alert('Ungültige Linie – bitte eine längere Strecke einzeichnen.'); return; }
+
+  const newScale = (val * unit) / pixelDist;
+  const dx = S.calibPt2.x - S.calibPt1.x;
+  const dy = S.calibPt2.y - S.calibPt1.y;
+
+  if (direction === 'x') {
+    S.scaleX    = newScale;
+    S.scaleDirX = { x: dx / pixelDist, y: dy / pixelDist };
+    if (!S.scaleY) {
+      S.scaleY    = newScale;
+      S.scaleDirY = { x: -S.scaleDirX.y, y: S.scaleDirX.x }; // senkrecht zu dh
+    }
+  } else if (direction === 'y') {
+    S.scaleY    = newScale;
+    S.scaleDirY = { x: dx / pixelDist, y: dy / pixelDist };
+    if (!S.scaleX) {
+      S.scaleX    = newScale;
+      S.scaleDirX = { x: -S.scaleDirY.y, y: S.scaleDirY.x }; // senkrecht zu dv
+    }
+  } else {
+    S.scaleX    = newScale;
+    S.scaleY    = newScale;
+    S.scale     = newScale;
+    S.scaleDirX = null;
+    S.scaleDirY = null;
+  }
+
   $('scale-dialog').style.display = 'none';
   applyScaleStatus();
   S.polygons.forEach(p => { p.area = px2m2(p.pixelArea); });
@@ -328,9 +372,16 @@ function cancelCalibration() {
 }
 
 function applyScaleStatus() {
-  if (!S.scale) return;
-  $('scale-status').textContent = `1 m = ${(1 / S.scale).toFixed(1)} px`;
-  $('scale-status').className   = 'scale-status calibrated';
+  const sx = S.scaleX ?? S.scale;
+  const sy = S.scaleY ?? S.scale;
+  if (!sx && !sy) return;
+  if (sx === sy) {
+    $('scale-status').textContent = `1 m = ${(1 / sx).toFixed(1)} px`;
+  } else {
+    $('scale-status').textContent =
+      `H: 1 m = ${(1 / sx).toFixed(1)} px  |  V: 1 m = ${(1 / sy).toFixed(1)} px`;
+  }
+  $('scale-status').className = 'scale-status calibrated';
   $('draw-btn').classList.add('btn-highlight');
 }
 
@@ -404,6 +455,9 @@ function onMouseDown(e) {
   if (S.mode === 'calibrate_2') {
     S.calibPt2 = wp; setMode('calibrate_confirm');
     $('real-length').value = '';
+    const titles = { uniform: 'Wahre Entfernung', x: 'Horizontale Entfernung', y: 'Vertikale Entfernung' };
+    const titleEl = $('scale-dialog-title');
+    if (titleEl) titleEl.textContent = titles[S.calibDirection] || titles.uniform;
     $('scale-dialog').style.display = 'flex';
     setTimeout(() => $('real-length').focus(), 50);
     render(); return;
@@ -491,7 +545,9 @@ function onWheel(e) {
 
 // ── Misc helpers ──────────────────────────────────────────────────────────────
 function show(id) {
-  $(id).style.display = '';
+  const el = $(id);
+  if (!el) return;
+  el.style.display = '';
   if (id === 'area-type-section') {
     const sel = $('area-type-select');
     if (sel) setCurrentAreaTypeLabel(sel.value);

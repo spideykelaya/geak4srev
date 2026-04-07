@@ -71,7 +71,14 @@ object EBFSidebarView:
       display := "none",
       div(className := "section-label", "Massstab"),
       div(idAttr := "scale-status", className := "scale-status uncalibrated", "Nicht kalibriert"),
-      button(className := "btn", idAttr := "calibrate-btn", "Massstab neu kalibrieren")
+      button(className := "btn", idAttr := "calibrate-btn", "Massstab kalibrieren"),
+      div(className := "tools-divider"),
+      div(className := "section-label", styleAttr := "font-size:0.78rem;opacity:0.7", "Separate Massstäbe (verzerrte Pläne)"),
+      div(
+        className := "btn-row",
+        button(className := "btn", idAttr := "calibrate-y-btn", title := "Vertikalen Massstab kalibrieren", "Vertikal"),
+        button(className := "btn", idAttr := "calibrate-x-btn", title := "Horizontalen Massstab kalibrieren", "Horizontal")
+      )
     )
 
   private def areaTypeSection(): HtmlElement =

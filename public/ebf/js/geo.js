@@ -71,7 +71,7 @@ export function findNearEdge(sx, sy) {
       const d = distToSegScreen(sx, sy, as.x, as.y, bs.x, bs.y);
       if (d < bestD) {
         bestD = d;
-        best = { wmx: (a.x + b.x) / 2, wmy: (a.y + b.y) / 2, len: dist(a, b) };
+        best = { wmx: (a.x + b.x) / 2, wmy: (a.y + b.y) / 2, len: dist(a, b), dx: b.x - a.x, dy: b.y - a.y };
       }
     }
   }

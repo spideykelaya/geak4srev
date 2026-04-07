@@ -1,6 +1,6 @@
-import { S, $, emitPolygonSyncEvent, emitPlansSyncEvent } from './state.js';
+import { S, $, emitPolygonSyncEvent, emitPlansSyncEvent, pxVecToM } from './state.js';
 import { MEAS_COLOR }              from './config.js';
-import { dist, fmtArea, fmtLength } from './geo.js';
+import { fmtArea, fmtLength } from './geo.js';
 import { render }                  from './render.js';
 
 const DEFAULT_POLYGON_LABEL = 'Flaeche';
@@ -253,10 +253,11 @@ function updateMeasurementList() {
     const lbl = document.createElement('span');
     lbl.className = 'polygon-label'; lbl.textContent = 'Mesure ' + meas.id;
 
-    const len = dist(meas.pt1, meas.pt2);
+    const dx = meas.pt2.x - meas.pt1.x, dy = meas.pt2.y - meas.pt1.y;
+    const realLen = pxVecToM(dx, dy);
     const val = document.createElement('span');
     val.className = 'polygon-area';
-    val.textContent = S.scale ? fmtLength(len * S.scale) : len.toFixed(1) + ' px';
+    val.textContent = realLen !== null ? fmtLength(realLen) : Math.hypot(dx, dy).toFixed(1) + ' px';
 
     const del = document.createElement('button');
     del.className = 'btn-delete'; del.textContent = '\u00d7';
