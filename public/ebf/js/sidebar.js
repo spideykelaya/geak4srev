@@ -69,11 +69,17 @@ export function createUniquePolygonLabel(rawLabel = DEFAULT_POLYGON_LABEL, curre
 
 export function nextPolygonLabel() {
   const prefix = POLYGON_PREFIXES[currentAreaTypeLabel] ?? currentAreaTypeLabel;
-  // Collect used labels across ALL plans so numbering is globally unique.
   const allPolygons = S.plans.flatMap(plan =>
     plan.id === S.activePlanId ? S.polygons : plan.polygons
   );
   const used = new Set(allPolygons.map(p => (p.label || '').trim()));
+  // EBF: no number (just "EBF"), then "EBF2", "EBF3" if taken
+  if (prefix === 'EBF') {
+    if (!used.has('EBF')) return 'EBF';
+    let idx = 2;
+    while (used.has(`EBF${idx}`)) idx++;
+    return `EBF${idx}`;
+  }
   let idx = 1;
   while (used.has(`${prefix}${idx}`)) idx++;
   return `${prefix}${idx}`;
@@ -239,9 +245,15 @@ function updatePolygonList() {
       e.stopPropagation(); // prevent canvas shortcuts while typing
     });
     lbl.addEventListener('blur', () => {
+      const oldLabel = poly.label;
       poly.label = createUniquePolygonLabel(lbl.textContent, poly);
       li.dataset.polygonLabel = poly.label;
       lbl.textContent = poly.label;
+      if (oldLabel !== poly.label) {
+        window.dispatchEvent(new CustomEvent('geak:ebf-polygon-renamed', {
+          detail: { oldLabel, newLabel: poly.label }
+        }));
+      }
       render();
       emitPolygonSyncEvent();
       emitPlansSyncEvent();

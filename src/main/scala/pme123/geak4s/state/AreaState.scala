@@ -60,8 +60,10 @@ object AreaState:
         .map(_.entries)
         .getOrElse(List.empty)
 
-      val syncedEntries = typePolygons.zipWithIndex.map { case ((label, polygonArea), idx) =>
-        existingEntries.find(_.description == label) match
+      val syncedEntries = typePolygons.zipWithIndex.map { case ((rawLabel, polygonArea), idx) =>
+        val label = if rawLabel.startsWith("EBF") && rawLabel.drop(3).forall(_.isDigit) then "EBF"
+                    else rawLabel
+        existingEntries.find(_.kuerzel == label) match
           case Some(current) =>
             current.copy(
               area = polygonArea,
@@ -70,8 +72,7 @@ object AreaState:
               totalAreaNew = polygonArea * current.quantityNew
             )
           case None =>
-            AreaEntry.empty((idx + 1).toString).copy(
-              description = label,
+            AreaEntry.empty(label).copy(
               area = polygonArea,
               quantity = 1,
               totalArea = polygonArea,
@@ -81,9 +82,7 @@ object AreaState:
             )
       }.toList
 
-      val renumbered = syncedEntries.zipWithIndex.map { case (entry, index) =>
-        entry.copy(nr = (index + 1).toString)
-      }
+      val renumbered = syncedEntries
 
       updateAreaCalculation(compType, renumbered)
 
@@ -91,6 +90,20 @@ object AreaState:
         val totalEbf    = renumbered.map(_.totalArea).sum
         val totalEbfStr = f"$totalEbf%.0f"
         WordFormView.formVar.update(_.copy(ebf = totalEbfStr))
+    }
+
+  /** Rename a kuerzel across all component types (triggered when EBF polygon is renamed) */
+  def renameDescription(oldLabel: String, newLabel: String): Unit =
+    areaCalculations.update { maybeArea =>
+      maybeArea.map { area =>
+        val updated = area.calculations.map { calc =>
+          val renamedEntries = calc.entries.map { entry =>
+            if entry.kuerzel == oldLabel then entry.copy(kuerzel = newLabel) else entry
+          }
+          calc.copy(entries = renamedEntries)
+        }
+        area.copy(calculations = updated)
+      }
     }
 
   /** Get entries for a specific component type */
