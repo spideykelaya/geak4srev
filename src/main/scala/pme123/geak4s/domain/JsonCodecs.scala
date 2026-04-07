@@ -119,7 +119,27 @@ object JsonCodecs:
 
   // Area calculations
   given Encoder[AreaEntry] = deriveEncoder[AreaEntry]
-  given Decoder[AreaEntry] = deriveDecoder[AreaEntry]
+  // Backward-compatible decoder: reads "kuerzel" or falls back to legacy "nr" field
+  given Decoder[AreaEntry] = Decoder.instance { c =>
+    for
+      rawNr      <- c.getOrElse[String]("nr")("")
+      rawKuerzel <- c.getOrElse[String]("kuerzel")("")
+      kuerzel     = if rawKuerzel.nonEmpty then rawKuerzel
+                    else if rawNr.nonEmpty && !rawNr.forall(_.isDigit) then rawNr
+                    else ""
+      orientation    <- c.getOrElse[String]("orientation")("")
+      description    <- c.getOrElse[String]("description")("")
+      length         <- c.getOrElse[Double]("length")(0.0)
+      width          <- c.getOrElse[Double]("width")(0.0)
+      area           <- c.getOrElse[Double]("area")(0.0)
+      quantity       <- c.getOrElse[Int]("quantity")(1)
+      totalArea      <- c.getOrElse[Double]("totalArea")(area)
+      areaNew        <- c.getOrElse[Double]("areaNew")(0.0)
+      quantityNew    <- c.getOrElse[Int]("quantityNew")(1)
+      totalAreaNew   <- c.getOrElse[Double]("totalAreaNew")(0.0)
+      descriptionNew <- c.getOrElse[String]("descriptionNew")("")
+    yield AreaEntry(kuerzel, orientation, description, length, width, area, quantity, totalArea, areaNew, quantityNew, totalAreaNew, descriptionNew)
+  }
 
   given Encoder[AreaCalculation] = deriveEncoder[AreaCalculation]
   given Decoder[AreaCalculation] = deriveDecoder[AreaCalculation]

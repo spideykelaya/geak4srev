@@ -73,6 +73,27 @@ function bindUI(ownerDocument) {
   // Handle plan deletion
   window.addEventListener('geak:ebf-delete-plan', onDeletePlan);
 
+  // Re-emit polygon sync on request (e.g. when AreaView mounts)
+  window.addEventListener('geak:ebf-request-sync', () => emitPolygonSyncEvent());
+
+  // Handle polygon rename from area calculation table
+  window.addEventListener('geak:ebf-rename-polygon', e => {
+    const { oldLabel, newLabel } = e.detail;
+    let changed = false;
+    S.plans.forEach(plan => {
+      const polys = plan.id === S.activePlanId ? S.polygons : plan.polygons;
+      polys.forEach(p => {
+        if (p.label === oldLabel) { p.label = newLabel; changed = true; }
+      });
+    });
+    if (changed) {
+      updateSidebar(); render();
+      emitPolygonSyncEvent();
+      saveCurrentPlanState();
+      emitPlansSyncEvent();
+    }
+  });
+
   // Area type selection from Scala sidebar
   window.addEventListener('geak:ebf-area-type-selected', e => {
     setCurrentAreaTypeLabel(e.detail);

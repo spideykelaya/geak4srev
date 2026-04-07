@@ -58,7 +58,15 @@ object AreaView:
   private lazy val viewElement: HtmlElement =
     div(
       className := "area-view",
-      onMountCallback { _ => loadFromState() },
+      onMountCallback { _ =>
+        loadFromState()
+        // Request EBF rechner to re-emit polygon labels so kuerzel is always in sync
+        org.scalajs.dom.window.dispatchEvent(
+          new org.scalajs.dom.CustomEvent("geak:ebf-request-sync",
+            scala.scalajs.js.Dynamic.literal(bubbles = false, cancelable = false)
+              .asInstanceOf[org.scalajs.dom.CustomEventInit])
+        )
+      },
       AreaState.areaCalculations.signal --> Observer[Option[BuildingEnvelopeArea]](onAreaStateChange),
       Card(
         className := "project-view",

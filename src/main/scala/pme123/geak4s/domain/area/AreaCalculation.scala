@@ -4,9 +4,9 @@ import pme123.geak4s.domain.uwert.ComponentType
 
 /** Single area entry (one row in the table) */
 case class AreaEntry(
-    nr: String,            // Bauteil Nr. (e.g., "1", "D1", "W1", "F1")
+    kuerzel: String,       // Kürzel / Label (z.B. "EBF1", "DA1") – sync mit EBF-Rechner
     orientation: String,   // Ausrichtung (N, S, O, W, horizontal, etc.)
-    description: String,   // Beschrieb
+    description: String,   // Beschrieb (freies Textfeld, später U-Wert-Kopplung)
     length: Double,        // Länge / Umfang [m]
     width: Double,         // Breite / Höhe [m]
     area: Double,          // Fläche [m2]
@@ -28,8 +28,8 @@ end AreaEntry
 
 object AreaEntry:
   /** Create a new empty entry */
-  def empty(nr: String): AreaEntry = AreaEntry(
-    nr = nr,
+  def empty(kuerzel: String = ""): AreaEntry = AreaEntry(
+    kuerzel = kuerzel,
     orientation = "",
     description = "",
     length = 0.0,
@@ -45,7 +45,7 @@ object AreaEntry:
 
   /** Create entry with auto-calculated totals */
   def apply(
-      nr: String,
+      kuerzel: String,
       orientation: String,
       description: String,
       length: Double,
@@ -59,7 +59,7 @@ object AreaEntry:
     val totalArea    = area * quantity
     val totalAreaNew = areaNew * quantityNew
     AreaEntry(
-      nr,
+      kuerzel,
       orientation,
       description,
       length,

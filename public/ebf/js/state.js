@@ -104,14 +104,8 @@ export function emitPolygonSyncEvent() {
       .filter(poly => poly.label)
   );
 
-  // Re-number labels sequentially per prefix across all plans so there are no
-  // duplicates (e.g. two plans each having "EBF1" become "EBF1" and "EBF2").
-  const prefixCounters = {};
-  const polygons = allRaw.map(poly => {
-    const prefix = poly.label.replace(/\d+$/, '') || poly.label;
-    prefixCounters[prefix] = (prefixCounters[prefix] || 0) + 1;
-    return { ...poly, label: prefix + prefixCounters[prefix] };
-  });
+  // Send labels exactly as they are in the canvas — no renumbering.
+  const polygons = allRaw;
 
   window.dispatchEvent(new CustomEvent(EBF_POLYGONS_SYNC_EVENT, { detail: polygons }));
 }

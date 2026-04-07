@@ -25,9 +25,10 @@ object AreaCalculationTable:
 
       // Keep display in sync with entries, but only for structural changes
       entries.signal --> Observer[List[AreaEntry]] { newEntries =>
-        // Only update display if the number of rows changed (add/delete)
-        if displayEntries.now().length != newEntries.length then
-          println(s"AreaCalculationTable $category: entries signal updated ${displayEntries.now().length}, newEntries.length=${newEntries.length}")
+        // Update display if rows changed structurally or kuerzel values changed
+        val current = displayEntries.now()
+        val kuerzelChanged = current.zip(newEntries).exists { case (a, b) => a.kuerzel != b.kuerzel }
+        if current.length != newEntries.length || kuerzelChanged then
           displayEntries.set(newEntries)
       },
 
@@ -45,8 +46,7 @@ object AreaCalculationTable:
           _.icon   := IconName.add,
           _.events.onClick.mapTo(()) --> Observer[Unit] { _ =>
             val currentEntries = entries.now()
-            val nextNr         = (currentEntries.length + 1).toString
-            val newEntries     = currentEntries :+ AreaEntry.empty(nextNr)
+            val newEntries     = currentEntries :+ AreaEntry.empty()
             entries.set(newEntries)
             displayEntries.set(newEntries)  // Update display immediately
             onSave(category, newEntries)
@@ -73,7 +73,7 @@ object AreaCalculationTable:
         thead(
           backgroundColor := "#f5f5f5",
           tr(
-            th(border := "1px solid #e0e0e0", padding := "0.5rem", "Bauteil Nr."),
+            th(border := "1px solid #e0e0e0", padding := "0.5rem", "Kürzel"),
             th(border := "1px solid #e0e0e0", padding := "0.5rem", "Ausrichtung"),
             th(border := "1px solid #e0e0e0", padding := "0.5rem", "Beschrieb"),
             th(border := "1px solid #e0e0e0", padding := "0.5rem", "Länge/Umfang [m]"),
@@ -173,13 +173,13 @@ object AreaCalculationTable:
       onSave: (ComponentType, List[AreaEntry]) => Unit
   ): HtmlElement =
     tr(
-      // Bauteil Nr. - dynamically calculated based on index
+      // Kürzel - read-only, kommt vom EBF-Rechner
       td(
         border          := "1px solid #e0e0e0",
         backgroundColor := "#f9f9f9",
         padding         := "0.25rem",
         textAlign       := "center",
-        (index + 1).toString
+        child.text <-- dataEntries.signal.map(es => if index < es.length then es(index).kuerzel else "")
       ),
 
       // Ausrichtung
@@ -396,7 +396,8 @@ object AreaCalculationTable:
       dataEntries: Var[List[AreaEntry]],
       updateEntry: (AreaEntry, String) => AreaEntry,
       componentType: ComponentType,
-      onSave: (ComponentType, List[AreaEntry]) => Unit
+      onSave: (ComponentType, List[AreaEntry]) => Unit,
+      onValueChange: Option[(String, String) => Unit] = None
   ): HtmlElement =
     input(
       typ     := "text",
@@ -414,10 +415,12 @@ object AreaCalculationTable:
         val currentEntries = dataEntries.now()
         if index < currentEntries.length then
           val entry      = currentEntries(index)
+          val oldVal     = getValue(entry)
           val updated    = updateEntry(entry, value)
           val newEntries = currentEntries.updated(index, updated)
           dataEntries.set(newEntries)
           onSave(componentType, newEntries)
+          onValueChange.foreach(_(oldVal, value))
       }
     )
 

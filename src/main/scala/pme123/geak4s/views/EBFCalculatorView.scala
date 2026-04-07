@@ -15,10 +15,11 @@ import scala.scalajs.concurrent.JSExecutionContext.Implicits.queue
 
 object EBFCalculatorView:
 
-  private val polygonSyncEvent = "geak:ebf-polygons-sync"
-  private val plansSyncEvent   = "geak:ebf-plans-sync"
-  private val planUploadEvent  = "geak:ebf-plan-upload"
-  private val loadPlansEvent   = "geak:ebf-load-plans"
+  private val polygonSyncEvent   = "geak:ebf-polygons-sync"
+  private val plansSyncEvent     = "geak:ebf-plans-sync"
+  private val planUploadEvent    = "geak:ebf-plan-upload"
+  private val loadPlansEvent     = "geak:ebf-load-plans"
+  private val polygonRenamedEvent = "geak:ebf-polygon-renamed"
 
   private def decodePolygons(event: dom.Event): Seq[(String, String, Double)] =
     val payload = event.asInstanceOf[dom.CustomEvent].detail.asInstanceOf[js.Array[js.Dynamic]]
@@ -40,10 +41,11 @@ object EBFCalculatorView:
     }
 
   def apply(): HtmlElement =
-    var unmountHandle:      Option[js.Function0[Unit]]           = None
-    var polygonSyncListener: Option[js.Function1[dom.Event, Unit]] = None
-    var plansSyncListener:   Option[js.Function1[dom.Event, Unit]] = None
-    var planUploadListener:  Option[js.Function1[dom.Event, Unit]] = None
+    var unmountHandle:        Option[js.Function0[Unit]]             = None
+    var polygonSyncListener:  Option[js.Function1[dom.Event, Unit]]  = None
+    var plansSyncListener:    Option[js.Function1[dom.Event, Unit]]   = None
+    var planUploadListener:   Option[js.Function1[dom.Event, Unit]]   = None
+    var polygonRenamedListener: Option[js.Function1[dom.Event, Unit]] = None
 
     div(
       className := "ebf-calculator-host",
@@ -69,6 +71,17 @@ object EBFCalculatorView:
               dom.console.error(s"ebf-plans-sync parse error: $err")
         dom.window.addEventListener(plansSyncEvent, plansListener)
         plansSyncListener = Some(plansListener)
+
+        // ── polygon renamed in EBF sidebar → rename description in AreaState ──
+        val renamedListener: js.Function1[dom.Event, Unit] = (event: dom.Event) =>
+          val d        = event.asInstanceOf[dom.CustomEvent].detail.asInstanceOf[js.Dynamic]
+          val oldLabel = d.selectDynamic("oldLabel").toString
+          val newLabel = d.selectDynamic("newLabel").toString
+          if oldLabel.nonEmpty && newLabel.nonEmpty then
+            AreaState.renameDescription(oldLabel, newLabel)
+            AppState.saveAreaCalculations()
+        dom.window.addEventListener(polygonRenamedEvent, renamedListener)
+        polygonRenamedListener = Some(renamedListener)
 
         // ── plan upload → Google Drive ──
         val uploadListener: js.Function1[dom.Event, Unit] = (event: dom.Event) =>
@@ -114,10 +127,12 @@ object EBFCalculatorView:
             }
       },
       onUnmountCallback { _ =>
-        polygonSyncListener.foreach(l => dom.window.removeEventListener(polygonSyncEvent, l))
-        plansSyncListener.foreach(l   => dom.window.removeEventListener(plansSyncEvent, l))
-        planUploadListener.foreach(l  => dom.window.removeEventListener(planUploadEvent, l))
+        polygonSyncListener.foreach(l   => dom.window.removeEventListener(polygonSyncEvent, l))
+        plansSyncListener.foreach(l     => dom.window.removeEventListener(plansSyncEvent, l))
+        planUploadListener.foreach(l    => dom.window.removeEventListener(planUploadEvent, l))
+        polygonRenamedListener.foreach(l => dom.window.removeEventListener(polygonRenamedEvent, l))
         polygonSyncListener = None; plansSyncListener = None; planUploadListener = None
+        polygonRenamedListener = None
         unmountHandle.foreach(_())
         unmountHandle = None
       },
