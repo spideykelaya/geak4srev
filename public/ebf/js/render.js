@@ -1,6 +1,6 @@
-import { S, canvas, ctx, w2s }                          from './state.js';
+import { S, canvas, ctx, w2s, pxVecToM }                 from './state.js';
 import { CLOSE_VERTEX_RADIUS, SNAP_RADIUS, MEAS_COLOR } from './config.js';
-import { dist, labelPoint, clamp, fmtArea, fmtLength }   from './geo.js';
+import { labelPoint, clamp, fmtArea, fmtLength }          from './geo.js';
 import { colorForCurrentAreaType }                        from './sidebar.js';
 
 // ── Entry point ───────────────────────────────────────────────────────────────
@@ -75,14 +75,18 @@ function drawPolygon({ points, color, area, label }) {
 
 // ── Measurements ──────────────────────────────────────────────────────────────
 function drawMeasurement({ pt1, pt2 }) {
-  const lbl = S.scale ? fmtLength(dist(pt1, pt2) * S.scale) : dist(pt1, pt2).toFixed(1) + ' px';
+  const dx = pt2.x - pt1.x, dy = pt2.y - pt1.y;
+  const realLen = pxVecToM(dx, dy);
+  const lbl = realLen !== null ? fmtLength(realLen) : Math.hypot(dx, dy).toFixed(1) + ' px';
   measLine(pt1, pt2, lbl);
 }
 
 function drawMeasureLine() {
   if (S.mode !== 'measure' || !S.measPt1 || !S.mouse) return;
   const pt2 = { x: S.mouse.wx, y: S.mouse.wy };
-  const lbl = S.scale ? fmtLength(dist(S.measPt1, pt2) * S.scale) : dist(S.measPt1, pt2).toFixed(1) + ' px';
+  const dx = pt2.x - S.measPt1.x, dy = pt2.y - S.measPt1.y;
+  const realLen = pxVecToM(dx, dy);
+  const lbl = realLen !== null ? fmtLength(realLen) : Math.hypot(dx, dy).toFixed(1) + ' px';
   measLine(S.measPt1, pt2, lbl);
 }
 
@@ -107,9 +111,10 @@ function measLine(pt1, pt2, lbl) {
 // ── Edge length tooltip (screen-space) ────────────────────────────────────────
 function drawEdgeLengthTooltip() {
   if (!S.hoverEdge) return;
-  const { wmx, wmy, len } = S.hoverEdge;
+  const { wmx, wmy, dx, dy, len } = S.hoverEdge;
   const sm  = w2s(wmx, wmy);
-  const lbl = S.scale ? fmtLength(len * S.scale) : len.toFixed(1) + ' px';
+  const realLen = pxVecToM(dx, dy);
+  const lbl = realLen !== null ? fmtLength(realLen) : len.toFixed(1) + ' px';
   const fsz = 12, pad = 7, th = fsz * 1.6;
   ctx.save();
   ctx.font = `bold ${fsz}px system-ui, sans-serif`;
@@ -174,9 +179,11 @@ function drawCurrentPolygon() {
   if (S.mouse && !snap && S.current.length >= 1) {
     const last = S.current[S.current.length - 1];
     const cur  = { x: S.mouse.wx, y: S.mouse.wy };
-    const d    = dist(last, cur);
+    const dx = cur.x - last.x, dy = cur.y - last.y;
+    const d  = Math.hypot(dx, dy);
     if (d > 2 / S.zoom) {
-      const lbl = S.scale ? fmtLength(d * S.scale) : d.toFixed(0) + ' px';
+      const realLen = pxVecToM(dx, dy);
+      const lbl = realLen !== null ? fmtLength(realLen) : d.toFixed(0) + ' px';
       const mx  = (last.x + cur.x) / 2, my = (last.y + cur.y) / 2;
       const fsz = clamp(11 / S.zoom, 8, 22);
       ctx.font = `600 ${fsz}px system-ui, sans-serif`;

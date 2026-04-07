@@ -116,7 +116,7 @@ object AreaCalculationTable:
               padding    := "0.5rem",
               textAlign  := "right",
               fontWeight := "600",
-              displayEntries.map(_.quantity).sum.toString
+              child.text <-- dataEntries.signal.map(_.map(_.quantity).sum.toString)
             ),
 
             // Fläche Total [m²] - column 8
@@ -125,7 +125,11 @@ object AreaCalculationTable:
               padding    := "0.5rem",
               textAlign  := "right",
               fontWeight := "600",
-              displayEntries.map(e => math.round(e.totalArea)).sum.toString
+              child.text <-- dataEntries.signal.map { entries =>
+                val sum = entries.map(_.totalArea).sum
+                if componentType == ComponentType.EBF then math.round(sum).toString
+                else f"$sum%.1f"
+              }
             ),
 
             // Empty cell for Fläche Neu - column 9
@@ -137,7 +141,7 @@ object AreaCalculationTable:
               padding    := "0.5rem",
               textAlign  := "right",
               fontWeight := "600",
-              displayEntries.map(_.quantityNew).sum.toString
+              child.text <-- dataEntries.signal.map(_.map(_.quantityNew).sum.toString)
             ),
 
             // Fläche Total Neu [m²] - column 11
@@ -146,7 +150,11 @@ object AreaCalculationTable:
               padding    := "0.5rem",
               textAlign  := "right",
               fontWeight := "600",
-              displayEntries.map(e => math.round(e.totalAreaNew)).sum.toString
+              child.text <-- dataEntries.signal.map { entries =>
+                val sum = entries.map(_.totalAreaNew).sum
+                if componentType == ComponentType.EBF then math.round(sum).toString
+                else f"$sum%.1f"
+              }
             ),
 
             // Empty cells for Beschrieb Neu and Delete button - columns 12-13
@@ -217,7 +225,8 @@ object AreaCalculationTable:
           (e, v) =>
             val updated        = e.copy(length = v)
             val calculatedArea = v * updated.width
-            updated.copy(area = calculatedArea, totalArea = calculatedArea * updated.quantity)
+            updated.copy(area = calculatedArea, totalArea = calculatedArea * updated.quantity,
+              areaNew = calculatedArea, totalAreaNew = calculatedArea * updated.quantityNew)
           ,
           componentType,
           onSave
@@ -237,7 +246,8 @@ object AreaCalculationTable:
           (e, v) =>
             val updated        = e.copy(width = v)
             val calculatedArea = updated.length * v
-            updated.copy(area = calculatedArea, totalArea = calculatedArea * updated.quantity)
+            updated.copy(area = calculatedArea, totalArea = calculatedArea * updated.quantity,
+              areaNew = calculatedArea, totalAreaNew = calculatedArea * updated.quantityNew)
           ,
           componentType,
           onSave
@@ -254,7 +264,8 @@ object AreaCalculationTable:
           index,
           _.area,
           dataEntries,
-          (e, v) => e.copy(area = v, width = 0, length = 0, totalArea = v * e.quantity),
+          (e, v) => e.copy(area = v, width = 0, length = 0, totalArea = v * e.quantity,
+            areaNew = v, totalAreaNew = v * e.quantityNew),
           componentType,
           onSave
         )
@@ -286,7 +297,9 @@ object AreaCalculationTable:
         backgroundColor := "#f9f9f9",
         textAlign       := "right",
         child.text <-- dataEntries.signal.map { entries =>
-          if index < entries.length then f"${entries(index).totalArea}%.0f"
+          if index < entries.length then
+            val v = entries(index).totalArea
+            if componentType == ComponentType.EBF then f"$v%.0f" else f"$v%.1f"
           else "0.00"
         }
       ),
@@ -336,7 +349,9 @@ object AreaCalculationTable:
         backgroundColor := "#f9f9f9",
         textAlign       := "right",
         child.text <-- dataEntries.signal.map { entries =>
-          if index < entries.length then f"${entries(index).totalAreaNew}%.0f"
+          if index < entries.length then
+            val v = entries(index).totalAreaNew
+            if componentType == ComponentType.EBF then f"$v%.0f" else f"$v%.1f"
           else "0.00"
         }
       ),

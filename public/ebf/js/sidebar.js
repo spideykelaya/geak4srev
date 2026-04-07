@@ -1,6 +1,6 @@
-import { S, $, emitPolygonSyncEvent, emitPlansSyncEvent } from './state.js';
+import { S, $, emitPolygonSyncEvent, emitPlansSyncEvent, pxVecToM } from './state.js';
 import { MEAS_COLOR }              from './config.js';
-import { dist, fmtArea, fmtLength } from './geo.js';
+import { fmtArea, fmtLength } from './geo.js';
 import { render }                  from './render.js';
 
 const DEFAULT_POLYGON_LABEL = 'Flaeche';
@@ -166,6 +166,46 @@ function updatePlanList() {
   });
 }
 
+// ── Slope correction ──────────────────────────────────────────────────────────
+const NEIGUNG_TYPES = new Set(['Dach gegen Aussenluft', 'Wand gegen Aussenluft']);
+
+function getDisplayArea(poly) {
+  if (poly.area === null || poly.area === undefined) return poly.area ?? null;
+  const inc = poly.inclination || 0;
+  if (inc <= 0) return poly.area;
+  return poly.area / Math.cos(inc * Math.PI / 180);
+}
+
+function createInclinationInput(poly) {
+  const wrap = document.createElement('span');
+  wrap.style.cssText = 'display:inline-flex;align-items:center;gap:1px;font-size:0.8em;color:var(--text-2);white-space:nowrap';
+  wrap.title = 'Neigung (0°=flach, 45°=steiles Dach)';
+
+  const sym = document.createElement('span');
+  sym.textContent = '∠';
+
+  const inp = document.createElement('input');
+  inp.type = 'text';
+  inp.value = poly.inclination || 0;
+  inp.style.cssText = 'width:3em;background:transparent;border:none;border-bottom:1px solid var(--border-hi);color:var(--text-1);font-size:inherit;text-align:right;padding:0 2px;';
+
+  const unit = document.createElement('span');
+  unit.textContent = '°';
+
+  inp.addEventListener('keydown', e => e.stopPropagation());
+  inp.addEventListener('change', () => {
+    const angle = Math.min(89, Math.max(0, parseFloat(inp.value) || 0));
+    poly.inclination = angle;
+    inp.value = angle;
+    updateSidebar();
+    emitPolygonSyncEvent();
+    emitPlansSyncEvent();
+  });
+
+  wrap.append(sym, inp, unit);
+  return wrap;
+}
+
 // ── Polygons ──────────────────────────────────────────────────────────────────
 function updatePolygonList() {
   const section = $('polygons-section');
@@ -207,9 +247,10 @@ function updatePolygonList() {
       emitPlansSyncEvent();
     });
 
+    const displayArea = getDisplayArea(poly);
     const areaEl = document.createElement('span');
     areaEl.className = 'polygon-area';
-    areaEl.textContent = fmtArea(poly.area);
+    areaEl.textContent = fmtArea(displayArea);
 
     const del = document.createElement('button');
     del.className = 'btn-delete'; del.textContent = '\u00d7'; del.title = 'Supprimer';
@@ -220,9 +261,13 @@ function updatePolygonList() {
       emitPlansSyncEvent();
     };
 
-    li.append(cdot, lbl, areaEl, del);
+    if (NEIGUNG_TYPES.has(poly.areaType)) {
+      li.append(cdot, lbl, createInclinationInput(poly), areaEl, del);
+    } else {
+      li.append(cdot, lbl, areaEl, del);
+    }
     listEl.appendChild(li);
-    if (poly.area !== null) { total += poly.area; hasScale = true; }
+    if (displayArea !== null) { total += displayArea; hasScale = true; }
   });
 
   if (hasScale) {
@@ -253,10 +298,11 @@ function updateMeasurementList() {
     const lbl = document.createElement('span');
     lbl.className = 'polygon-label'; lbl.textContent = 'Mesure ' + meas.id;
 
-    const len = dist(meas.pt1, meas.pt2);
+    const dx = meas.pt2.x - meas.pt1.x, dy = meas.pt2.y - meas.pt1.y;
+    const realLen = pxVecToM(dx, dy);
     const val = document.createElement('span');
     val.className = 'polygon-area';
-    val.textContent = S.scale ? fmtLength(len * S.scale) : len.toFixed(1) + ' px';
+    val.textContent = realLen !== null ? fmtLength(realLen) : Math.hypot(dx, dy).toFixed(1) + ' px';
 
     const del = document.createElement('button');
     del.className = 'btn-delete'; del.textContent = '\u00d7';

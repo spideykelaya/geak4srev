@@ -1,7 +1,12 @@
 // Mutable app state — single source of truth
 export const S = {
   mode: 'idle', // idle | calibrate_1 | calibrate_2 | calibrate_confirm | draw | measure | drag_vertex
-  scale: null,         // meters per world-pixel
+  scale: null,         // meters per world-pixel (uniform, kept for backward compat)
+  scaleX: null,        // meters per pixel along scaleDirX
+  scaleY: null,        // meters per pixel along scaleDirY
+  scaleDirX: null,     // {x, y} normalized direction vector of horizontal calibration
+  scaleDirY: null,     // {x, y} normalized direction vector of vertical calibration
+  calibDirection: 'uniform', // 'uniform' | 'x' | 'y'
   polygons: [],        // [{id, label, points, color, pixelArea, area}] label is the external sync identifier
   measurements: [],    // [{id, pt1, pt2}]
   current: [],         // in-progress polygon world-coords
@@ -16,7 +21,7 @@ export const S = {
   dragVertex: null,    // {polyIdx, vtxIdx}
   hoverEdge: null,     // {wmx, wmy, len}
   // ── Plans ────────────────────────────────────────────────────────────────
-  plans: [],           // [{id, label, driveFileId, imageDataUrl, imageW, imageH, scale, nextId, nextMeasId, polygons, measurements}]
+  plans: [],           // [{id, label, driveFileId, imageDataUrl, imageW, imageH, scale, scaleX, scaleY, nextId, nextMeasId, polygons, measurements}]
   activePlanId: null,  // id of the currently displayed plan
 };
 
@@ -48,7 +53,30 @@ export function initDom(root = document) {
 export function s2w(sx, sy) { return { x: (sx - S.panX) / S.zoom, y: (sy - S.panY) / S.zoom }; }
 export function w2s(wx, wy) { return { x: wx * S.zoom + S.panX,   y: wy * S.zoom + S.panY   }; }
 
-export function px2m2(px) { return S.scale ? px * S.scale * S.scale : null; }
+/** Convert a pixel-space vector (dx, dy) to real-world meters.
+ *  Uses calibration direction vectors when available, otherwise uniform scale. */
+export function pxVecToM(dx, dy) {
+  const sx = S.scaleX ?? S.scale;
+  const sy = S.scaleY ?? S.scale;
+  if (!sx || !sy) return null;
+  if (S.scaleDirX && S.scaleDirY) {
+    const projX = dx * S.scaleDirX.x + dy * S.scaleDirX.y;
+    const projY = dx * S.scaleDirY.x + dy * S.scaleDirY.y;
+    return Math.sqrt((projX * sx) ** 2 + (projY * sy) ** 2);
+  }
+  return Math.hypot(dx, dy) * sx;
+}
+
+export function px2m2(px) {
+  const sx = S.scaleX ?? S.scale;
+  const sy = S.scaleY ?? S.scale;
+  if (!sx || !sy) return null;
+  if (S.scaleDirX && S.scaleDirY) {
+    const crossMag = Math.abs(S.scaleDirX.x * S.scaleDirY.y - S.scaleDirX.y * S.scaleDirY.x);
+    if (crossMag > 0.01) return px * sx * sy * crossMag;
+  }
+  return px * sx * sy;
+}
 
 export function setMode(m) {
   S.mode = m;
@@ -63,11 +91,16 @@ export function emitPolygonSyncEvent() {
   // Use the live S.polygons for the active plan so unsaved changes are included.
   const allRaw = S.plans.flatMap(plan =>
     (plan.id === S.activePlanId ? S.polygons : plan.polygons)
-      .map(poly => ({
-        label:    (poly.label    || '').trim(),
-        areaType: (poly.areaType || '').trim(),
-        area: Number.isFinite(poly.area) ? poly.area : 0,
-      }))
+      .map(poly => {
+        const inc = poly.inclination || 0;
+        const raw = Number.isFinite(poly.area) ? poly.area : 0;
+        const area = (inc > 0) ? raw / Math.cos(inc * Math.PI / 180) : raw;
+        return {
+          label:    (poly.label    || '').trim(),
+          areaType: (poly.areaType || '').trim(),
+          area,
+        };
+      })
       .filter(poly => poly.label)
   );
 
