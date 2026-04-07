@@ -91,11 +91,16 @@ export function emitPolygonSyncEvent() {
   // Use the live S.polygons for the active plan so unsaved changes are included.
   const allRaw = S.plans.flatMap(plan =>
     (plan.id === S.activePlanId ? S.polygons : plan.polygons)
-      .map(poly => ({
-        label:    (poly.label    || '').trim(),
-        areaType: (poly.areaType || '').trim(),
-        area: Number.isFinite(poly.area) ? poly.area : 0,
-      }))
+      .map(poly => {
+        const inc = poly.inclination || 0;
+        const raw = Number.isFinite(poly.area) ? poly.area : 0;
+        const area = (inc > 0) ? raw / Math.cos(inc * Math.PI / 180) : raw;
+        return {
+          label:    (poly.label    || '').trim(),
+          areaType: (poly.areaType || '').trim(),
+          area,
+        };
+      })
       .filter(poly => poly.label)
   );
 
