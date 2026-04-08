@@ -13,6 +13,9 @@ import pme123.geak4s.state.{UWertState, AppState}
  */
 object UWertCalculationTable:
 
+  // `label` in Laminar refers to the <label> element; use a custom HtmlAttr for <optgroup label="...">
+  private val optGroupLabel = htmlAttr[String]("label", com.raquo.laminar.codecs.StringAsIsCodec)
+
   def apply(calculationId: String): HtmlElement =
     val calcSignal = UWertState.getCalculation(calculationId)
 
@@ -387,6 +390,8 @@ object UWertCalculationTable:
     indexSignal: Signal[Int],
     componentType: ComponentType
   ): HtmlElement =
+    val (daemmungMaterials, baumaterialMaterials) = BuildingComponentCatalog.getByComponentTypeGrouped(componentType)
+
     def updateMaterials(nr: Int, updater: MaterialLayer => MaterialLayer): Unit =
       if tableType == "IST" then
         UWertState.updateCalculation(calculationId, calc =>
@@ -416,47 +421,49 @@ object UWertCalculationTable:
         child.text <-- indexSignal.map(idx => (idx + 1).toString)
       ),
 
-      // Description - plain text for non-editable, selector for editable
+      // Description - text when material selected, two dropdowns when empty
       td(
         border := "1px solid #e0e0e0",
         padding := "0.25rem",
         backgroundColor <-- layerSignal.map(l => if !l.isEditable then "#f5f5f5" else "white"),
         child <-- layerSignal.map { layer =>
-          if !layer.isEditable then
-            // Plain text for first and last rows
-            div(
-              padding := "0.25rem",
-              layer.description
-            )
+          if !layer.isEditable || layer.description.nonEmpty then
+            // Non-editable fixed rows or editable rows with a material selected: show plain text
+            div(padding := "0.25rem", layer.description)
           else
-            // Material selector for editable rows
-            Select(
-              _.value := layer.description,
-              _.events.onChange.mapToValue --> Observer[String] { materialName =>
-                if materialName.nonEmpty then
-                  BuildingComponentCatalog.components.find(_.name == materialName).foreach { material =>
-                    updateMaterials(layer.nr, _.copy(
-                      description = material.name,
-                      lambda = material.thermalConductivity
-                    ))
-                  }
-                else
-                  // Clear the row if empty option selected
-                  updateMaterials(layer.nr, _.copy(description = "", lambda = 0.0, thickness = 0.0))
-              },
-              width := "100%",
-
-              Select.option(
-                _.value := "",
-                "-- Material auswählen --"
+            // Editable row, no material selected yet: show two dropdowns
+            div(
+              display := "flex",
+              flexDirection := "column",
+              gap := "0.25rem",
+              select(
+                onChange.mapToValue --> Observer[String] { materialName =>
+                  if materialName.nonEmpty then
+                    BuildingComponentCatalog.components.find(_.name == materialName).foreach { material =>
+                      updateMaterials(layer.nr, _.copy(description = material.name, lambda = material.thermalConductivity))
+                    }
+                },
+                width := "100%",
+                padding := "0.25rem",
+                border := "1px solid #ccc",
+                borderRadius := "4px",
+                option(value := "", "Dämmung..."),
+                daemmungMaterials.map(m => option(value := m.name, s"${m.name} (λ = ${m.thermalConductivity})"))
               ),
-
-              BuildingComponentCatalog.getByComponentType(componentType).map { material =>
-                Select.option(
-                  _.value := material.name,
-                  s"${material.name} (λ = ${material.thermalConductivity})"
-                )
-              }
+              select(
+                onChange.mapToValue --> Observer[String] { materialName =>
+                  if materialName.nonEmpty then
+                    BuildingComponentCatalog.components.find(_.name == materialName).foreach { material =>
+                      updateMaterials(layer.nr, _.copy(description = material.name, lambda = material.thermalConductivity))
+                    }
+                },
+                width := "100%",
+                padding := "0.25rem",
+                border := "1px solid #ccc",
+                borderRadius := "4px",
+                option(value := "", "Baumaterial..."),
+                baumaterialMaterials.map(m => option(value := m.name, s"${m.name} (λ = ${m.thermalConductivity})"))
+              )
             )
         }
       ),
