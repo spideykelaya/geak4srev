@@ -88,7 +88,49 @@ object WordFormView:
       )),
 
       renderSection("zukünftige Heizung", div(
-        textInput("Erdsonde erlaubt", _.erdsonde, (d,v) => d.copy(erdsonde=v)),
+        div(
+          className := "form-field",
+          div(
+            display := "flex",
+            alignItems := "center",
+            gap := "0.5rem",
+            Label("Erdsonde erlaubt"),
+            // Hidden anchor for reliable new-tab navigation from a UI5 Button
+            a(
+              idAttr := "erdsonde-link",
+              href := "https://maps.zh.ch/?topic=AwelGSWaermewwwZH&x=2689780.975&y=1246927.965&scale=114040.94495999988",
+              target := "_blank",
+              rel := "noopener noreferrer",
+              display := "none"
+            ),
+            Button(
+              _.design := ButtonDesign.Default,
+              _.icon := IconName.map,
+              _.events.onClick.mapTo(()) --> Observer[Unit] { _ =>
+                val fullAddress = formVar.now().adresse
+                val address = fullAddress.takeWhile(_ != ',').trim
+                if address.nonEmpty then
+                  val d = scala.scalajs.js.Dynamic.global.document
+                  val ta = d.createElement("textarea")
+                  ta.value = address
+                  ta.style.cssText = "position:fixed;top:-9999px;left:-9999px;opacity:0"
+                  d.body.appendChild(ta)
+                  ta.focus()
+                  ta.select()
+                  d.execCommand("copy")
+                  d.body.removeChild(ta)
+                dom.document.getElementById("erdsonde-link").asInstanceOf[dom.HTMLAnchorElement].click()
+              },
+              "Wärmenutzungsatlas ZH"
+            )
+          ),
+          Input(
+            value <-- formVar.signal.map(_.erdsonde),
+            onInput.mapToValue --> Observer[String] { newValue =>
+              formVar.update(old => old.copy(erdsonde = newValue))
+            }
+          )
+        ),
         textInput("Fernwärme vorhanden", _.fernwärme, (d,v) => d.copy(fernwärme=v)),
         textInput("Fossil-Leistung", _.fossil, (d,v) => d.copy(fossil=v)),
         textInput("WP-Leistung", _.wp, (d,v) => d.copy(wp=v)),
