@@ -49,13 +49,16 @@ object UWertState:
 
   /** Update component selection */
   def updateComponent(id: String, component: BuildingComponent, bWertName: Option[String]): Unit =
+    val alwaysOne = Set(ComponentType.PitchedRoof, ComponentType.FlatRoof)
     updateCalculation(id, calc =>
+      val base = UWertTableData.fromComponent(component)
+      val tableData = if alwaysOne.contains(component.compType) then base else base
       calc.copy(
         componentLabel = component.label,
         componentType = component.compType,
-        bWertName = bWertName,
-        istCalculation = UWertTableData.fromComponent(component),
-        sollCalculation = UWertTableData.fromComponent(component)
+        bWertName = if alwaysOne.contains(component.compType) then None else bWertName,
+        istCalculation = tableData.copy(bFactor = if alwaysOne.contains(component.compType) then 1.0 else base.bFactor),
+        sollCalculation = tableData.copy(bFactor = if alwaysOne.contains(component.compType) then 1.0 else base.bFactor)
       )
     )
 
@@ -132,6 +135,26 @@ object UWertState:
       calc.copy(
         sollCalculation = calc.sollCalculation.copy(materials = updatedMaterials)
       )
+    )
+
+  /** Move an editable layer up or down within IST or SOLL table */
+  def moveMaterialLayer(id: String, tableType: String, layerNr: Int, direction: Int): Unit =
+    updateCalculation(id, calc =>
+      val materials = if tableType == "IST" then calc.istCalculation.materials else calc.sollCalculation.materials
+      val editables = materials.filter(_.isEditable).sortBy(_.nr)
+      val idx = editables.indexWhere(_.nr == layerNr)
+      val swapIdx = idx + direction
+      if idx < 0 || swapIdx < 0 || swapIdx >= editables.size then calc
+      else
+        val a = editables(idx)
+        val b = editables(swapIdx)
+        val swapped = materials.map { m =>
+          if m.nr == a.nr then m.copy(nr = b.nr)
+          else if m.nr == b.nr then m.copy(nr = a.nr)
+          else m
+        }.sortBy(_.nr)
+        if tableType == "IST" then calc.copy(istCalculation = calc.istCalculation.copy(materials = swapped))
+        else calc.copy(sollCalculation = calc.sollCalculation.copy(materials = swapped))
     )
 
   /** Remove a material layer from IST table */
