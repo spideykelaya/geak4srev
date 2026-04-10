@@ -1,0 +1,917 @@
+<?xml version="1.0" encoding="utf-8"?>
+<SIARecord xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns="http://www.geak.ch/Import/v4/">
+  <Version>v6.5</Version>
+  <General ProjectName="250406 GEAK SG Berglihöh Ernetschwil Fuhrer">
+    <OwnerAddress>
+      <Title>Mr</Title>
+      <Name1>Dominique + Nicole Fuhrer</Name1>
+      <Address>Egg 3</Address>
+      <Zip>8856</Zip>
+      <City>Tuggen</City>
+      <Country>Schweiz</Country>
+      <EMail>domfugva@gmail.com</EMail>
+      <Phone1>078 768 37 73</Phone1>
+    </OwnerAddress>
+    <BuildingData>
+      <Zip>8725</Zip>
+      <City>Ernetschwil</City>
+      <Community>Gommiswald</Community>
+      <StreetName>Berglihöh</StreetName>
+      <HouseNumber>7</HouseNumber>
+      <BuildingName>250406 GEAK SG Berglihöh Ernetschwil Fuhrer</BuildingName>
+      <WeatherStation>St. Gallen</WeatherStation>
+      <EGID>3150648</EGID>
+      <YearOfConstruction>1989</YearOfConstruction>
+      <PlotNumber>671E</PlotNumber>
+      <BuildingCategory>SingleHome</BuildingCategory>
+      <PeopleCount>5</PeopleCount>
+      <EnergyReferenceArea>390</EnergyReferenceArea>
+      <AverageRoomHeight>2.4</AverageRoomHeight>
+      <FullFloorsCount>3</FullFloorsCount>
+      <BuildingDepth>12.4</BuildingDepth>
+      <GroundPlanType>Compact</GroundPlanType>
+      <ConstructionType>Middle</ConstructionType>
+      <BestKnownWeatherStation>St. Gallen</BestKnownWeatherStation>
+      <Altitude>575</Altitude>
+    </BuildingData>
+    <BuildingUsages>
+      <SingleHomeBuildingUsage>
+        <Area>390</Area>
+        <RoomTemperature>21</RoomTemperature>
+        <PerPersonArea>78</PerPersonArea>
+        <WarmWaterNeed>11</WarmWaterNeed>
+        <SurchargeRegulationForRoomTemperature>1</SurchargeRegulationForRoomTemperature>
+        <ResidentsCount>5</ResidentsCount>
+        <RoomCount>10</RoomCount>
+        <ApartmentsCount1Rooms>0</ApartmentsCount1Rooms>
+        <ApartmentsCount2Rooms>0</ApartmentsCount2Rooms>
+        <ApartmentsCount3Rooms>1</ApartmentsCount3Rooms>
+        <ApartmentsCount4Rooms>0</ApartmentsCount4Rooms>
+        <ApartmentsCount5Rooms>0</ApartmentsCount5Rooms>
+        <ApartmentsCount6Rooms>0</ApartmentsCount6Rooms>
+        <ApartmentsCountOver6Rooms>1</ApartmentsCountOver6Rooms>
+      </SingleHomeBuildingUsage>
+    </BuildingUsages>
+  </General>
+  <CurrentState>
+    <Remarks>Das Gebäude wurde 1989 erbaut. Am Gebäude wurden bisher folgende Sanierungsmassnahmen getätigt: Im Jahr 2022 das UG umgebaut und die Einliegerwohnung von innen wärmegedämmt. 2022 wurde zudem eine Wärmepumpe mit Erdsonden für Heizung und Warmwasser eingebaut. Ansonsten ist das Gebäude noch in seinem ursprünglichen Zustand.</Remarks>
+    <BuildingEnvelope>
+      <RoofsAndCeilings>
+        <Condition>Used</Condition>
+        <Description>Schrägdach, 12 cm zwischen den Sparren wärmegedämmt (Annahme)
+Flachdach (Terrasse), mit 3 cm von innen und 3 cm von aussen wärmegedämmt</Description>
+        <Renewals>Schrägdach zwischen den Sparren mit 16 cm wärmedämmen, 
+bspw. Flumroc Solo (0.035W/mK) 
+Über Sparren 8 cm Holzfaserplatte als Dämmung/Unterdach, bspw. Pavatherm-Plus (0.043W/mK)</Renewals>
+        <GeneralRoof>PitchedRoofPartiallyHeated</GeneralRoof>
+        <ConditionOtherCeilings>Used</ConditionOtherCeilings>
+        <DescriptionOtherCeilings>Estrichboden, 12 cm zwischen den Sparren wärmegedämmt (Annahme)
+Garagenboden, badseitig mit ca. 6 cm wärmegedämmt (Annahme)</DescriptionOtherCeilings>
+        <RenewalsOtherCeilings>Keine Massnahmen</RenewalsOtherCeilings>
+        <Items>
+          <Roof>
+            <ExpertCode>DA1</ExpertCode>
+            <ExpertDescription>Flachdach Terrasse</ExpertDescription>
+            <Quantity>1</Quantity>
+            <InvestmentCosts>230</InvestmentCosts>
+            <CostsCalculationBase>PerSquareMeter</CostsCalculationBase>
+            <LifeSpan>40</LifeSpan>
+            <ValuePreservation>Neueindeckung</ValuePreservation>
+            <Area>5.7</Area>
+            <UValue>0.62</UValue>
+            <BFactor>1</BFactor>
+            <Orientation>Horizontal</Orientation>
+            <Type>FlatRoof</Type>
+          </Roof>
+          <Roof>
+            <ExpertCode>DA2</ExpertCode>
+            <ExpertDescription>Steildach</ExpertDescription>
+            <Quantity>1</Quantity>
+            <InvestmentCosts>200</InvestmentCosts>
+            <CostsCalculationBase>PerSquareMeter</CostsCalculationBase>
+            <LifeSpan>50</LifeSpan>
+            <ValuePreservation>Neueindeckung</ValuePreservation>
+            <Area>91.1</Area>
+            <UValue>0.31</UValue>
+            <BFactor>1</BFactor>
+            <Orientation>Horizontal</Orientation>
+            <Type>PitchedRoof</Type>
+          </Roof>
+          <Ceiling>
+            <ExpertCode>DU1</ExpertCode>
+            <ExpertDescription>Estrichboden</ExpertDescription>
+            <Quantity>1</Quantity>
+            <InvestmentCosts>0</InvestmentCosts>
+            <CostsCalculationBase>PerSquareMeter</CostsCalculationBase>
+            <LifeSpan>50</LifeSpan>
+            <ValuePreservation>Keine Arbeiten</ValuePreservation>
+            <Area>96.6</Area>
+            <UValue>0.31</UValue>
+            <BFactor>0.9</BFactor>
+            <Type>CeilingUnheated</Type>
+          </Ceiling>
+          <Ceiling>
+            <ExpertCode>DU2</ExpertCode>
+            <ExpertDescription>Garagenboden</ExpertDescription>
+            <Quantity>1</Quantity>
+            <InvestmentCosts>0</InvestmentCosts>
+            <CostsCalculationBase>PerSquareMeter</CostsCalculationBase>
+            <LifeSpan>50</LifeSpan>
+            <ValuePreservation>Keine Arbeiten</ValuePreservation>
+            <Area>25.7</Area>
+            <UValue>0.51</UValue>
+            <BFactor>0.8</BFactor>
+            <Type>CeilingUnheated</Type>
+          </Ceiling>
+          <Roof>
+            <ExpertCode>DA3</ExpertCode>
+            <ExpertDescription>Steildach</ExpertDescription>
+            <Quantity>1</Quantity>
+            <InvestmentCosts>200</InvestmentCosts>
+            <CostsCalculationBase>PerSquareMeter</CostsCalculationBase>
+            <LifeSpan>50</LifeSpan>
+            <ValuePreservation>Neueindeckung</ValuePreservation>
+            <Area>0</Area>
+            <UValue>1.87</UValue>
+            <BFactor>1</BFactor>
+            <Orientation>Horizontal</Orientation>
+            <Type>PitchedRoof</Type>
+          </Roof>
+        </Items>
+      </RoofsAndCeilings>
+      <Walls>
+        <Condition>Used</Condition>
+        <Description>Allgemein Doppelschalenmauerwerk mit ca. 8 cm Wärmedämmung 
+UG, Betonwand, 10 cm von innen wärmegedämmt</Description>
+        <Renewals>Keine Massnahmen</Renewals>
+        <FacadeStructure>NormallyStructured</FacadeStructure>
+        <ConditionOtherWalls>Used</ConditionOtherWalls>
+        <DescriptionOtherWalls>Wände gegen Erdreich, mit 10 cm von innen wärmegedämmt 
+Treppenhauswand gegen Erdreich, keine Wärmedämmung
+Kellerwand (Bad), mit 10 cm auf der kalten Seite wärmegedämmt
+Kellerwand (Luftschutzraum), mit 5 cm auf der kalten Seite wärmegedämmt
+Kellerwand (Heizung), keine Wärmedämmung
+Wand zur Garage, Doppelschalenmauerwerk mit 8 cm Wärmedämmung</DescriptionOtherWalls>
+        <RenewalsOtherWalls>Keine Massnahmen</RenewalsOtherWalls>
+        <Items>
+          <WallExterior>
+            <ExpertCode>WA1</ExpertCode>
+            <ExpertDescription>Kellerwand UG - Betonaussenwand O</ExpertDescription>
+            <Quantity>1</Quantity>
+            <InvestmentCosts>100</InvestmentCosts>
+            <CostsCalculationBase>PerSquareMeter</CostsCalculationBase>
+            <LifeSpan>25</LifeSpan>
+            <ValuePreservation>Instandsetzung und Erneuerung</ValuePreservation>
+            <Area>79.9</Area>
+            <UValue>0.33</UValue>
+            <BFactor>1</BFactor>
+            <Orientation>East</Orientation>
+            <Type>Facade</Type>
+          </WallExterior>
+          <WallExterior>
+            <ExpertCode>WA2</ExpertCode>
+            <ExpertDescription>Aussenwand - Aussenwand O</ExpertDescription>
+            <Quantity>1</Quantity>
+            <InvestmentCosts>100</InvestmentCosts>
+            <CostsCalculationBase>PerSquareMeter</CostsCalculationBase>
+            <LifeSpan>25</LifeSpan>
+            <ValuePreservation>Instandsetzung und Erneuerung</ValuePreservation>
+            <Area>206.3</Area>
+            <UValue>0.34</UValue>
+            <BFactor>1</BFactor>
+            <Orientation>East</Orientation>
+            <Type>Facade</Type>
+          </WallExterior>
+          <WallOther>
+            <ExpertCode>WE1</ExpertCode>
+            <ExpertDescription>Kellerwand gedämmt - Wand gegen Erdreich O</ExpertDescription>
+            <Quantity>1</Quantity>
+            <InvestmentCosts>0</InvestmentCosts>
+            <CostsCalculationBase>PerSquareMeter</CostsCalculationBase>
+            <LifeSpan>50</LifeSpan>
+            <ValuePreservation>Keine Arbeiten</ValuePreservation>
+            <Area>9.8</Area>
+            <UValue>0.33</UValue>
+            <BFactor>0.8</BFactor>
+            <Orientation>East</Orientation>
+            <Type>TowardsEarthUpToTwoMeters</Type>
+          </WallOther>
+          <WallOther>
+            <ExpertCode>WE2</ExpertCode>
+            <ExpertDescription>Kellerwand ungedämmt - Treppenhauswand</ExpertDescription>
+            <Quantity>1</Quantity>
+            <InvestmentCosts>0</InvestmentCosts>
+            <CostsCalculationBase>PerSquareMeter</CostsCalculationBase>
+            <LifeSpan>50</LifeSpan>
+            <ValuePreservation>Keine Arbeiten</ValuePreservation>
+            <Area>8.8</Area>
+            <UValue>4.42</UValue>
+            <BFactor>0.29</BFactor>
+            <Orientation>North</Orientation>
+            <Type>TowardsEarthUpToTwoMeters</Type>
+          </WallOther>
+          <WallOther>
+            <ExpertCode>WU1</ExpertCode>
+            <ExpertDescription>Kellerwand Bad - Badwand W</ExpertDescription>
+            <Quantity>1</Quantity>
+            <InvestmentCosts>0</InvestmentCosts>
+            <CostsCalculationBase>PerSquareMeter</CostsCalculationBase>
+            <LifeSpan>50</LifeSpan>
+            <ValuePreservation>Keine Arbeiten</ValuePreservation>
+            <Area>15.1</Area>
+            <UValue>0.23</UValue>
+            <BFactor>0.8</BFactor>
+            <Orientation>West</Orientation>
+            <Type>TowardsUnheatedNoIsolation</Type>
+          </WallOther>
+          <WallOther>
+            <ExpertCode>WU2</ExpertCode>
+            <ExpertDescription>Kellerwand Luftschutzraum - Luftraumschutzwand O</ExpertDescription>
+            <Quantity>1</Quantity>
+            <InvestmentCosts>0</InvestmentCosts>
+            <CostsCalculationBase>PerSquareMeter</CostsCalculationBase>
+            <LifeSpan>50</LifeSpan>
+            <ValuePreservation>Keine Arbeiten</ValuePreservation>
+            <Area>23.2</Area>
+            <UValue>0.44</UValue>
+            <BFactor>0.8</BFactor>
+            <Orientation>East</Orientation>
+            <Type>TowardsUnheatedNoIsolation</Type>
+          </WallOther>
+          <WallOther>
+            <ExpertCode>WU3</ExpertCode>
+            <ExpertDescription>Kellerwand gegen Heizung - Heizungswand W</ExpertDescription>
+            <Quantity>1</Quantity>
+            <InvestmentCosts>0</InvestmentCosts>
+            <CostsCalculationBase>PerSquareMeter</CostsCalculationBase>
+            <LifeSpan>50</LifeSpan>
+            <ValuePreservation>Keine Arbeiten</ValuePreservation>
+            <Area>23.8</Area>
+            <UValue>2.15</UValue>
+            <BFactor>0.5</BFactor>
+            <Orientation>West</Orientation>
+            <Type>TowardsUnheatedNoIsolation</Type>
+          </WallOther>
+          <WallOther>
+            <ExpertCode>WU4</ExpertCode>
+            <ExpertDescription>Garagenwand - Garagewand</ExpertDescription>
+            <Quantity>1</Quantity>
+            <InvestmentCosts>0</InvestmentCosts>
+            <CostsCalculationBase>PerSquareMeter</CostsCalculationBase>
+            <LifeSpan>50</LifeSpan>
+            <ValuePreservation>Keine Arbeiten</ValuePreservation>
+            <Area>21.5</Area>
+            <UValue>0.34</UValue>
+            <BFactor>0.8</BFactor>
+            <Orientation>East</Orientation>
+            <Type>TowardsUnheatedNoIsolation</Type>
+          </WallOther>
+        </Items>
+      </Walls>
+      <WindowsAndDoors>
+        <Condition>Used</Condition>
+        <Description>Allgemein Holzfenster 1989, 3-fach Verglasung ohne Wärmeschutz
+UG teilweise PVC-Fenster 2022, 3-fach Verglasung mit Wärmeschutz
+Aussen- und Kellertüren undicht</Description>
+        <Renewals>Fenster aus 1989 durch neue Fenster mit 3-facher Wärmeschutzverglasung ersetzen
+Aussen- und Kellertüren abdichten</Renewals>
+        <AlwaysSubtractOpeningAreas>true</AlwaysSubtractOpeningAreas>
+        <Items>
+          <Door>
+            <ExpertCode>FT1</ExpertCode>
+            <ExpertDescription>Türe - Kellertüre</ExpertDescription>
+            <Quantity>1</Quantity>
+            <InvestmentCosts>2500</InvestmentCosts>
+            <CostsCalculationBase>PerItem</CostsCalculationBase>
+            <LifeSpan>40</LifeSpan>
+            <ValuePreservation>Ersatz</ValuePreservation>
+            <Area>1.7</Area>
+            <UValue>3</UValue>
+            <GValue>0</GValue>
+            <FF>0</FF>
+            <FS>1</FS>
+            <Orientation>East</Orientation>
+            <ExpertCodeParent>WU2</ExpertCodeParent>
+          </Door>
+          <Door>
+            <ExpertCode>FT3</ExpertCode>
+            <ExpertDescription>Türe - Eingangstüre UG</ExpertDescription>
+            <Quantity>1</Quantity>
+            <InvestmentCosts>2500</InvestmentCosts>
+            <CostsCalculationBase>PerItem</CostsCalculationBase>
+            <LifeSpan>40</LifeSpan>
+            <ValuePreservation>Ersatz</ValuePreservation>
+            <Area>2.4</Area>
+            <UValue>3</UValue>
+            <GValue>0</GValue>
+            <FF>0</FF>
+            <FS>1</FS>
+            <Orientation>South</Orientation>
+            <ExpertCodeParent>WA1</ExpertCodeParent>
+          </Door>
+          <Door>
+            <ExpertCode>FT4</ExpertCode>
+            <ExpertDescription>Türe - Kellertüre</ExpertDescription>
+            <Quantity>1</Quantity>
+            <InvestmentCosts>2500</InvestmentCosts>
+            <CostsCalculationBase>PerItem</CostsCalculationBase>
+            <LifeSpan>40</LifeSpan>
+            <ValuePreservation>Ersatz</ValuePreservation>
+            <Area>1.7</Area>
+            <UValue>3</UValue>
+            <GValue>0</GValue>
+            <FF>0</FF>
+            <FS>1</FS>
+            <Orientation>West</Orientation>
+            <ExpertCodeParent>WU3</ExpertCodeParent>
+          </Door>
+          <Door>
+            <ExpertCode>FT2</ExpertCode>
+            <ExpertDescription>Türe - Kellertüre</ExpertDescription>
+            <Quantity>1</Quantity>
+            <InvestmentCosts>2500</InvestmentCosts>
+            <CostsCalculationBase>PerItem</CostsCalculationBase>
+            <LifeSpan>40</LifeSpan>
+            <ValuePreservation>Ersatz</ValuePreservation>
+            <Area>1.7</Area>
+            <UValue>3</UValue>
+            <GValue>0</GValue>
+            <FF>0</FF>
+            <FS>1</FS>
+            <Orientation>North</Orientation>
+            <ExpertCodeParent>WU1</ExpertCodeParent>
+          </Door>
+          <Window>
+            <ExpertCode>F1</ExpertCode>
+            <ExpertDescription>Fenster 1989</ExpertDescription>
+            <Quantity>1</Quantity>
+            <InvestmentCosts>1100</InvestmentCosts>
+            <CostsCalculationBase>PerSquareMeter</CostsCalculationBase>
+            <LifeSpan>40</LifeSpan>
+            <ValuePreservation>Ersatz</ValuePreservation>
+            <Area>3.4</Area>
+            <UValue>2.32</UValue>
+            <GValue>0.7</GValue>
+            <FF>0.7</FF>
+            <FS>0.74</FS>
+            <Orientation>West</Orientation>
+            <ExpertCodeParent>WA2</ExpertCodeParent>
+          </Window>
+          <Window>
+            <ExpertCode>F2</ExpertCode>
+            <ExpertDescription>Fenster 1989</ExpertDescription>
+            <Quantity>1</Quantity>
+            <InvestmentCosts>1100</InvestmentCosts>
+            <CostsCalculationBase>PerSquareMeter</CostsCalculationBase>
+            <LifeSpan>40</LifeSpan>
+            <ValuePreservation>Ersatz</ValuePreservation>
+            <Area>1.6</Area>
+            <UValue>2.26</UValue>
+            <GValue>0.7</GValue>
+            <FF>0.69</FF>
+            <FS>0.8</FS>
+            <Orientation>West</Orientation>
+            <ExpertCodeParent>WA2</ExpertCodeParent>
+          </Window>
+          <Window>
+            <ExpertCode>F3</ExpertCode>
+            <ExpertDescription>Fenster 1989</ExpertDescription>
+            <Quantity>1</Quantity>
+            <InvestmentCosts>1100</InvestmentCosts>
+            <CostsCalculationBase>PerSquareMeter</CostsCalculationBase>
+            <LifeSpan>40</LifeSpan>
+            <ValuePreservation>Ersatz</ValuePreservation>
+            <Area>1.7</Area>
+            <UValue>2.32</UValue>
+            <GValue>0.7</GValue>
+            <FF>0.7</FF>
+            <FS>0.79</FS>
+            <Orientation>West</Orientation>
+            <ExpertCodeParent>WA2</ExpertCodeParent>
+          </Window>
+          <Window>
+            <ExpertCode>F4</ExpertCode>
+            <ExpertDescription>Fenster 1989</ExpertDescription>
+            <Quantity>1</Quantity>
+            <InvestmentCosts>1100</InvestmentCosts>
+            <CostsCalculationBase>PerSquareMeter</CostsCalculationBase>
+            <LifeSpan>40</LifeSpan>
+            <ValuePreservation>Ersatz</ValuePreservation>
+            <Area>1.6</Area>
+            <UValue>2.32</UValue>
+            <GValue>0.7</GValue>
+            <FF>0.7</FF>
+            <FS>0.3</FS>
+            <Orientation>West</Orientation>
+            <ExpertCodeParent>WA2</ExpertCodeParent>
+          </Window>
+          <Window>
+            <ExpertCode>F5</ExpertCode>
+            <ExpertDescription>Fenster 1989</ExpertDescription>
+            <Quantity>1</Quantity>
+            <InvestmentCosts>1100</InvestmentCosts>
+            <CostsCalculationBase>PerSquareMeter</CostsCalculationBase>
+            <LifeSpan>40</LifeSpan>
+            <ValuePreservation>Ersatz</ValuePreservation>
+            <Area>2.8</Area>
+            <UValue>2.29</UValue>
+            <GValue>0.7</GValue>
+            <FF>0.68</FF>
+            <FS>0.81</FS>
+            <Orientation>West</Orientation>
+            <ExpertCodeParent>WA1</ExpertCodeParent>
+          </Window>
+          <Window>
+            <ExpertCode>F6</ExpertCode>
+            <ExpertDescription>Fenster 1989</ExpertDescription>
+            <Quantity>1</Quantity>
+            <InvestmentCosts>1100</InvestmentCosts>
+            <CostsCalculationBase>PerSquareMeter</CostsCalculationBase>
+            <LifeSpan>40</LifeSpan>
+            <ValuePreservation>Ersatz</ValuePreservation>
+            <Area>1.8</Area>
+            <UValue>2.31</UValue>
+            <GValue>0.7</GValue>
+            <FF>0.73</FF>
+            <FS>0.93</FS>
+            <Orientation>North</Orientation>
+            <ExpertCodeParent>WA2</ExpertCodeParent>
+          </Window>
+          <Window>
+            <ExpertCode>F7</ExpertCode>
+            <ExpertDescription>Fenster 1989</ExpertDescription>
+            <Quantity>1</Quantity>
+            <InvestmentCosts>1100</InvestmentCosts>
+            <CostsCalculationBase>PerSquareMeter</CostsCalculationBase>
+            <LifeSpan>40</LifeSpan>
+            <ValuePreservation>Ersatz</ValuePreservation>
+            <Area>2.6</Area>
+            <UValue>2.3</UValue>
+            <GValue>0.7</GValue>
+            <FF>0.76</FF>
+            <FS>0.95</FS>
+            <Orientation>North</Orientation>
+            <ExpertCodeParent>WA2</ExpertCodeParent>
+          </Window>
+          <Window>
+            <ExpertCode>F8</ExpertCode>
+            <ExpertDescription>Fenster 1989</ExpertDescription>
+            <Quantity>1</Quantity>
+            <InvestmentCosts>1100</InvestmentCosts>
+            <CostsCalculationBase>PerSquareMeter</CostsCalculationBase>
+            <LifeSpan>40</LifeSpan>
+            <ValuePreservation>Ersatz</ValuePreservation>
+            <Area>2.8</Area>
+            <UValue>2.32</UValue>
+            <GValue>0.7</GValue>
+            <FF>0.73</FF>
+            <FS>0.94</FS>
+            <Orientation>North</Orientation>
+            <ExpertCodeParent>WA2</ExpertCodeParent>
+          </Window>
+          <Window>
+            <ExpertCode>F9</ExpertCode>
+            <ExpertDescription>Fenster 1989</ExpertDescription>
+            <Quantity>1</Quantity>
+            <InvestmentCosts>1100</InvestmentCosts>
+            <CostsCalculationBase>PerSquareMeter</CostsCalculationBase>
+            <LifeSpan>40</LifeSpan>
+            <ValuePreservation>Ersatz</ValuePreservation>
+            <Area>1</Area>
+            <UValue>2.3</UValue>
+            <GValue>0.7</GValue>
+            <FF>0.71</FF>
+            <FS>0.94</FS>
+            <Orientation>North</Orientation>
+            <ExpertCodeParent>WA2</ExpertCodeParent>
+          </Window>
+          <Window>
+            <ExpertCode>F10</ExpertCode>
+            <ExpertDescription>Eingangstüre 1989</ExpertDescription>
+            <Quantity>1</Quantity>
+            <InvestmentCosts>8000</InvestmentCosts>
+            <CostsCalculationBase>PerItem</CostsCalculationBase>
+            <LifeSpan>40</LifeSpan>
+            <ValuePreservation>Ersatz</ValuePreservation>
+            <Area>2.1</Area>
+            <UValue>1.95</UValue>
+            <GValue>0.7</GValue>
+            <FF>0.2</FF>
+            <FS>0.86</FS>
+            <Orientation>North</Orientation>
+            <ExpertCodeParent>WA2</ExpertCodeParent>
+          </Window>
+          <Window>
+            <ExpertCode>F11</ExpertCode>
+            <ExpertDescription>Fenster 1989</ExpertDescription>
+            <Quantity>1</Quantity>
+            <InvestmentCosts>1100</InvestmentCosts>
+            <CostsCalculationBase>PerSquareMeter</CostsCalculationBase>
+            <LifeSpan>40</LifeSpan>
+            <ValuePreservation>Ersatz</ValuePreservation>
+            <Area>3.1</Area>
+            <UValue>2.32</UValue>
+            <GValue>0.7</GValue>
+            <FF>0.69</FF>
+            <FS>0.93</FS>
+            <Orientation>North</Orientation>
+            <ExpertCodeParent>WA2</ExpertCodeParent>
+          </Window>
+          <Window>
+            <ExpertCode>F12</ExpertCode>
+            <ExpertDescription>Fenster 1989</ExpertDescription>
+            <Quantity>1</Quantity>
+            <InvestmentCosts>1100</InvestmentCosts>
+            <CostsCalculationBase>PerSquareMeter</CostsCalculationBase>
+            <LifeSpan>40</LifeSpan>
+            <ValuePreservation>Ersatz</ValuePreservation>
+            <Area>1.6</Area>
+            <UValue>2.33</UValue>
+            <GValue>0.7</GValue>
+            <FF>0.69</FF>
+            <FS>0.77</FS>
+            <Orientation>East</Orientation>
+            <ExpertCodeParent>WA2</ExpertCodeParent>
+          </Window>
+          <Window>
+            <ExpertCode>F13</ExpertCode>
+            <ExpertDescription>Fenster 1989</ExpertDescription>
+            <Quantity>1</Quantity>
+            <InvestmentCosts>1100</InvestmentCosts>
+            <CostsCalculationBase>PerSquareMeter</CostsCalculationBase>
+            <LifeSpan>40</LifeSpan>
+            <ValuePreservation>Ersatz</ValuePreservation>
+            <Area>1.6</Area>
+            <UValue>2.28</UValue>
+            <GValue>0.7</GValue>
+            <FF>0.77</FF>
+            <FS>0.54</FS>
+            <Orientation>East</Orientation>
+            <ExpertCodeParent>WA2</ExpertCodeParent>
+          </Window>
+          <Window>
+            <ExpertCode>F14</ExpertCode>
+            <ExpertDescription>Fenster 1989</ExpertDescription>
+            <Quantity>1</Quantity>
+            <InvestmentCosts>1100</InvestmentCosts>
+            <CostsCalculationBase>PerSquareMeter</CostsCalculationBase>
+            <LifeSpan>40</LifeSpan>
+            <ValuePreservation>Ersatz</ValuePreservation>
+            <Area>2.4</Area>
+            <UValue>2.25</UValue>
+            <GValue>0.7</GValue>
+            <FF>0.75</FF>
+            <FS>0.56</FS>
+            <Orientation>East</Orientation>
+            <ExpertCodeParent>WA1</ExpertCodeParent>
+          </Window>
+          <Window>
+            <ExpertCode>F15</ExpertCode>
+            <ExpertDescription>PVC Fenster 2022</ExpertDescription>
+            <Quantity>1</Quantity>
+            <InvestmentCosts>0</InvestmentCosts>
+            <CostsCalculationBase>PerSquareMeter</CostsCalculationBase>
+            <LifeSpan>40</LifeSpan>
+            <ValuePreservation>Ersatz</ValuePreservation>
+            <RenovationYear>2022</RenovationYear>
+            <Area>0.7</Area>
+            <UValue>1.18</UValue>
+            <GValue>0.5</GValue>
+            <FF>0.56</FF>
+            <FS>0.81</FS>
+            <Orientation>East</Orientation>
+            <ExpertCodeParent>WA1</ExpertCodeParent>
+          </Window>
+          <Window>
+            <ExpertCode>F16</ExpertCode>
+            <ExpertDescription>Fenster 1989</ExpertDescription>
+            <Quantity>1</Quantity>
+            <InvestmentCosts>1100</InvestmentCosts>
+            <CostsCalculationBase>PerSquareMeter</CostsCalculationBase>
+            <LifeSpan>40</LifeSpan>
+            <ValuePreservation>Ersatz</ValuePreservation>
+            <Area>2.6</Area>
+            <UValue>2.3</UValue>
+            <GValue>0.7</GValue>
+            <FF>0.76</FF>
+            <FS>0.8</FS>
+            <Orientation>South</Orientation>
+            <ExpertCodeParent>WA2</ExpertCodeParent>
+          </Window>
+          <Window>
+            <ExpertCode>F17</ExpertCode>
+            <ExpertDescription>Fenster 1989</ExpertDescription>
+            <Quantity>1</Quantity>
+            <InvestmentCosts>1100</InvestmentCosts>
+            <CostsCalculationBase>PerSquareMeter</CostsCalculationBase>
+            <LifeSpan>40</LifeSpan>
+            <ValuePreservation>Ersatz</ValuePreservation>
+            <Area>2.5</Area>
+            <UValue>2.32</UValue>
+            <GValue>0.7</GValue>
+            <FF>0.72</FF>
+            <FS>0.76</FS>
+            <Orientation>South</Orientation>
+            <ExpertCodeParent>WA2</ExpertCodeParent>
+          </Window>
+          <Window>
+            <ExpertCode>F18</ExpertCode>
+            <ExpertDescription>Fenster 1989</ExpertDescription>
+            <Quantity>1</Quantity>
+            <InvestmentCosts>1100</InvestmentCosts>
+            <CostsCalculationBase>PerSquareMeter</CostsCalculationBase>
+            <LifeSpan>40</LifeSpan>
+            <ValuePreservation>Ersatz</ValuePreservation>
+            <Area>2.5</Area>
+            <UValue>2.28</UValue>
+            <GValue>0.7</GValue>
+            <FF>0.68</FF>
+            <FS>0.59</FS>
+            <Orientation>South</Orientation>
+            <ExpertCodeParent>WA2</ExpertCodeParent>
+          </Window>
+          <Window>
+            <ExpertCode>F19</ExpertCode>
+            <ExpertDescription>Fenster 1989</ExpertDescription>
+            <Quantity>1</Quantity>
+            <InvestmentCosts>1100</InvestmentCosts>
+            <CostsCalculationBase>PerSquareMeter</CostsCalculationBase>
+            <LifeSpan>40</LifeSpan>
+            <ValuePreservation>Ersatz</ValuePreservation>
+            <Area>2.5</Area>
+            <UValue>2.28</UValue>
+            <GValue>0.7</GValue>
+            <FF>0.68</FF>
+            <FS>0.62</FS>
+            <Orientation>South</Orientation>
+            <ExpertCodeParent>WA2</ExpertCodeParent>
+          </Window>
+          <Window>
+            <ExpertCode>F20</ExpertCode>
+            <ExpertDescription>Fenster 1989</ExpertDescription>
+            <Quantity>1</Quantity>
+            <InvestmentCosts>1100</InvestmentCosts>
+            <CostsCalculationBase>PerSquareMeter</CostsCalculationBase>
+            <LifeSpan>40</LifeSpan>
+            <ValuePreservation>Ersatz</ValuePreservation>
+            <Area>2.5</Area>
+            <UValue>2.32</UValue>
+            <GValue>0.7</GValue>
+            <FF>0.72</FF>
+            <FS>0.81</FS>
+            <Orientation>South</Orientation>
+            <ExpertCodeParent>WA2</ExpertCodeParent>
+          </Window>
+          <Window>
+            <ExpertCode>F21</ExpertCode>
+            <ExpertDescription>Fenster 1989</ExpertDescription>
+            <Quantity>1</Quantity>
+            <InvestmentCosts>1100</InvestmentCosts>
+            <CostsCalculationBase>PerSquareMeter</CostsCalculationBase>
+            <LifeSpan>40</LifeSpan>
+            <ValuePreservation>Ersatz</ValuePreservation>
+            <Area>1.6</Area>
+            <UValue>2.32</UValue>
+            <GValue>0.7</GValue>
+            <FF>0.7</FF>
+            <FS>0.8</FS>
+            <Orientation>South</Orientation>
+            <ExpertCodeParent>WA2</ExpertCodeParent>
+          </Window>
+          <Window>
+            <ExpertCode>F22</ExpertCode>
+            <ExpertDescription>Fenster 1989</ExpertDescription>
+            <Quantity>1</Quantity>
+            <InvestmentCosts>1100</InvestmentCosts>
+            <CostsCalculationBase>PerSquareMeter</CostsCalculationBase>
+            <LifeSpan>40</LifeSpan>
+            <ValuePreservation>Ersatz</ValuePreservation>
+            <Area>2.8</Area>
+            <UValue>2.32</UValue>
+            <GValue>0.7</GValue>
+            <FF>0.74</FF>
+            <FS>0.78</FS>
+            <Orientation>South</Orientation>
+            <ExpertCodeParent>WA1</ExpertCodeParent>
+          </Window>
+          <Window>
+            <ExpertCode>F23</ExpertCode>
+            <ExpertDescription>Fenster 1989</ExpertDescription>
+            <Quantity>1</Quantity>
+            <InvestmentCosts>1100</InvestmentCosts>
+            <CostsCalculationBase>PerSquareMeter</CostsCalculationBase>
+            <LifeSpan>40</LifeSpan>
+            <ValuePreservation>Ersatz</ValuePreservation>
+            <Area>2.8</Area>
+            <UValue>2.32</UValue>
+            <GValue>0.7</GValue>
+            <FF>0.74</FF>
+            <FS>0.82</FS>
+            <Orientation>South</Orientation>
+            <ExpertCodeParent>WA1</ExpertCodeParent>
+          </Window>
+          <Window>
+            <ExpertCode>F24</ExpertCode>
+            <ExpertDescription>PVC Fenster 2022</ExpertDescription>
+            <Quantity>1</Quantity>
+            <InvestmentCosts>0</InvestmentCosts>
+            <CostsCalculationBase>PerItem</CostsCalculationBase>
+            <LifeSpan>40</LifeSpan>
+            <ValuePreservation>Ersatz</ValuePreservation>
+            <RenovationYear>2022</RenovationYear>
+            <Area>1.9</Area>
+            <UValue>0.91</UValue>
+            <GValue>0.5</GValue>
+            <FF>0.77</FF>
+            <FS>0.59</FS>
+            <Orientation>South</Orientation>
+            <ExpertCodeParent>WA1</ExpertCodeParent>
+          </Window>
+          <Window>
+            <ExpertCode>F25</ExpertCode>
+            <ExpertDescription>PVC Fenster 2022</ExpertDescription>
+            <Quantity>1</Quantity>
+            <InvestmentCosts>0</InvestmentCosts>
+            <CostsCalculationBase>PerItem</CostsCalculationBase>
+            <LifeSpan>40</LifeSpan>
+            <ValuePreservation>Ersatz</ValuePreservation>
+            <RenovationYear>2022</RenovationYear>
+            <Area>2</Area>
+            <UValue>0.91</UValue>
+            <GValue>0.5</GValue>
+            <FF>0.77</FF>
+            <FS>0.07</FS>
+            <Orientation>West</Orientation>
+            <ExpertCodeParent>WA1</ExpertCodeParent>
+          </Window>
+          <Window>
+            <ExpertCode>F26</ExpertCode>
+            <ExpertDescription>Fenster 1989</ExpertDescription>
+            <Quantity>1</Quantity>
+            <InvestmentCosts>1100</InvestmentCosts>
+            <CostsCalculationBase>PerSquareMeter</CostsCalculationBase>
+            <LifeSpan>40</LifeSpan>
+            <ValuePreservation>Ersatz</ValuePreservation>
+            <Area>1</Area>
+            <UValue>2.34</UValue>
+            <GValue>0.7</GValue>
+            <FF>0.64</FF>
+            <FS>0.04</FS>
+            <Orientation>South</Orientation>
+            <ExpertCodeParent>WA1</ExpertCodeParent>
+          </Window>
+          <Window>
+            <ExpertCode>F27</ExpertCode>
+            <ExpertDescription>Fenster 1989</ExpertDescription>
+            <Quantity>1</Quantity>
+            <InvestmentCosts>1100</InvestmentCosts>
+            <CostsCalculationBase>PerSquareMeter</CostsCalculationBase>
+            <LifeSpan>40</LifeSpan>
+            <ValuePreservation>Ersatz</ValuePreservation>
+            <Area>1.9</Area>
+            <UValue>2.25</UValue>
+            <GValue>0.7</GValue>
+            <FF>0.72</FF>
+            <FS>0.05</FS>
+            <Orientation>South</Orientation>
+            <ExpertCodeParent>WA1</ExpertCodeParent>
+          </Window>
+          <Window>
+            <ExpertCode>F28</ExpertCode>
+            <ExpertDescription>Fenster 1989</ExpertDescription>
+            <Quantity>1</Quantity>
+            <InvestmentCosts>1100</InvestmentCosts>
+            <CostsCalculationBase>PerSquareMeter</CostsCalculationBase>
+            <LifeSpan>40</LifeSpan>
+            <ValuePreservation>Ersatz</ValuePreservation>
+            <Area>0.4</Area>
+            <UValue>2.33</UValue>
+            <GValue>0.7</GValue>
+            <FF>0.57</FF>
+            <FS>0.03</FS>
+            <Orientation>South</Orientation>
+            <ExpertCodeParent>WA1</ExpertCodeParent>
+          </Window>
+        </Items>
+      </WindowsAndDoors>
+      <Floors>
+        <Condition>Used</Condition>
+        <Description>Boden (oberhalb der Terrasse), 4 cm von innen wärmegedämmt (Annahme)</Description>
+        <Renewals>Keine Massnahmen</Renewals>
+        <ConditionOtherFloors>Used</ConditionOtherFloors>
+        <DescriptionOtherFloors>Boden gegen Erdreich mit 5 cm von innen und aussen wärmegedämmt (Annahme)
+Kellerdecke, mit 4 cm im EG-Boden wärmegedämmt (Annahme)
+Garagendecke mit ca. 5 cm Kork im DG-Boden wärmegedämmt (Annahme)</DescriptionOtherFloors>
+        <RenewalsOtherFloors>Garagendecke mit 10 cm wärmedämmen,
+bspw. Thermo-Plus (0.031 W/mK)</RenewalsOtherFloors>
+        <Items>
+          <FloorExterior>
+            <ExpertCode>BA1</ExpertCode>
+            <ExpertDescription>Boden Terrasse - Boden Terrasse</ExpertDescription>
+            <Quantity>1</Quantity>
+            <InvestmentCosts>100</InvestmentCosts>
+            <CostsCalculationBase>PerSquareMeter</CostsCalculationBase>
+            <LifeSpan>25</LifeSpan>
+            <ValuePreservation>Instandsetzung und Erneuerung</ValuePreservation>
+            <Area>5.8</Area>
+            <UValue>0.76</UValue>
+            <BFactor>1</BFactor>
+            <HeatingElement>true</HeatingElement>
+          </FloorExterior>
+          <FloorOther>
+            <ExpertCode>BE1</ExpertCode>
+            <ExpertDescription>Kellerboden - Kellerboden</ExpertDescription>
+            <Quantity>1</Quantity>
+            <InvestmentCosts>0</InvestmentCosts>
+            <CostsCalculationBase>PerSquareMeter</CostsCalculationBase>
+            <LifeSpan>50</LifeSpan>
+            <ValuePreservation>Keine Arbeiten</ValuePreservation>
+            <Area>117</Area>
+            <UValue>0.28</UValue>
+            <BFactor>0.7</BFactor>
+            <HeatingElement>true</HeatingElement>
+            <Type>TowardsEarthMoreThanTwoMeters</Type>
+          </FloorOther>
+          <FloorOther>
+            <ExpertCode>BU1</ExpertCode>
+            <ExpertDescription>Kellerdecke - Kellerdecke</ExpertDescription>
+            <Quantity>1</Quantity>
+            <InvestmentCosts>0</InvestmentCosts>
+            <CostsCalculationBase>PerSquareMeter</CostsCalculationBase>
+            <LifeSpan>50</LifeSpan>
+            <ValuePreservation>Keine Arbeiten</ValuePreservation>
+            <Area>41.5</Area>
+            <UValue>0.72</UValue>
+            <BFactor>0.8</BFactor>
+            <HeatingElement>true</HeatingElement>
+            <Type>TowardsUnheatedNoIsolation</Type>
+          </FloorOther>
+          <FloorOther>
+            <ExpertCode>BU2</ExpertCode>
+            <ExpertDescription>Garagedecke - Garagendecke</ExpertDescription>
+            <Quantity>1</Quantity>
+            <InvestmentCosts>0</InvestmentCosts>
+            <CostsCalculationBase>PerSquareMeter</CostsCalculationBase>
+            <LifeSpan>50</LifeSpan>
+            <ValuePreservation>Keine Arbeiten</ValuePreservation>
+            <Area>35.7</Area>
+            <UValue>0.77</UValue>
+            <BFactor>0.8</BFactor>
+            <Type>TowardsUnheatedNoIsolation</Type>
+          </FloorOther>
+        </Items>
+      </Floors>
+      <ThermalBridges>
+        <Description>Übliche Wärmebrücken vorhanden. Wärmebrücken fallen im heute schlecht gedämmten Zustand weniger ins Gewicht als nach der Sanierung.</Description>
+        <Renewals>Wärmebrücken sind bei der Sanierung wo immer möglich zu verhindern oder zu minimieren. Storenkästen im Zusammenhang mit dem Fensterersatz nach Möglichkeit ausdämmen bspw. https://www.isofair.ch/, zusätzlich die Kästen soweit nötig abdichten, evtl. Storen elektrifizieren (Kosten nicht eingerechnet)</Renewals>
+        <Items>
+          <ThermalBridgeLinear>
+            <ExpertCode>WB1</ExpertCode>
+            <ExpertDescription>Balkon</ExpertDescription>
+            <Quantity>1</Quantity>
+            <ValuePreservation xsi:nil="true" />
+            <PsiValue>0.08</PsiValue>
+            <Length>9.5</Length>
+            <Type>Balcony</Type>
+          </ThermalBridgeLinear>
+          <ThermalBridgeLinear>
+            <ExpertCode>WB2</ExpertCode>
+            <ExpertDescription>Wandanschluss Kellerboden</ExpertDescription>
+            <Quantity>1</Quantity>
+            <ValuePreservation xsi:nil="true" />
+            <PsiValue>0.2</PsiValue>
+            <Length>25.1</Length>
+            <Type>FloorCellar</Type>
+          </ThermalBridgeLinear>
+          <ThermalBridgeLinear>
+            <ExpertCode>WB3</ExpertCode>
+            <ExpertDescription>Sockel</ExpertDescription>
+            <Quantity>1</Quantity>
+            <ValuePreservation xsi:nil="true" />
+            <PsiValue>0.65</PsiValue>
+            <Length>37.4</Length>
+            <Type>BuildingBase</Type>
+          </ThermalBridgeLinear>
+          <ThermalBridgeLinear>
+            <ExpertCode>WB4</ExpertCode>
+            <ExpertDescription>Fensteranschlag - WB Fensterbrüstung</ExpertDescription>
+            <Quantity>1</Quantity>
+            <ValuePreservation xsi:nil="true" />
+            <PsiValue>0.15</PsiValue>
+            <Length>150.4</Length>
+            <Type>WindowStop</Type>
+          </ThermalBridgeLinear>
+          <ThermalBridgeLinear>
+            <ExpertCode>WB5</ExpertCode>
+            <ExpertDescription>Storenkasten - WB Fenstersturz</ExpertDescription>
+            <Quantity>1</Quantity>
+            <ValuePreservation xsi:nil="true" />
+            <PsiValue>0.25</PsiValue>
+            <Length>44.2</Length>
+            <Type>Shade</Type>
+          </ThermalBridgeLinear>
+        </Items>
+      </ThermalBridges>
+    </BuildingEnvelope>
+  </CurrentState>
+</SIARecord>

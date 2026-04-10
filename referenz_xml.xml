@@ -1,0 +1,556 @@
+<?xml version="1.0" encoding="utf-8"?>
+<SIARecord xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns="http://www.geak.ch/Import/v4/">
+  <Version>v6.5</Version>
+  <General ProjectName="250413 GEAK Neueggstr Hinwil Guldenschuh">
+    <OwnerAddress>
+      <Title>Mr</Title>
+      <Name1>Markus Guldenschuh</Name1>
+      <Address>Neueggstrasse 11</Address>
+      <Zip>8340</Zip>
+      <City>Hinwil</City>
+      <Country>Schweiz</Country>
+      <EMail>magul@bluewin.ch</EMail>
+      <Phone1>078 647 47 33</Phone1>
+    </OwnerAddress>
+    <BuildingData>
+      <Zip>8340</Zip>
+      <City>Hinwil</City>
+      <Community>Hinwil</Community>
+      <StreetName>Neueggstrasse</StreetName>
+      <HouseNumber>11</HouseNumber>
+      <WeatherStation>Zürich-MeteoSchweiz</WeatherStation>
+      <EGID>44828</EGID>
+      <YearOfConstruction>1880</YearOfConstruction>
+      <PlotNumber>8824</PlotNumber>
+      <BuildingCategory>SingleHome</BuildingCategory>
+      <PeopleCount>1</PeopleCount>
+      <EnergyReferenceArea>155</EnergyReferenceArea>
+      <AverageRoomHeight>2.4</AverageRoomHeight>
+      <FullFloorsCount>2</FullFloorsCount>
+      <BuildingDepth>11</BuildingDepth>
+      <GroundPlanType>Compact</GroundPlanType>
+      <ConstructionType>Middle</ConstructionType>
+      <BestKnownWeatherStation>Zürich-MeteoSchweiz</BestKnownWeatherStation>
+      <Altitude>704</Altitude>
+    </BuildingData>
+    <BuildingUsages>
+      <SingleHomeBuildingUsage>
+        <Area>155</Area>
+        <RoomTemperature>19</RoomTemperature>
+        <PerPersonArea>155</PerPersonArea>
+        <WarmWaterNeed>5</WarmWaterNeed>
+        <ResidentsCount>1</ResidentsCount>
+        <RoomCount>5</RoomCount>
+        <ApartmentsCount1Rooms>0</ApartmentsCount1Rooms>
+        <ApartmentsCount2Rooms>0</ApartmentsCount2Rooms>
+        <ApartmentsCount3Rooms>0</ApartmentsCount3Rooms>
+        <ApartmentsCount4Rooms>0</ApartmentsCount4Rooms>
+        <ApartmentsCount5Rooms>1</ApartmentsCount5Rooms>
+        <ApartmentsCount6Rooms>0</ApartmentsCount6Rooms>
+        <ApartmentsCountOver6Rooms>0</ApartmentsCountOver6Rooms>
+      </SingleHomeBuildingUsage>
+    </BuildingUsages>
+  </General>
+  <CurrentState>
+    <Remarks>Das Gebäude wurde 1880 erbaut. Im Jahr 2022 wurde das Fenster im Bad ersetzt, 2025 jenes in der Küche. 1974 wurde eine Ölheizung eingebaut, deren Brenner 1994 ersetzt wurde. 2015 kam ein Elektroboiler hinzu, der 2022 durch einen Wärmepumpenboiler ersetzt wurde. Ansonsten befindet sich das Gebäude noch weitgehend in seinem ursprünglichen Zustand. Die Heizung muss in den nächsten Jahren ersetzt werden.</Remarks>
+    <BuildingEnvelope>
+      <RoofsAndCeilings>
+        <Condition>WornOut</Condition>
+        <Description>Schrägdach, 8 cm zwischen den Sparren wärmegedämmt (Annahme)</Description>
+        <Renewals>Schrägdach zwischen den Sparren mit 16 cm wärmedämmen, 
+bspw. Flumroc Solo (0.035W/mK) oder mit Isofloc ausblasen
+Über Sparren 8 cm Holzfaserplatte als Dämmung/Unterdach, bspw. Pavatherm-Plus (0.043W/mK)</Renewals>
+        <GeneralRoof>PitchedRoofPartiallyHeated</GeneralRoof>
+        <ConditionOtherCeilings>WornOut</ConditionOtherCeilings>
+        <DescriptionOtherCeilings>Estrichboden, 8 cm zwischen den Sparren wärmegedämmt (Annahme)</DescriptionOtherCeilings>
+        <RenewalsOtherCeilings>Keine Massnahmen (Dach bildet neue thermische Gebäudehülle)</RenewalsOtherCeilings>
+        <Items>
+          <Roof>
+            <ExpertCode>Da-1</ExpertCode>
+            <ExpertDescription>Steildach</ExpertDescription>
+            <Quantity>1</Quantity>
+            <InvestmentCosts>200</InvestmentCosts>
+            <CostsCalculationBase>PerSquareMeter</CostsCalculationBase>
+            <LifeSpan>50</LifeSpan>
+            <ValuePreservation>Neueindeckung</ValuePreservation>
+            <Area>28.8</Area>
+            <UValue>0.43</UValue>
+            <BFactor>1</BFactor>
+            <Orientation>SouthWest</Orientation>
+            <Type>PitchedRoof</Type>
+          </Roof>
+          <Roof>
+            <ExpertCode>Da-2</ExpertCode>
+            <ExpertDescription>Steildach</ExpertDescription>
+            <Quantity>1</Quantity>
+            <InvestmentCosts>200</InvestmentCosts>
+            <CostsCalculationBase>PerSquareMeter</CostsCalculationBase>
+            <LifeSpan>50</LifeSpan>
+            <ValuePreservation>Neueindeckung</ValuePreservation>
+            <Area>21.8</Area>
+            <UValue>0.43</UValue>
+            <BFactor>1</BFactor>
+            <Orientation>NorthEast</Orientation>
+            <Type>PitchedRoof</Type>
+          </Roof>
+          <Ceiling>
+            <ExpertCode>De-1</ExpertCode>
+            <ExpertDescription>Estrichboden</ExpertDescription>
+            <Quantity>1</Quantity>
+            <InvestmentCosts>0</InvestmentCosts>
+            <CostsCalculationBase>PerSquareMeter</CostsCalculationBase>
+            <LifeSpan>50</LifeSpan>
+            <ValuePreservation>Keine Arbeiten</ValuePreservation>
+            <Area>35.4</Area>
+            <UValue>0.43</UValue>
+            <BFactor>0.9</BFactor>
+            <Type>CeilingUnheated</Type>
+            <TemperatureNextRoom>20</TemperatureNextRoom>
+          </Ceiling>
+        </Items>
+      </RoofsAndCeilings>
+      <Walls>
+        <Condition>EndOfLife</Condition>
+        <Description>Im EG Backsteinmauerwerk, keine Wärmedämmung
+Im Dachgeschoss Holzständerwand, 10 cm zwischen den Sparren gedämmt</Description>
+        <Renewals>Im EG Backsteinmauerwerk mit 16 cm von aussen wärmedämmen,
+bspw. COMPACT PRO (0.033W/mK)
+Im Dachgeschoss Holzständerwand zwischen den Sparren mit 16 cm wärmedämmen, 
+bspw. Flumroc Solo (0.035W/mK) oder mit Isofloc ausblasen
+Über Holzständerwand 8 cm Holzfaserplatte als Dämmung,
+bspw. Pavatherm-Plus (0.043W/mK)</Renewals>
+        <FacadeStructure>Flat</FacadeStructure>
+        <ConditionOtherWalls>WornOut</ConditionOtherWalls>
+        <DescriptionOtherWalls>Bruchsteinmauerwerk gegen unbeheizt, keine Wärmedämmung</DescriptionOtherWalls>
+        <RenewalsOtherWalls>Wände gegen unbeheizt mit 14 cm auf kalter Seite wärmedämmen,
+bspw. WILAN 3 (0,031W/mK)</RenewalsOtherWalls>
+        <Items>
+          <WallExterior>
+            <ExpertCode>W-1</ExpertCode>
+            <ExpertDescription>Backsteinmauerwerk EG</ExpertDescription>
+            <Quantity>1</Quantity>
+            <InvestmentCosts>400</InvestmentCosts>
+            <CostsCalculationBase>PerSquareMeter</CostsCalculationBase>
+            <LifeSpan>25</LifeSpan>
+            <ValuePreservation>Instandsetzung und Erneuerung</ValuePreservation>
+            <Area>27</Area>
+            <UValue>2.35</UValue>
+            <BFactor>1</BFactor>
+            <Orientation>SouthWest</Orientation>
+            <Type>Facade</Type>
+          </WallExterior>
+          <WallExterior>
+            <ExpertCode>W-2</ExpertCode>
+            <ExpertDescription>Holzständerwand DG</ExpertDescription>
+            <Quantity>1</Quantity>
+            <InvestmentCosts>400</InvestmentCosts>
+            <CostsCalculationBase>PerSquareMeter</CostsCalculationBase>
+            <LifeSpan>25</LifeSpan>
+            <ValuePreservation>Instandsetzung und Erneuerung</ValuePreservation>
+            <Area>12.1</Area>
+            <UValue>0.37</UValue>
+            <BFactor>1</BFactor>
+            <Orientation>SouthWest</Orientation>
+            <Type>Facade</Type>
+          </WallExterior>
+          <WallExterior>
+            <ExpertCode>W-3</ExpertCode>
+            <ExpertDescription>Backsteinmauerwerk EG</ExpertDescription>
+            <Quantity>1</Quantity>
+            <InvestmentCosts>400</InvestmentCosts>
+            <CostsCalculationBase>PerSquareMeter</CostsCalculationBase>
+            <LifeSpan>25</LifeSpan>
+            <ValuePreservation>Instandsetzung und Erneuerung</ValuePreservation>
+            <Area>13.8</Area>
+            <UValue>2.35</UValue>
+            <BFactor>1</BFactor>
+            <Orientation>SouthEast</Orientation>
+            <Type>Facade</Type>
+          </WallExterior>
+          <WallExterior>
+            <ExpertCode>W-4</ExpertCode>
+            <ExpertDescription>Holzständerwand DG</ExpertDescription>
+            <Quantity>1</Quantity>
+            <InvestmentCosts>400</InvestmentCosts>
+            <CostsCalculationBase>PerSquareMeter</CostsCalculationBase>
+            <LifeSpan>25</LifeSpan>
+            <ValuePreservation>Instandsetzung und Erneuerung</ValuePreservation>
+            <Area>18.7</Area>
+            <UValue>0.37</UValue>
+            <BFactor>1</BFactor>
+            <Orientation>SouthEast</Orientation>
+            <Type>Facade</Type>
+          </WallExterior>
+          <WallExterior>
+            <ExpertCode>W-5</ExpertCode>
+            <ExpertDescription>Backsteinmauerwerk EG</ExpertDescription>
+            <Quantity>1</Quantity>
+            <InvestmentCosts>400</InvestmentCosts>
+            <CostsCalculationBase>PerSquareMeter</CostsCalculationBase>
+            <LifeSpan>25</LifeSpan>
+            <ValuePreservation>Instandsetzung und Erneuerung</ValuePreservation>
+            <Area>26.9</Area>
+            <UValue>2.35</UValue>
+            <BFactor>1</BFactor>
+            <Orientation>NorthEast</Orientation>
+            <Type>Facade</Type>
+          </WallExterior>
+          <WallExterior>
+            <ExpertCode>W-6</ExpertCode>
+            <ExpertDescription>Holzständerwand DG</ExpertDescription>
+            <Quantity>1</Quantity>
+            <InvestmentCosts>400</InvestmentCosts>
+            <CostsCalculationBase>PerSquareMeter</CostsCalculationBase>
+            <LifeSpan>25</LifeSpan>
+            <ValuePreservation>Instandsetzung und Erneuerung</ValuePreservation>
+            <Area>8.3</Area>
+            <UValue>0.37</UValue>
+            <BFactor>1</BFactor>
+            <Orientation>NorthEast</Orientation>
+            <Type>Facade</Type>
+          </WallExterior>
+          <WallExterior>
+            <ExpertCode>W-7</ExpertCode>
+            <ExpertDescription>Backsteinmauerwerk EG</ExpertDescription>
+            <Quantity>1</Quantity>
+            <InvestmentCosts>400</InvestmentCosts>
+            <CostsCalculationBase>PerSquareMeter</CostsCalculationBase>
+            <LifeSpan>25</LifeSpan>
+            <ValuePreservation>Instandsetzung und Erneuerung</ValuePreservation>
+            <Area>29.8</Area>
+            <UValue>2.35</UValue>
+            <BFactor>1</BFactor>
+            <Orientation>NorthWest</Orientation>
+            <Type>Facade</Type>
+          </WallExterior>
+          <WallExterior>
+            <ExpertCode>W-8</ExpertCode>
+            <ExpertDescription>Holzständerwand DG</ExpertDescription>
+            <Quantity>1</Quantity>
+            <InvestmentCosts>400</InvestmentCosts>
+            <CostsCalculationBase>PerSquareMeter</CostsCalculationBase>
+            <LifeSpan>25</LifeSpan>
+            <ValuePreservation>Instandsetzung und Erneuerung</ValuePreservation>
+            <Area>18.7</Area>
+            <UValue>0.37</UValue>
+            <BFactor>1</BFactor>
+            <Orientation>NorthWest</Orientation>
+            <Type>Facade</Type>
+          </WallExterior>
+          <WallOther>
+            <ExpertCode>Wx-1</ExpertCode>
+            <ExpertDescription>Backsteinmauerwerk gegen unbeheizt</ExpertDescription>
+            <Quantity>1</Quantity>
+            <InvestmentCosts>0</InvestmentCosts>
+            <CostsCalculationBase>PerSquareMeter</CostsCalculationBase>
+            <LifeSpan>50</LifeSpan>
+            <ValuePreservation>Keine Arbeiten</ValuePreservation>
+            <Area>17.4</Area>
+            <UValue>2.27</UValue>
+            <BFactor>0.8</BFactor>
+            <Orientation>SouthEast</Orientation>
+            <Type>TowardsUnheatedNoIsolation</Type>
+            <TemperatureNextRoom>20</TemperatureNextRoom>
+          </WallOther>
+        </Items>
+      </Walls>
+      <WindowsAndDoors>
+        <Condition>EndOfLife</Condition>
+        <Description>alte Holzfenster 2-fach Verglasung ohne Wärmeschutz
+PVC Fenster aus 2022 und 2025,  3-fache Wärmeschutzverglasung
+Eingangstür undicht</Description>
+        <Renewals>Alte Holzfenster durch neue mit 3-facher Wärmeschutzverglasung ersetzen
+Eingangstür ersetzen</Renewals>
+        <AlwaysSubtractOpeningAreas>true</AlwaysSubtractOpeningAreas>
+        <Items>
+          <Window>
+            <ExpertCode>Fe-1</ExpertCode>
+            <ExpertDescription>Fenster alt</ExpertDescription>
+            <Quantity>3</Quantity>
+            <InvestmentCosts>1100</InvestmentCosts>
+            <CostsCalculationBase>PerSquareMeter</CostsCalculationBase>
+            <LifeSpan>40</LifeSpan>
+            <ValuePreservation>Ersatz</ValuePreservation>
+            <Area>1.8</Area>
+            <UValue>2.7</UValue>
+            <GValue>0.7</GValue>
+            <FF>0.7</FF>
+            <FS>0.76</FS>
+            <Orientation>SouthWest</Orientation>
+            <ExpertCodeParent>W-1</ExpertCodeParent>
+          </Window>
+          <Window>
+            <ExpertCode>Fe-2</ExpertCode>
+            <ExpertDescription>Fenster alt</ExpertDescription>
+            <Quantity>1</Quantity>
+            <InvestmentCosts>1100</InvestmentCosts>
+            <CostsCalculationBase>PerSquareMeter</CostsCalculationBase>
+            <LifeSpan>40</LifeSpan>
+            <ValuePreservation>Ersatz</ValuePreservation>
+            <Area>1.8</Area>
+            <UValue>2.7</UValue>
+            <GValue>0.7</GValue>
+            <FF>0.7</FF>
+            <FS>0.18</FS>
+            <Orientation>SouthEast</Orientation>
+            <ExpertCodeParent>W-3</ExpertCodeParent>
+          </Window>
+          <Window>
+            <ExpertCode>Fe-3</ExpertCode>
+            <ExpertDescription>Fenster alt</ExpertDescription>
+            <Quantity>1</Quantity>
+            <InvestmentCosts>1100</InvestmentCosts>
+            <CostsCalculationBase>PerSquareMeter</CostsCalculationBase>
+            <LifeSpan>40</LifeSpan>
+            <ValuePreservation>Ersatz</ValuePreservation>
+            <Area>2.1</Area>
+            <UValue>2.7</UValue>
+            <GValue>0.7</GValue>
+            <FF>0.7</FF>
+            <FS>0.62</FS>
+            <Orientation>SouthEast</Orientation>
+            <ExpertCodeParent>W-4</ExpertCodeParent>
+          </Window>
+          <Window>
+            <ExpertCode>Fe-4</ExpertCode>
+            <ExpertDescription>Terrassentür</ExpertDescription>
+            <Quantity>1</Quantity>
+            <InvestmentCosts>1100</InvestmentCosts>
+            <CostsCalculationBase>PerSquareMeter</CostsCalculationBase>
+            <LifeSpan>40</LifeSpan>
+            <ValuePreservation>Ersatz</ValuePreservation>
+            <Area>1.8</Area>
+            <UValue>2.7</UValue>
+            <GValue>0.7</GValue>
+            <FF>0.7</FF>
+            <FS>0.67</FS>
+            <Orientation>SouthEast</Orientation>
+            <ExpertCodeParent>W-4</ExpertCodeParent>
+          </Window>
+          <WindowTowardsAttachedRoom>
+            <ExpertCode>Fe-5</ExpertCode>
+            <ExpertDescription>Fenster alt</ExpertDescription>
+            <Quantity>1</Quantity>
+            <InvestmentCosts>1100</InvestmentCosts>
+            <CostsCalculationBase>PerSquareMeter</CostsCalculationBase>
+            <LifeSpan>40</LifeSpan>
+            <ValuePreservation>Ersatz</ValuePreservation>
+            <Area>1.8</Area>
+            <UValue>2.7</UValue>
+            <GValue>0.7</GValue>
+            <FF>0.7</FF>
+            <FS>0</FS>
+            <BFactor>0.8</BFactor>
+            <Orientation>SouthEast</Orientation>
+            <ExpertCodeParent>Wx-1</ExpertCodeParent>
+          </WindowTowardsAttachedRoom>
+          <WindowTowardsAttachedRoom>
+            <ExpertCode>Fe-6</ExpertCode>
+            <ExpertDescription>Fenster alt</ExpertDescription>
+            <Quantity>1</Quantity>
+            <InvestmentCosts>1100</InvestmentCosts>
+            <CostsCalculationBase>PerSquareMeter</CostsCalculationBase>
+            <LifeSpan>40</LifeSpan>
+            <ValuePreservation>Ersatz</ValuePreservation>
+            <Area>0.3</Area>
+            <UValue>2.7</UValue>
+            <GValue>0.7</GValue>
+            <FF>0.7</FF>
+            <FS>0</FS>
+            <BFactor>0.8</BFactor>
+            <Orientation>SouthEast</Orientation>
+            <ExpertCodeParent>Wx-1</ExpertCodeParent>
+          </WindowTowardsAttachedRoom>
+          <WindowTowardsAttachedRoom>
+            <ExpertCode>Fe-7</ExpertCode>
+            <ExpertDescription>Eingangstür 40% Glasanteil</ExpertDescription>
+            <Quantity>1</Quantity>
+            <InvestmentCosts>6000</InvestmentCosts>
+            <CostsCalculationBase>PerItem</CostsCalculationBase>
+            <LifeSpan>40</LifeSpan>
+            <ValuePreservation>Ersatz</ValuePreservation>
+            <Area>1.8</Area>
+            <UValue>2.7</UValue>
+            <GValue>0.7</GValue>
+            <FF>0.4</FF>
+            <FS>0</FS>
+            <BFactor>0.8</BFactor>
+            <Orientation>SouthEast</Orientation>
+            <ExpertCodeParent>Wx-1</ExpertCodeParent>
+          </WindowTowardsAttachedRoom>
+          <Window>
+            <ExpertCode>Fe-8</ExpertCode>
+            <ExpertDescription>Fenster alt</ExpertDescription>
+            <Quantity>1</Quantity>
+            <InvestmentCosts>1100</InvestmentCosts>
+            <CostsCalculationBase>PerSquareMeter</CostsCalculationBase>
+            <LifeSpan>40</LifeSpan>
+            <ValuePreservation>Ersatz</ValuePreservation>
+            <Area>1.8</Area>
+            <UValue>2.7</UValue>
+            <GValue>0.7</GValue>
+            <FF>0.7</FF>
+            <FS>0.8</FS>
+            <Orientation>NorthEast</Orientation>
+            <ExpertCodeParent>W-5</ExpertCodeParent>
+          </Window>
+          <Window>
+            <ExpertCode>Fe-9</ExpertCode>
+            <ExpertDescription>Fenster 2025</ExpertDescription>
+            <Quantity>1</Quantity>
+            <InvestmentCosts>1100</InvestmentCosts>
+            <CostsCalculationBase>PerSquareMeter</CostsCalculationBase>
+            <LifeSpan>40</LifeSpan>
+            <ValuePreservation>Ersatz</ValuePreservation>
+            <RenovationYear>2025</RenovationYear>
+            <Area>1.8</Area>
+            <UValue>1</UValue>
+            <GValue>0.5</GValue>
+            <FF>0.7</FF>
+            <FS>0.8</FS>
+            <Orientation>NorthEast</Orientation>
+            <ExpertCodeParent>W-5</ExpertCodeParent>
+          </Window>
+          <Window>
+            <ExpertCode>Fe-10</ExpertCode>
+            <ExpertDescription>Fenster 2022</ExpertDescription>
+            <Quantity>1</Quantity>
+            <InvestmentCosts>1100</InvestmentCosts>
+            <CostsCalculationBase>PerSquareMeter</CostsCalculationBase>
+            <LifeSpan>40</LifeSpan>
+            <ValuePreservation>Ersatz</ValuePreservation>
+            <RenovationYear>2022</RenovationYear>
+            <Area>1.8</Area>
+            <UValue>1</UValue>
+            <GValue>0.5</GValue>
+            <FF>0.7</FF>
+            <FS>0.81</FS>
+            <Orientation>NorthEast</Orientation>
+            <ExpertCodeParent>W-5</ExpertCodeParent>
+          </Window>
+          <Window>
+            <ExpertCode>Fe-11</ExpertCode>
+            <ExpertDescription>Fenster alt</ExpertDescription>
+            <Quantity>3</Quantity>
+            <InvestmentCosts>1100</InvestmentCosts>
+            <CostsCalculationBase>PerSquareMeter</CostsCalculationBase>
+            <LifeSpan>40</LifeSpan>
+            <ValuePreservation>Ersatz</ValuePreservation>
+            <Area>1.8</Area>
+            <UValue>2.7</UValue>
+            <GValue>0.7</GValue>
+            <FF>0.7</FF>
+            <FS>0.86</FS>
+            <Orientation>NorthWest</Orientation>
+            <ExpertCodeParent>W-7</ExpertCodeParent>
+          </Window>
+          <Window>
+            <ExpertCode>Fe-12</ExpertCode>
+            <ExpertDescription>Fenster alt</ExpertDescription>
+            <Quantity>1</Quantity>
+            <InvestmentCosts>1100</InvestmentCosts>
+            <CostsCalculationBase>PerSquareMeter</CostsCalculationBase>
+            <LifeSpan>40</LifeSpan>
+            <ValuePreservation>Ersatz</ValuePreservation>
+            <Area>1.8</Area>
+            <UValue>2.7</UValue>
+            <GValue>0.7</GValue>
+            <FF>0.7</FF>
+            <FS>0.75</FS>
+            <Orientation>NorthWest</Orientation>
+            <ExpertCodeParent>W-8</ExpertCodeParent>
+          </Window>
+          <Window>
+            <ExpertCode>Fe-13</ExpertCode>
+            <ExpertDescription>Dachfenster alt</ExpertDescription>
+            <Quantity>1</Quantity>
+            <InvestmentCosts>1100</InvestmentCosts>
+            <CostsCalculationBase>PerSquareMeter</CostsCalculationBase>
+            <LifeSpan>40</LifeSpan>
+            <ValuePreservation>Ersatz</ValuePreservation>
+            <Area>2.1</Area>
+            <UValue>2.7</UValue>
+            <GValue>0.7</GValue>
+            <FF>0.7</FF>
+            <FS>1</FS>
+            <Orientation>SouthWest</Orientation>
+            <ExpertCodeParent>Da-1</ExpertCodeParent>
+          </Window>
+        </Items>
+      </WindowsAndDoors>
+      <Floors>
+        <Condition>WornOut</Condition>
+        <ConditionOtherFloors>WornOut</ConditionOtherFloors>
+        <DescriptionOtherFloors>Holzsparrenboden EG mit ca. 6 cm wärmegedämmt (Annahme)
+Betonboden Bad mit ca. 6 cm wärmegedämmt (Annahme)</DescriptionOtherFloors>
+        <RenewalsOtherFloors>Holzsparrenboden zusätzlich mit 14 cm zwischen den Sparren wärmedämmen,
+bspw. Isofloc (0.045 W/mK)
+Betonboden zusätzlich mit 10 cm wärmedämmen, 
+bspw. SwissporXPS Premium Plus (0.027 W/mK)</RenewalsOtherFloors>
+        <Items>
+          <FloorOther>
+            <ExpertCode>Bx-1</ExpertCode>
+            <ExpertDescription>Holzsparrenboden</ExpertDescription>
+            <Quantity>1</Quantity>
+            <InvestmentCosts>0</InvestmentCosts>
+            <CostsCalculationBase>PerSquareMeter</CostsCalculationBase>
+            <LifeSpan>50</LifeSpan>
+            <ValuePreservation>Keine Arbeiten</ValuePreservation>
+            <Area>73.2</Area>
+            <UValue>0.57</UValue>
+            <BFactor>0.8</BFactor>
+            <Type>TowardsUnheatedNoIsolation</Type>
+            <TemperatureNextRoom>20</TemperatureNextRoom>
+          </FloorOther>
+          <FloorOther>
+            <ExpertCode>Bx-2</ExpertCode>
+            <ExpertDescription>Betonboden</ExpertDescription>
+            <Quantity>1</Quantity>
+            <InvestmentCosts>0</InvestmentCosts>
+            <CostsCalculationBase>PerSquareMeter</CostsCalculationBase>
+            <LifeSpan>50</LifeSpan>
+            <ValuePreservation>Keine Arbeiten</ValuePreservation>
+            <Area>6.6</Area>
+            <UValue>0.52</UValue>
+            <BFactor>0.8</BFactor>
+            <Type>TowardsUnheatedNoIsolation</Type>
+            <TemperatureNextRoom>20</TemperatureNextRoom>
+          </FloorOther>
+        </Items>
+      </Floors>
+      <ThermalBridges>
+        <Description>Übliche Wärmebrücken vorhanden. Wärmebrücken fallen im heute schlecht gedämmten Zustand weniger ins Gewicht als nach der Sanierung.</Description>
+        <Renewals>Wärmebrücken sind bei der Sanierung wo immer möglich zu verhindern oder zu minimieren. evtl. elektrische Storen im Zusammenhang mit der WD der Fassade einbauen (Kosten nicht eingerechnet)</Renewals>
+        <Items>
+          <ThermalBridgeLinear>
+            <ExpertCode>WL-1</ExpertCode>
+            <ExpertDescription>Balkon</ExpertDescription>
+            <Quantity>1</Quantity>
+            <ValuePreservation xsi:nil="true" />
+            <PsiValue>0.8</PsiValue>
+            <Length>9.2</Length>
+            <Type>Balcony</Type>
+          </ThermalBridgeLinear>
+          <ThermalBridgeLinear>
+            <ExpertCode>WL-2</ExpertCode>
+            <ExpertDescription>Sockel</ExpertDescription>
+            <Quantity>1</Quantity>
+            <ValuePreservation xsi:nil="true" />
+            <PsiValue>0</PsiValue>
+            <Length>38.7</Length>
+            <Type>BuildingBase</Type>
+          </ThermalBridgeLinear>
+          <ThermalBridgeLinear>
+            <ExpertCode>WL-3</ExpertCode>
+            <ExpertDescription>Fensteranschlag</ExpertDescription>
+            <Quantity>1</Quantity>
+            <ValuePreservation xsi:nil="true" />
+            <PsiValue>0.15</PsiValue>
+            <Length>89.1</Length>
+            <Type>WindowStop</Type>
+          </ThermalBridgeLinear>
+        </Items>
+      </ThermalBridges>
+    </BuildingEnvelope>
+  </CurrentState>
+</SIARecord>
