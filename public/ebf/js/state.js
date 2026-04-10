@@ -1,6 +1,6 @@
 // Mutable app state — single source of truth
 export const S = {
-  mode: 'idle', // idle | calibrate_1 | calibrate_2 | calibrate_confirm | draw | measure | drag_vertex
+  mode: 'idle', // idle | calibrate_1 | calibrate_2 | calibrate_confirm | draw | measure | drag_vertex | drag_label
   scale: null,         // meters per world-pixel (uniform, kept for backward compat)
   scaleX: null,        // meters per pixel along scaleDirX
   scaleY: null,        // meters per pixel along scaleDirY

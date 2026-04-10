@@ -3,7 +3,10 @@ package pme123.geak4s.services
 import org.scalajs.dom
 import pme123.geak4s.domain.*
 import pme123.geak4s.domain.project.*
+import pme123.geak4s.domain.building.*
 import pme123.geak4s.domain.envelope.*
+import pme123.geak4s.domain.area.*
+import pme123.geak4s.domain.uwert.*
 import scala.scalajs.js
 import scala.concurrent.Future
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -56,9 +59,9 @@ object XmlExportService:
     // BuildingData
     xml.append(generateBuildingData(proj))
     
-    // BuildingUsages (optional)
-    if project.buildingUsages.nonEmpty then
-      xml.append(generateBuildingUsages(project.buildingUsages))
+    // BuildingUsages always required by XSD — fall back to EnergyReferenceArea for area
+    val fallbackArea = proj.buildingData.energyReferenceArea.map(_.toInt).getOrElse(0)
+    xml.append(generateBuildingUsages(project.buildingUsages, fallbackArea))
     
     xml.append("  </General>\n")
     
@@ -149,63 +152,292 @@ object XmlExportService:
     xml.toString()
   end generateBuildingData
 
-  /** Generate BuildingUsages section (optional) */
-  private def generateBuildingUsages(usages: List[building.BuildingUsage]): String =
-    val xml = new StringBuilder()
-
+  /** Generate BuildingUsages section — always required by XSD */
+  private def generateBuildingUsages(usages: List[building.BuildingUsage], fallbackArea: Int = 0): String =
+    val xml      = new StringBuilder()
+    val area     = usages.headOption.map(_.area.toInt).filter(_ > 0).getOrElse(fallbackArea)
+    val perPerson = if area > 0 then area else 1
+    val elem     = usages.headOption.map(u => mapUsageElementName(u.usageType)).getOrElse("SingleHomeBuildingUsage")
     xml.append("    <BuildingUsages>\n")
-
-    // For now, we'll skip detailed building usage mapping as it requires
-    // understanding the specific usage types in the domain model
-    // This is a placeholder for future implementation
-
+    xml.append(s"      <$elem>\n")
+    xml.append(s"        <Area>$area</Area>\n")
+    xml.append("        <RoomTemperature>20</RoomTemperature>\n")
+    xml.append(s"        <PerPersonArea>$perPerson</PerPersonArea>\n")
+    xml.append("        <WarmWaterNeed>8</WarmWaterNeed>\n")
+    xml.append("        <ResidentsCount>0</ResidentsCount>\n")
+    xml.append("        <RoomCount>0</RoomCount>\n")
+    xml.append("        <ApartmentsCount1Rooms>0</ApartmentsCount1Rooms>\n")
+    xml.append("        <ApartmentsCount2Rooms>0</ApartmentsCount2Rooms>\n")
+    xml.append("        <ApartmentsCount3Rooms>0</ApartmentsCount3Rooms>\n")
+    xml.append("        <ApartmentsCount4Rooms>0</ApartmentsCount4Rooms>\n")
+    xml.append("        <ApartmentsCount5Rooms>0</ApartmentsCount5Rooms>\n")
+    xml.append("        <ApartmentsCount6Rooms>0</ApartmentsCount6Rooms>\n")
+    xml.append("        <ApartmentsCountOver6Rooms>0</ApartmentsCountOver6Rooms>\n")
+    xml.append(s"      </$elem>\n")
     xml.append("    </BuildingUsages>\n")
-
     xml.toString()
   end generateBuildingUsages
 
-  /** Generate CurrentState section (building envelope) */
+  private def mapUsageElementName(usageType: String): String =
+    val lower = usageType.toLowerCase
+    if lower.contains("mehrfamilienhaus") || lower.contains("mfh") then "MultipleHomeBuildingUsage"
+    else "SingleHomeBuildingUsage"
+
+  /** Generate CurrentState section (building envelope).
+    * Primary source: drawn areas (areaCalculations) + U-Wert calculations.
+    * Fallback: manually entered envelope lists.
+    */
   private def generateCurrentState(project: GeakProject): String =
     val xml = new StringBuilder()
 
     xml.append("  <CurrentState>\n")
 
-    // Remarks (optional)
-    if project.project.descriptions.buildingDescription.isDefined then
-      xml.append(s"    <Remarks>${escapeXml(project.project.descriptions.buildingDescription.get)}</Remarks>\n")
+    project.project.descriptions.buildingDescription.foreach { d =>
+      xml.append(s"    <Remarks>${escapeXml(d)}</Remarks>\n")
+    }
 
-    // BuildingEnvelope
     xml.append("    <BuildingEnvelope>\n")
 
-    // Description (optional)
-    if project.project.descriptions.envelopeDescription.isDefined then
-      xml.append(s"      <Description>${escapeXml(project.project.descriptions.envelopeDescription.get)}</Description>\n")
-
-    // RoofsAndCeilings
-    if project.roofsCeilings.nonEmpty then
-      xml.append(generateRoofsAndCeilings(project.roofsCeilings))
-
-    // Walls
-    if project.walls.nonEmpty then
-      xml.append(generateWalls(project.walls))
-
-    // WindowsAndDoors
-    if project.windowsDoors.nonEmpty then
-      xml.append(generateWindowsAndDoors(project.windowsDoors))
-
-    // Floors
-    if project.floors.nonEmpty then
-      xml.append(generateFloors(project.floors))
-
-    // ThermalBridges
-    if project.thermalBridges.nonEmpty then
-      xml.append(generateThermalBridges(project.thermalBridges))
+    project.areaCalculations match
+      case Some(areaCalcs) =>
+        val uwerts = project.uwertCalculations
+        generateRoofsAndCeilingsFromArea(areaCalcs, uwerts).foreach(xml.append)
+        generateWallsFromArea(areaCalcs, uwerts).foreach(xml.append)
+        generateWindowsAndDoorsFromArea(areaCalcs, uwerts).foreach(xml.append)
+        generateFloorsFromArea(areaCalcs, uwerts).foreach(xml.append)
+        if project.thermalBridges.nonEmpty then
+          xml.append(generateThermalBridges(project.thermalBridges))
+      case None =>
+        if project.roofsCeilings.nonEmpty then
+          xml.append(generateRoofsAndCeilings(project.roofsCeilings))
+        if project.walls.nonEmpty then
+          xml.append(generateWalls(project.walls))
+        if project.windowsDoors.nonEmpty then
+          xml.append(generateWindowsAndDoors(project.windowsDoors))
+        if project.floors.nonEmpty then
+          xml.append(generateFloors(project.floors))
+        if project.thermalBridges.nonEmpty then
+          xml.append(generateThermalBridges(project.thermalBridges))
 
     xml.append("    </BuildingEnvelope>\n")
     xml.append("  </CurrentState>\n")
-
     xml.toString()
   end generateCurrentState
+
+  // ── Area-based generators (from drawn polygons + U-Wert calculations) ─────────
+
+  private def uwertFor(uwerts: List[UWertCalculation], ct: ComponentType): Option[UWertTableData] =
+    uwerts.find(_.componentType == ct).map(_.istCalculation)
+
+  private def fmtU(u: UWertTableData): String =
+    if u.rTotal != 0 then
+      BigDecimal(u.uValueWithoutB).setScale(3, BigDecimal.RoundingMode.HALF_UP).toDouble.toString
+    else "1.0"
+
+  private def entriesFor(areaCalcs: BuildingEnvelopeArea, ct: ComponentType): List[AreaEntry] =
+    areaCalcs.get(ct).map(_.entries).getOrElse(List.empty).filter(e => e.area > 0 || e.totalArea > 0)
+
+  private def appendAreaBase(xml: StringBuilder, entry: AreaEntry, uData: Option[UWertTableData], bFactor: Boolean = true): Unit =
+    if entry.kuerzel.nonEmpty then xml.append(s"            <ExpertCode>${escapeXml(entry.kuerzel.take(5))}</ExpertCode>\n")
+    if entry.description.nonEmpty then xml.append(s"            <ExpertDescription>${escapeXml(entry.description.take(250))}</ExpertDescription>\n")
+    xml.append(s"            <Quantity>${entry.quantity}</Quantity>\n")
+    xml.append("            <InvestmentCosts>0</InvestmentCosts>\n")
+    xml.append("            <CostsCalculationBase>PerSquareMeter</CostsCalculationBase>\n")
+    xml.append("            <LifeSpan>50</LifeSpan>\n")
+    xml.append("            <ValuePreservation>Keine Arbeiten</ValuePreservation>\n")
+    xml.append(s"            <Area>${entry.area}</Area>\n")
+    val uVal = uData.map(fmtU).getOrElse("1.0")
+    val bVal = uData.map(_.bFactor.toString).getOrElse("1")
+    xml.append(s"            <UValue>$uVal</UValue>\n")
+    if bFactor then xml.append(s"            <BFactor>$bVal</BFactor>\n")
+
+  private def appendOrientation(xml: StringBuilder, orientation: String): Unit =
+    val v = if orientation.nonEmpty then mapOrientation(Some(orientation)) else "South"
+    xml.append(s"            <Orientation>$v</Orientation>\n")
+
+  private def generateRoofsAndCeilingsFromArea(areaCalcs: BuildingEnvelopeArea, uwerts: List[UWertCalculation]): Option[String] =
+    val pitched  = entriesFor(areaCalcs, ComponentType.PitchedRoof)
+    val flat     = entriesFor(areaCalcs, ComponentType.FlatRoof)
+    val ceilings = entriesFor(areaCalcs, ComponentType.AtticFloor)
+    if pitched.isEmpty && flat.isEmpty && ceilings.isEmpty then return None
+
+    val xml      = new StringBuilder()
+    val pitchedU = uwertFor(uwerts, ComponentType.PitchedRoof)
+    val flatU    = uwertFor(uwerts, ComponentType.FlatRoof)
+    val ceilU    = uwertFor(uwerts, ComponentType.AtticFloor)
+
+    xml.append("      <RoofsAndCeilings>\n")
+    xml.append("        <Condition>Used</Condition>\n")
+    xml.append("        <Description>-</Description>\n")
+    xml.append("        <Renewals>-</Renewals>\n")
+    if pitched.nonEmpty || flat.nonEmpty then
+      val genRoof = if flat.nonEmpty && pitched.isEmpty then "FlatRoof" else "PitchedRoofPartiallyHeated"
+      xml.append(s"        <GeneralRoof>$genRoof</GeneralRoof>\n")
+    if ceilings.nonEmpty then
+      xml.append("        <ConditionOtherCeilings>Used</ConditionOtherCeilings>\n")
+      xml.append("        <DescriptionOtherCeilings>-</DescriptionOtherCeilings>\n")
+      xml.append("        <RenewalsOtherCeilings>-</RenewalsOtherCeilings>\n")
+    xml.append("        <Items>\n")
+
+    pitched.foreach { e =>
+      xml.append("          <Roof>\n")
+      appendAreaBase(xml, e, pitchedU)
+      appendOrientation(xml, e.orientation)
+      xml.append("            <Type>PitchedRoof</Type>\n")
+      xml.append("          </Roof>\n")
+    }
+    flat.foreach { e =>
+      xml.append("          <Roof>\n")
+      appendAreaBase(xml, e, flatU)
+      appendOrientation(xml, e.orientation)
+      xml.append("            <Type>FlatRoof</Type>\n")
+      xml.append("          </Roof>\n")
+    }
+    ceilings.foreach { e =>
+      xml.append("          <Ceiling>\n")
+      appendAreaBase(xml, e, ceilU)
+      xml.append("            <Type>CeilingUnheated</Type>\n")
+      xml.append("          </Ceiling>\n")
+    }
+
+    xml.append("        </Items>\n")
+    xml.append("      </RoofsAndCeilings>\n")
+    Some(xml.toString())
+
+  private def generateWallsFromArea(areaCalcs: BuildingEnvelopeArea, uwerts: List[UWertCalculation]): Option[String] =
+    val extWalls   = entriesFor(areaCalcs, ComponentType.ExteriorWall) ++ entriesFor(areaCalcs, ComponentType.BasementWallToOutside)
+    val earthWalls = entriesFor(areaCalcs, ComponentType.BasementWallToEarth)
+    val unheaWalls = entriesFor(areaCalcs, ComponentType.BasementWallToUnheated)
+    if extWalls.isEmpty && earthWalls.isEmpty && unheaWalls.isEmpty then return None
+
+    val xml    = new StringBuilder()
+    val extU   = uwertFor(uwerts, ComponentType.ExteriorWall)
+    val earthU = uwertFor(uwerts, ComponentType.BasementWallToEarth)
+    val unheaU = uwertFor(uwerts, ComponentType.BasementWallToUnheated)
+
+    xml.append("      <Walls>\n")
+    xml.append("        <Condition>Used</Condition>\n")
+    xml.append("        <Description>-</Description>\n")
+    xml.append("        <Renewals>-</Renewals>\n")
+    xml.append("        <FacadeStructure>NormallyStructured</FacadeStructure>\n")
+    if earthWalls.nonEmpty || unheaWalls.nonEmpty then
+      xml.append("        <ConditionOtherWalls>Used</ConditionOtherWalls>\n")
+      xml.append("        <DescriptionOtherWalls>-</DescriptionOtherWalls>\n")
+      xml.append("        <RenewalsOtherWalls>-</RenewalsOtherWalls>\n")
+    xml.append("        <Items>\n")
+
+    extWalls.foreach { e =>
+      xml.append("          <WallExterior>\n")
+      appendAreaBase(xml, e, extU)
+      appendOrientation(xml, e.orientation)
+      xml.append("            <Type>Facade</Type>\n")
+      xml.append("          </WallExterior>\n")
+    }
+    earthWalls.foreach { e =>
+      xml.append("          <WallOther>\n")
+      appendAreaBase(xml, e, earthU)
+      appendOrientation(xml, e.orientation)
+      xml.append("            <Type>TowardsEarthUpToTwoMeters</Type>\n")
+      xml.append("          </WallOther>\n")
+    }
+    unheaWalls.foreach { e =>
+      xml.append("          <WallOther>\n")
+      appendAreaBase(xml, e, unheaU)
+      appendOrientation(xml, e.orientation)
+      xml.append("            <Type>TowardsUnheatedNoIsolation</Type>\n")
+      xml.append("          </WallOther>\n")
+    }
+
+    xml.append("        </Items>\n")
+    xml.append("      </Walls>\n")
+    Some(xml.toString())
+
+  private def generateWindowsAndDoorsFromArea(areaCalcs: BuildingEnvelopeArea, uwerts: List[UWertCalculation]): Option[String] =
+    val windows = entriesFor(areaCalcs, ComponentType.Window)
+    val doors   = entriesFor(areaCalcs, ComponentType.Door)
+    if windows.isEmpty && doors.isEmpty then return None
+
+    val xml  = new StringBuilder()
+    val winU = uwertFor(uwerts, ComponentType.Window)
+    val dooU = uwertFor(uwerts, ComponentType.Door)
+
+    xml.append("      <WindowsAndDoors>\n")
+    xml.append("        <Condition>Used</Condition>\n")
+    xml.append("        <Description>-</Description>\n")
+    xml.append("        <Renewals>-</Renewals>\n")
+    xml.append("        <AlwaysSubtractOpeningAreas>true</AlwaysSubtractOpeningAreas>\n")
+    xml.append("        <Items>\n")
+
+    def winBlock(tag: String, e: AreaEntry, u: Option[UWertTableData]): Unit =
+      xml.append(s"          <$tag>\n")
+      if e.kuerzel.nonEmpty then xml.append(s"            <ExpertCode>${escapeXml(e.kuerzel.take(5))}</ExpertCode>\n")
+      if e.description.nonEmpty then xml.append(s"            <ExpertDescription>${escapeXml(e.description.take(250))}</ExpertDescription>\n")
+      xml.append(s"            <Quantity>${e.quantity}</Quantity>\n")
+      xml.append("            <InvestmentCosts>0</InvestmentCosts>\n")
+      xml.append("            <CostsCalculationBase>PerSquareMeter</CostsCalculationBase>\n")
+      xml.append("            <LifeSpan>40</LifeSpan>\n")
+      xml.append("            <ValuePreservation>Keine Arbeiten</ValuePreservation>\n")
+      xml.append(s"            <Area>${e.area}</Area>\n")
+      xml.append(s"            <UValue>${u.map(fmtU).getOrElse("1.0")}</UValue>\n")
+      if tag == "Door" then
+        xml.append("            <GValue>0</GValue>\n")
+        xml.append("            <FF>0</FF>\n")
+      else
+        xml.append("            <GValue>0.7</GValue>\n")
+        xml.append("            <FF>0.7</FF>\n")
+      xml.append("            <FS>1</FS>\n")
+      appendOrientation(xml, e.orientation)
+      xml.append(s"          </$tag>\n")
+
+    windows.foreach(e => winBlock("Window", e, winU))
+    doors.foreach(e   => winBlock("Door",   e, dooU))
+
+    xml.append("        </Items>\n")
+    xml.append("      </WindowsAndDoors>\n")
+    Some(xml.toString())
+
+  private def generateFloorsFromArea(areaCalcs: BuildingEnvelopeArea, uwerts: List[UWertCalculation]): Option[String] =
+    val exterior   = entriesFor(areaCalcs, ComponentType.FloorToOutside)
+    val baseFloors = entriesFor(areaCalcs, ComponentType.BasementFloor)
+    val baseCeils  = entriesFor(areaCalcs, ComponentType.BasementCeiling)
+    if exterior.isEmpty && baseFloors.isEmpty && baseCeils.isEmpty then return None
+
+    val xml   = new StringBuilder()
+    val extU  = uwertFor(uwerts, ComponentType.FloorToOutside)
+    val baseU = uwertFor(uwerts, ComponentType.BasementFloor)
+    val ceilU = uwertFor(uwerts, ComponentType.BasementCeiling)
+
+    xml.append("      <Floors>\n")
+    xml.append("        <Condition>Used</Condition>\n")
+    xml.append("        <Description>-</Description>\n")
+    xml.append("        <Renewals>-</Renewals>\n")
+    if baseFloors.nonEmpty || baseCeils.nonEmpty then
+      xml.append("        <ConditionOtherFloors>Used</ConditionOtherFloors>\n")
+      xml.append("        <DescriptionOtherFloors>-</DescriptionOtherFloors>\n")
+      xml.append("        <RenewalsOtherFloors>-</RenewalsOtherFloors>\n")
+    xml.append("        <Items>\n")
+
+    exterior.foreach { e =>
+      xml.append("          <FloorExterior>\n")
+      appendAreaBase(xml, e, extU)
+      xml.append("          </FloorExterior>\n")
+    }
+    baseFloors.foreach { e =>
+      xml.append("          <FloorOther>\n")
+      appendAreaBase(xml, e, baseU)
+      xml.append("            <Type>TowardsEarthUpToTwoMeters</Type>\n")
+      xml.append("          </FloorOther>\n")
+    }
+    baseCeils.foreach { e =>
+      xml.append("          <FloorOther>\n")
+      appendAreaBase(xml, e, ceilU)
+      xml.append("            <Type>TowardsUnheatedNoIsolation</Type>\n")
+      xml.append("          </FloorOther>\n")
+    }
+
+    xml.append("        </Items>\n")
+    xml.append("      </Floors>\n")
+    Some(xml.toString())
 
   /** Generate RoofsAndCeilings section */
   private def generateRoofsAndCeilings(items: List[RoofCeiling]): String =
@@ -636,8 +868,8 @@ object XmlExportService:
       else
         fileName
 
-      // Create blob and download
-      val blob = new dom.Blob(js.Array(xml), dom.BlobPropertyBag("text/xml"))
+      // Create blob with explicit UTF-8 charset to avoid encoding issues
+      val blob = new dom.Blob(js.Array(xml), dom.BlobPropertyBag("text/xml;charset=utf-8"))
       val url = dom.URL.createObjectURL(blob)
 
       val link = dom.document.createElement("a").asInstanceOf[dom.html.Anchor]

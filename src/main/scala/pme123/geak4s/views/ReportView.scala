@@ -134,6 +134,15 @@ object ReportView:
           },
           "Zu Google Drive hochladen"
         ),
+        div(marginTop := "0.5rem"),
+        Button(
+          _.design := ButtonDesign.Default,
+          _.icon   := IconName.`download`,
+          _.events.onClick.mapTo(()) --> Observer[Unit] { _ =>
+            XmlExportService.downloadXml(project)
+          },
+          "Lokal herunterladen"
+        ),
         Label("3. Importieren Sie die XML-Datei vom Google Drive Ordner des Projekts in das GEAK Tool."),
         div(
           marginTop := "0.5rem",

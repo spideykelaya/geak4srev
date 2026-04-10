@@ -2,7 +2,7 @@
 
 import { S, initDom, canvas, s2w, w2s, setMode, px2m2, $, emitPolygonSyncEvent, emitPlansSyncEvent, EBF_LOAD_PLANS_EVENT } from './state.js';
 import { PDFJS_WORKER, SNAP_RADIUS }                      from './config.js';
-import { shoelace, findNearVertex, findNearEdge, dist }   from './geo.js';
+import { shoelace, findNearVertex, findNearEdge, dist, labelPoint } from './geo.js';
 import { render }                                         from './render.js';
 import { updateSidebar, nextPolygonLabel, setSwitchPlanHandler, setCurrentAreaTypeLabel, colorForCurrentAreaType, getCurrentAreaTypeLabel } from './sidebar.js';
 import { loadPDF, loadImg, exportData, exportExcel, exportXML, importData, printView, loadImageFromDataUrl } from './io.js';
@@ -171,6 +171,9 @@ async function onFileChange(e) {
   updateSidebar(); render();
   emitPolygonSyncEvent();
   emitPlansSyncEvent();
+
+  // Reset input so the same file can be selected again
+  e.target.value = '';
 
   // Upload PDF to Google Drive
   if (file.type === 'application/pdf') {
@@ -500,9 +503,15 @@ function onMouseDown(e) {
     render(); return;
   }
 
-  // Idle: drag vertex or pan
+  // Idle: drag vertex, label, or pan
   const nv = findNearVertex(sx, sy);
   if (nv) { S.dragVertex = nv; S.mode = 'drag_vertex'; canvas.style.cursor = 'move'; return; }
+  const li = findNearLabel(sx, sy);
+  if (li !== null) {
+    const poly = S.polygons[li];
+    S.dragLabel = { polyIdx: li, startSX: sx, startSY: sy, origDX: poly.labelOffset?.dx || 0, origDY: poly.labelOffset?.dy || 0 };
+    S.mode = 'drag_label'; canvas.style.cursor = 'move'; return;
+  }
   S.panning = true; S.lastMouse = { x: e.clientX, y: e.clientY };
   canvas.style.cursor = 'grabbing';
 }
@@ -519,6 +528,12 @@ function onMouseMove(e) {
     poly.pixelArea = shoelace(poly.points); poly.area = px2m2(poly.pixelArea);
     updateSidebar(); render(); return;
   }
+  if (S.mode === 'drag_label' && S.dragLabel !== null) {
+    const dl = S.dragLabel;
+    const poly = S.polygons[dl.polyIdx];
+    poly.labelOffset = { dx: dl.origDX + (sx - dl.startSX) / S.zoom, dy: dl.origDY + (sy - dl.startSY) / S.zoom };
+    render(); return;
+  }
 
   if (S.panning) {
     S.panX += e.clientX - S.lastMouse.x;
@@ -528,7 +543,7 @@ function onMouseMove(e) {
   }
 
   if (S.mode === 'idle' && !S.panning) {
-    canvas.style.cursor = findNearVertex(sx, sy) ? 'move' : 'grab';
+    canvas.style.cursor = (findNearVertex(sx, sy) || findNearLabel(sx, sy) !== null) ? 'move' : 'grab';
     S.hoverEdge = findNearEdge(sx, sy);
   } else {
     S.hoverEdge = null;
@@ -541,6 +556,12 @@ function onMouseUp() {
   if (S.mode === 'drag_vertex') {
     S.dragVertex = null; setMode('idle'); canvas.style.cursor = 'grab';
     emitPolygonSyncEvent();
+    saveCurrentPlanState();
+    emitPlansSyncEvent();
+    return;
+  }
+  if (S.mode === 'drag_label') {
+    S.dragLabel = null; setMode('idle'); canvas.style.cursor = 'grab';
     saveCurrentPlanState();
     emitPlansSyncEvent();
     return;
@@ -562,6 +583,21 @@ function onWheel(e) {
   S.panY = sy - (sy - S.panY) * (nz / S.zoom);
   S.zoom = nz;
   updateZoomIndicator(); render();
+}
+
+// ── Label hit detection ───────────────────────────────────────────────────────
+function findNearLabel(sx, sy) {
+  const HIT_RADIUS = 40; // screen pixels
+  for (let i = S.polygons.length - 1; i >= 0; i--) {
+    const poly = S.polygons[i];
+    if (poly.points.length < 3) continue;
+    const c = labelPoint(poly.points);
+    const lx = c.x + (poly.labelOffset?.dx || 0);
+    const ly = c.y + (poly.labelOffset?.dy || 0);
+    const ls = { x: lx * S.zoom + S.panX, y: ly * S.zoom + S.panY };
+    if (Math.hypot(ls.x - sx, ls.y - sy) <= HIT_RADIUS) return i;
+  }
+  return null;
 }
 
 // ── Misc helpers ──────────────────────────────────────────────────────────────
