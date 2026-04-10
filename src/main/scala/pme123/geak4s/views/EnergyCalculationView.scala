@@ -622,7 +622,11 @@ object EnergyCalculationView:
               ),
               tr(
                 td(labelCell, "Volllaststunden"),
-                td(resultCell, child.text <-- settings.map(s => fmtNum(s.volllaststunden, 0))),
+                td(cellStyle, child <-- settings.map(s =>
+                  settingsNumInput(fmtNum(s.volllaststunden, 0)) { v =>
+                    parseDouble(v).foreach(n => updateSettings(_.copy(volllaststunden = n)))
+                  }
+                )),
                 td(cellStyle, "h")
               ),
               tr(
@@ -798,7 +802,6 @@ object EnergyCalculationView:
 
       electricitySection(),
       fuelSection(),
-      waterSection(),
       heatingPowerSection(),
       ewsSection()
     )

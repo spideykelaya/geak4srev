@@ -74,9 +74,6 @@ object WordFormView:
         textInput("Heizung", _.heizung, (d,v) => d.copy(heizung=v)),
       )),
 
-      renderSection("Warmwasser", div(
-        textInput("Warmwasser", _.warmwasser, (d,v) => d.copy(warmwasser=v)),
-      )),
 
       renderSection("Gebäude", div(
         textInput("Gebäudeart", _.gebaudeart, (d,v) => d.copy(gebaudeart=v)),
@@ -131,7 +128,29 @@ object WordFormView:
             }
           )
         ),
-        textInput("Fernwärme vorhanden", _.fernwärme, (d,v) => d.copy(fernwärme=v)),
+        div(
+          className := "form-field",
+          Label("Fernwärme vorhanden"),
+          div(
+            display := "flex", gap := "0.5rem", alignItems := "stretch",
+            Select(
+              _.events.onChange.map(_.detail.selectedOption.dataset.get("value").getOrElse("")) --> Observer[String] { v =>
+                if v.nonEmpty then formVar.update(_.copy(fernwärme = v))
+              },
+              Select.option(_.selected <-- formVar.signal.map(_.fernwärme == ""), dataAttr("value") := "", "– wählen –"),
+              Select.option(_.selected <-- formVar.signal.map(_.fernwärme == "Ja"), dataAttr("value") := "Ja", "Ja"),
+              Select.option(_.selected <-- formVar.signal.map(_.fernwärme == "Nein"), dataAttr("value") := "Nein", "Nein"),
+              Select.option(_.selected <-- formVar.signal.map(_.fernwärme == "Geplant"), dataAttr("value") := "Geplant", "Geplant"),
+            ),
+            Input(
+              placeholder := "oder manuell eingeben",
+              value <-- formVar.signal.map(_.fernwärme),
+              onInput.mapToValue --> Observer[String] { v =>
+                formVar.update(_.copy(fernwärme = v))
+              }
+            )
+          )
+        ),
         textInput("Fossil-Leistung", _.fossil, (d,v) => d.copy(fossil=v)),
         textInput("WP-Leistung", _.wp, (d,v) => d.copy(wp=v)),
         textInput("Sondentiefe", _.sondentiefe, (d,v) => d.copy(sondentiefe=v)),

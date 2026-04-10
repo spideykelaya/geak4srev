@@ -31,7 +31,8 @@ export function render() {
 }
 
 // ── Polygon ───────────────────────────────────────────────────────────────────
-function drawPolygon({ points, color, area, label }) {
+function drawPolygon(poly) {
+  const { points, color, area, label, labelOffset } = poly;
   if (points.length < 2) return;
 
   ctx.beginPath();
@@ -50,6 +51,8 @@ function drawPolygon({ points, color, area, label }) {
   points.forEach(p => dot(p, color, CLOSE_VERTEX_RADIUS / S.zoom));
 
   const c = labelPoint(points);
+  const lx = c.x + (labelOffset?.dx || 0);
+  const ly = c.y + (labelOffset?.dy || 0);
   const areaLbl = fmtArea(area);
   const titleLbl = (label || '').trim();
   const fsz = clamp(14 / S.zoom, 10, 36);
@@ -62,14 +65,14 @@ function drawPolygon({ points, color, area, label }) {
   const lineH = fsz * 1.25;
   const th = lineH * lines + (6 / S.zoom);
   ctx.fillStyle = 'rgba(0,0,0,0.65)';
-  rrect(c.x - tw / 2 - 6 / S.zoom, c.y - th / 2, tw + 12 / S.zoom, th, 4 / S.zoom);
+  rrect(lx - tw / 2 - 6 / S.zoom, ly - th / 2, tw + 12 / S.zoom, th, 4 / S.zoom);
   ctx.fill();
   ctx.fillStyle = '#fff';
   if (titleLbl) {
-    ctx.fillText(titleLbl, c.x, c.y - lineH / 2);
-    ctx.fillText(areaLbl, c.x, c.y + lineH / 2);
+    ctx.fillText(titleLbl, lx, ly - lineH / 2);
+    ctx.fillText(areaLbl, lx, ly + lineH / 2);
   } else {
-    ctx.fillText(areaLbl, c.x, c.y);
+    ctx.fillText(areaLbl, lx, ly);
   }
 }
 
