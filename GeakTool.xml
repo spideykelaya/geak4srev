@@ -1,0 +1,194 @@
+<?xml version="1.0" encoding="utf-8"?>
+<SIARecord xmlns="http://www.geak.ch/Import/v4/">
+  <Version>6.5.0</Version>
+  <General ProjectName="Testprojekt EFH Meier">
+    <OwnerAddress>
+      <Title>HomeOwner</Title>
+      <Name1>Max Mustermann</Name1>
+      <Name2>Firma AG</Name2>
+      <Address>Guyer-Zeller-Strasse 27</Address>
+      <POBox>123b</POBox>
+      <Zip>8620</Zip>
+      <City>Wetzikon ZH</City>
+      <Country>Schweiz</Country>
+      <EMail>max.mustermann22222@example.com</EMail>
+      <Phone1>+41 44 123 45 67</Phone1>
+      <Phone2>+41 79 987 65 43</Phone2>
+    </OwnerAddress>
+    <BuildingData>
+      <Zip>8620</Zip>
+      <City>Wetzikon ZH</City>
+      <Community>Zürich</Community>
+      <StreetName>Guyer-Zeller-Strasse</StreetName>
+      <HouseNumber>27</HouseNumber>
+      <BuildingName>Wohnhaus Musterstrasse</BuildingName>
+      <WeatherStation>Zürich-Fluntern</WeatherStation>
+      <YearOfConstruction>1975</YearOfConstruction>
+      <YearOfTotalRenovation>2010</YearOfTotalRenovation>
+      <PlotNumber>1234</PlotNumber>
+      <EnergyReferenceArea>850</EnergyReferenceArea>
+      <AverageRoomHeight>2.6</AverageRoomHeight>
+      <FullFloorsCount>4</FullFloorsCount>
+      <BuildingDepth>12.5</BuildingDepth>
+      <GroundPlanType>Compact</GroundPlanType>
+      <ConstructionType>Heavy</ConstructionType>
+      <BestKnownWeatherStation>Standard</BestKnownWeatherStation>
+      <Altitude>556</Altitude>
+    </BuildingData>
+    <BuildingUsages>
+    </BuildingUsages>
+  </General>
+  <CurrentState>
+    <Remarks>Mehrfamilienhaus aus den 1970er Jahren mit 4 Vollgeschossen</Remarks>
+    <BuildingEnvelope>
+      <Description>Ungedämmte Aussenwände, teilweise sanierte Fenster</Description>
+      <RoofsAndCeilings>
+        <Condition>Used</Condition>
+        <Items>
+          <Roof>
+            <ExpertCode>Da-1</ExpertCode>
+            <ExpertDescription>Schrägdach ungedämmt</ExpertDescription>
+            <Quantity>1</Quantity>
+            <Area>120.5</Area>
+            <UValue>1.2</UValue>
+            <BFactor>1</BFactor>
+            <Orientation>South</Orientation>
+            <Type>PitchedRoof</Type>
+          </Roof>
+          <Roof>
+            <ExpertCode>Da-2</ExpertCode>
+            <ExpertDescription>Flachdach gedämmt</ExpertDescription>
+            <Quantity>1</Quantity>
+            <RenovationYear>2010</RenovationYear>
+            <Area>85</Area>
+            <UValue>0.25</UValue>
+            <BFactor>1</BFactor>
+            <Orientation>South</Orientation>
+            <Type>FlatRoof</Type>
+          </Roof>
+        </Items>
+      </RoofsAndCeilings>
+      <Walls>
+        <Condition>Used</Condition>
+        <FacadeStructure>NormallyStructured</FacadeStructure>
+        <Items>
+          <WallExterior>
+            <ExpertCode>W-1</ExpertCode>
+            <ExpertDescription>Aussenwand ungedämmt</ExpertDescription>
+            <Quantity>1</Quantity>
+            <Area>180.5</Area>
+            <UValue>1.5</UValue>
+            <BFactor>1</BFactor>
+            <Orientation>North</Orientation>
+            <Type>Facade</Type>
+          </WallExterior>
+          <WallExterior>
+            <ExpertCode>W-2</ExpertCode>
+            <ExpertDescription>Aussenwand gedämmt</ExpertDescription>
+            <Quantity>1</Quantity>
+            <RenovationYear>2015</RenovationYear>
+            <Area>150</Area>
+            <UValue>0.2</UValue>
+            <BFactor>1</BFactor>
+            <Orientation>South</Orientation>
+            <Type>Facade</Type>
+          </WallExterior>
+        </Items>
+      </Walls>
+      <WindowsAndDoors>
+        <Condition>Used</Condition>
+        <Items>
+          <Window>
+            <ExpertCode>Fe-1</ExpertCode>
+            <ExpertDescription>Holzfenster 2-fach Verglasung</ExpertDescription>
+            <Quantity>12</Quantity>
+            <RenovationYear>2005</RenovationYear>
+            <Area>45.5</Area>
+            <UValue>1.3</UValue>
+            <GValue>0.6</GValue>
+            <FF>0.7</FF>
+            <FS>0.85</FS>
+            <BFactor>1</BFactor>
+            <Orientation>South</Orientation>
+            <ExpertCodeParent>W-1</ExpertCodeParent>
+          </Window>
+          <Window>
+            <ExpertCode>Fe-2</ExpertCode>
+            <ExpertDescription>Kunststofffenster 3-fach Verglasung</ExpertDescription>
+            <Quantity>8</Quantity>
+            <RenovationYear>2020</RenovationYear>
+            <Area>35</Area>
+            <UValue>0.8</UValue>
+            <GValue>0.5</GValue>
+            <FF>0.75</FF>
+            <FS>0.9</FS>
+            <BFactor>1</BFactor>
+            <Orientation>North</Orientation>
+            <ExpertCodeParent>W-2</ExpertCodeParent>
+          </Window>
+          <Door>
+            <ExpertCode>Fe-3</ExpertCode>
+            <ExpertDescription>Eingangstür gedämmt</ExpertDescription>
+            <Quantity>1</Quantity>
+            <RenovationYear>2015</RenovationYear>
+            <Area>2.5</Area>
+            <UValue>1</UValue>
+            <GValue>0</GValue>
+            <FF>0.2</FF>
+            <FS>1</FS>
+            <BFactor>1</BFactor>
+            <Orientation>East</Orientation>
+            <ExpertCodeParent>W-1</ExpertCodeParent>
+          </Door>
+        </Items>
+      </WindowsAndDoors>
+      <Floors>
+        <Condition>Used</Condition>
+        <Items>
+          <FloorOther>
+            <ExpertCode>Bo-1</ExpertCode>
+            <ExpertDescription>Kellerdecke ungedämmt</ExpertDescription>
+            <Quantity>1</Quantity>
+            <Area>95</Area>
+            <UValue>1</UValue>
+            <BFactor>0.6</BFactor>
+            <Type>TowardsUnheatedNoIsolation</Type>
+            <TemperatureNextRoom>12</TemperatureNextRoom>
+          </FloorOther>
+          <FloorOther>
+            <ExpertCode>Bo-2</ExpertCode>
+            <ExpertDescription>Kellerdecke gedämmt</ExpertDescription>
+            <Quantity>1</Quantity>
+            <RenovationYear>2012</RenovationYear>
+            <Area>95</Area>
+            <UValue>0.3</UValue>
+            <BFactor>0.6</BFactor>
+            <Type>TowardsEarthUpToTwoMeters</Type>
+            <TemperatureNextRoom>12</TemperatureNextRoom>
+          </FloorOther>
+        </Items>
+      </Floors>
+      <ThermalBridges>
+        <Items>
+          <ThermalBridgeLinear>
+            <ExpertCode>WL-1</ExpertCode>
+            <ExpertDescription>Balkonanschluss ungedämmt</ExpertDescription>
+            <Quantity>6</Quantity>
+            <BFactor>1</BFactor>
+            <PsiValue>0.8</PsiValue>
+            <Length>24</Length>
+            <Type>Balcony</Type>
+          </ThermalBridgeLinear>
+          <ThermalBridgeDotLike>
+            <ExpertCode>WL-2</ExpertCode>
+            <ExpertDescription>Stütze durchdringend</ExpertDescription>
+            <Quantity>4</Quantity>
+            <BFactor>1</BFactor>
+            <ChiValue>1.2</ChiValue>
+            <Type>CustomType</Type>
+          </ThermalBridgeDotLike>
+        </Items>
+      </ThermalBridges>
+    </BuildingEnvelope>
+  </CurrentState>
+</SIARecord>
