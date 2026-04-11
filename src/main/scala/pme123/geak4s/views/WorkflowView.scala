@@ -249,7 +249,7 @@ object WorkflowView:
    * its CSS `display` property.  All other steps are rendered dynamically as
    * before.
    */
-  private def workflowMain(projectSignal: Signal[Option[GeakProject]]): HtmlElement =
+  private def workflowMain(@annotation.unused projectSignal: Signal[Option[GeakProject]]): HtmlElement =
     // Becomes true the first time the user navigates to the EBF step.
     // After that it is never reset, so the element stays mounted forever.
     val ebfEverShown = Var(false)
@@ -287,11 +287,18 @@ object WorkflowView:
         )
       },
 
-      // Every other step is rendered dynamically (existing behaviour).
-      child <-- WorkflowState.currentStep.signal.combineWith(projectSignal).map {
-        case (Step.EBFCalculation, _)      => emptyNode
-        case (step, Some(project))         => renderStep(step, project)
-        case (_, None)                     => div("No project loaded")
+      // Every other step is rendered dynamically.
+      // We deliberately do NOT combine with projectSignal here: subscribing to
+      // projectSignal would cause the step to be torn down and rebuilt on every
+      // project update (e.g. every keystroke in WordFormView), losing DOM focus.
+      // Steps that need live project data (ReportView, etc.) subscribe to
+      // AppState.projectSignal internally.
+      child <-- WorkflowState.currentStep.signal.map { step =>
+        if step == Step.EBFCalculation then emptyNode
+        else
+          AppState.getCurrentProject match
+            case Some(project) => renderStep(step, project)
+            case None          => div("No project loaded")
       }
     )
 

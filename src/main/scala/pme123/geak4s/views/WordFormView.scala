@@ -6,6 +6,10 @@ import be.doeraene.webcomponents.ui5.*
 import be.doeraene.webcomponents.ui5.configkeys.*
 import scala.scalajs.js
 import org.scalajs.dom
+import pme123.geak4s.state.AppState
+import pme123.geak4s.domain.*
+import pme123.geak4s.domain.project.*
+import pme123.geak4s.domain.building.BuildingUsage
 
 
 
@@ -40,6 +44,37 @@ object WordFormData {
 
 object WordFormView:
 
+  /** Parse "Musterstrasse 1, 8006 Zürich" into an Address.
+   *  Preserves lat/lon from an existing address when provided. */
+  private def parseFormAddress(adresse: String, existing: Address = Address.empty): Address =
+    val parts = adresse.split(",", 2)
+    val streetPart = parts.headOption.map(_.trim).getOrElse("")
+    val tokens = streetPart.split(" ").filter(_.nonEmpty)
+    val (street, houseNum) =
+      if tokens.length > 1 && tokens.last.matches("""\d+[a-zA-Z]?""") then
+        (tokens.dropRight(1).mkString(" "), Some(tokens.last))
+      else
+        (streetPart, None)
+    val zipCity = parts.lift(1).map(_.trim).getOrElse("")
+    val zcTokens = zipCity.split(" ", 2).filter(_.nonEmpty)
+    val zip  = zcTokens.headOption.filter(_.forall(_.isDigit))
+    val city = if zip.isDefined then zcTokens.lift(1) else Some(zipCity).filter(_.nonEmpty)
+    Address(
+      street     = Some(street).filter(_.nonEmpty),
+      houseNumber = houseNum,
+      zipCode    = zip,
+      city       = city,
+      country    = Some("Schweiz"),
+      lat        = existing.lat,
+      lon        = existing.lon
+    )
+
+  /** Format an Address back to "Strasse Nr, PLZ Ort" for display in the form. */
+  private def formatAddress(addr: Address): String =
+    val streetPart = List(addr.street, addr.houseNumber).flatten.mkString(" ").trim
+    val cityPart   = List(addr.zipCode, addr.city).flatten.mkString(" ").trim
+    List(streetPart, cityPart).filter(_.nonEmpty).mkString(", ")
+
   val formVar: Var[WordFormData] = Var(WordFormData())
 
   // Hilfsfunktion für TextInput
@@ -55,9 +90,81 @@ object WordFormView:
       )
     )
 
+  /** Project updater built from the current form state.
+   *  Used both on mount and on every user edit so Schritt 7 always matches. */
+  private def syncFormToProject(form: WordFormData): GeakProject => GeakProject = p =>
+    val existingBuildingAddr = p.project.buildingLocation.address
+    val existingClientAddr   = p.project.client.address
+    val addr    = parseFormAddress(form.adresse, existingBuildingAddr)
+    val ebfOpt  = form.ebf.replace(',', '.').toDoubleOption
+    p.copy(
+      // Keep BuildingUsages area in sync with EBF so <BuildingUsages> > <Area> in the XML is correct
+      buildingUsages = ebfOpt match
+        case Some(v) if p.buildingUsages.nonEmpty => p.buildingUsages.head.copy(area = v) :: p.buildingUsages.tail
+        case Some(v)                              => List(BuildingUsage("Einfamilienhaus", None, v, None, None))
+        case None                                 => p.buildingUsages,
+      project = p.project.copy(
+        projectName = if form.projektnummer.nonEmpty then form.projektnummer else p.project.projectName,
+        client = p.project.client.copy(
+          name1  = Some(form.auftraggeberin).filter(_.nonEmpty).orElse(p.project.client.name1),
+          email  = Some(form.mail).filter(_.nonEmpty).orElse(p.project.client.email),
+          phone1 = Some(form.tel).filter(_.nonEmpty).orElse(p.project.client.phone1),
+          address = if form.adresse.nonEmpty then parseFormAddress(form.adresse, existingClientAddr)
+                    else p.project.client.address
+        ),
+        buildingLocation = p.project.buildingLocation.copy(
+          address      = if form.adresse.nonEmpty then addr else existingBuildingAddr,
+          buildingName = Some(form.gebaudeart).filter(_.nonEmpty).orElse(p.project.buildingLocation.buildingName)
+        ),
+        buildingData = p.project.buildingData.copy(
+          constructionYear    = form.baujahr.toIntOption.orElse(p.project.buildingData.constructionYear),
+          energyReferenceArea = ebfOpt.orElse(p.project.buildingData.energyReferenceArea)
+        ),
+        egidEdidGroup = p.project.egidEdidGroup.copy(
+          entries =
+            if form.egid.isEmpty then p.project.egidEdidGroup.entries
+            else
+              val existing = p.project.egidEdidGroup.entries
+              if existing.isEmpty then List(EgidEdidEntry(egid = Some(form.egid), edid = None, address = addr))
+              else existing.head.copy(egid = Some(form.egid)) :: existing.tail
+        )
+      )
+    )
+
   def apply(): HtmlElement =
+    // On every mount: merge project data into any still-empty form fields,
+    // then immediately push the result back to the project so Schritt 7
+    // always reflects what is shown here — even if the user never types.
+    AppState.getCurrentProject.foreach { p =>
+      val cur = formVar.now()
+      def orProject(v: String, fallback: => String): String = if v.nonEmpty then v else fallback
+      val fmtEbf = p.project.buildingData.energyReferenceArea
+        .map(v => if v == v.toLong then v.toLong.toString else v.toString)
+        .getOrElse("")
+      val synced = cur.copy(
+        projektnummer  = orProject(cur.projektnummer,  p.project.projectName),
+        auftraggeberin = orProject(cur.auftraggeberin, p.project.client.name1.getOrElse("")),
+        mail       = orProject(cur.mail,       p.project.client.email.getOrElse("")),
+        tel        = orProject(cur.tel,        p.project.client.phone1.getOrElse("")),
+        adresse    = orProject(cur.adresse,    formatAddress(p.project.buildingLocation.address)),
+        baujahr    = orProject(cur.baujahr,    p.project.buildingData.constructionYear.map(_.toString).getOrElse("")),
+        egid       = orProject(cur.egid,       p.project.egidEdidGroup.entries.headOption.flatMap(_.egid).getOrElse("")),
+        ebf        = orProject(cur.ebf,        fmtEbf),
+        gebaudeart = orProject(cur.gebaudeart, p.project.buildingLocation.buildingName.getOrElse(""))
+      )
+      formVar.set(synced)
+      // Push the now-complete form state into the project immediately.
+      // WorkflowView no longer re-renders on project changes, so this is loop-safe.
+      AppState.updateProject(syncFormToProject(synced))
+    }
     div(
       className := "project-view",
+
+      // Reactive sync: on every user edit push the new values into the project.
+      // Uses .changes so it does NOT fire on mount (only on actual edits).
+      formVar.signal.changes --> Observer[WordFormData] { form =>
+        AppState.updateProject(syncFormToProject(form))
+      },
 
       renderSection("Projektinfos", div(
         textInput("Projektnummer", _.projektnummer, (d,v) => d.copy(projektnummer=v)),
