@@ -28,12 +28,21 @@ object AreaState:
   def initializeEmpty(): Unit =
     areaCalculations.set(Some(BuildingEnvelopeArea.empty))
 
-  /** Update area calculation for a specific component type */
-  def updateAreaCalculation(componentType: ComponentType, entries: List[AreaEntry]): Unit =
+  /** Update area calculation for a specific component type.
+   *  syncEbfToWordForm: set to true only when called from Step 6 (manual table edits). */
+  def updateAreaCalculation(
+      componentType: ComponentType,
+      entries: List[AreaEntry],
+      syncEbfToWordForm: Boolean = false
+  ): Unit =
     areaCalculations.update : maybeArea =>
       val area = maybeArea.getOrElse(BuildingEnvelopeArea.empty)
       val calculation = AreaCalculation(componentType, entries)
       Some(area.update(calculation))
+    if syncEbfToWordForm && componentType == ComponentType.EBF then
+      val totalEbf    = entries.map(_.totalArea).sum
+      val totalEbfStr = f"$totalEbf%.0f"
+      WordFormView.formVar.update(_.copy(ebf = totalEbfStr))
 
   /**
     * Sync polygon data to their respective ComponentType sections.
@@ -88,11 +97,6 @@ object AreaState:
       val renumbered = syncedEntries ++ unmatched
 
       updateAreaCalculation(compType, renumbered)
-
-      if compType == ComponentType.EBF then
-        val totalEbf    = renumbered.map(_.totalArea).sum
-        val totalEbfStr = f"$totalEbf%.0f"
-        WordFormView.formVar.update(_.copy(ebf = totalEbfStr))
     }
 
   /** Rename a kuerzel across all component types (triggered when EBF polygon is renamed) */
