@@ -12,6 +12,8 @@ import pme123.geak4s.domain.hvac.*
 import pme123.geak4s.domain.energy.*
 import pme123.geak4s.services.GoogleDriveService
 import pme123.geak4s.state.{EbfState, EnergyState}
+import pme123.geak4s.domain.JsonCodecs.given
+import io.circe.syntax.*
 
 /** Application state management */
 object AppState:
@@ -30,6 +32,10 @@ object AppState:
     case class Loaded(project: GeakProject, fileName: String) extends ProjectState
     case class Error(message: String) extends ProjectState
   
+  // LocalStorage keys for work-in-progress persistence
+  val WIP_KEY      = "geak4s_wip_project"
+  val WIP_FILE_KEY = "geak4s_wip_filename"
+
   /** Global application state */
   val currentView: Var[View] = Var(View.Welcome)
   val projectState: Var[ProjectState] = Var(ProjectState.NoProject)
@@ -67,6 +73,12 @@ object AppState:
   
   /** Project management */
   def createNewProject(): Unit =
+    clearWip()
+    UWertState.clear()
+    AreaState.clear()
+    EbfState.clear()
+    EnergyState.clear()
+    syncInitialized.set(false)
     val emptyProject = GeakProject.empty
     projectState.set(ProjectState.Loaded(emptyProject, "geak_newproject.xlsx"))
     navigateToWorkflowEditor()  // Use workflow editor by default
@@ -102,6 +114,7 @@ object AppState:
     projectState.set(ProjectState.Error(message))
   
   def clearProject(): Unit =
+    clearWip()
     projectState.set(ProjectState.NoProject)
     UWertState.clear()
     AreaState.clear()
@@ -123,9 +136,24 @@ object AppState:
     projectState.now() match
       case ProjectState.Loaded(project, fileName) =>
         println(s"Updating project: ${project.project.projectName} - $fileName")
-        projectState.set(ProjectState.Loaded(updater(project), fileName))
+        val updated = updater(project)
+        projectState.set(ProjectState.Loaded(updated, fileName))
+        saveWip(updated, fileName)
         triggerAutoSave()
       case _ => // ignore if no project loaded
+
+  /** Persist current project to localStorage so it survives a page reload. */
+  private def saveWip(project: GeakProject, fileName: String): Unit =
+    try
+      dom.window.localStorage.setItem(WIP_KEY,      project.asJson.noSpaces)
+      dom.window.localStorage.setItem(WIP_FILE_KEY, fileName)
+    catch case ex: Exception =>
+      dom.console.error(s"WIP speichern fehlgeschlagen: ${ex.getMessage}")
+
+  /** Remove the work-in-progress snapshot from localStorage. */
+  def clearWip(): Unit =
+    dom.window.localStorage.removeItem(WIP_KEY)
+    dom.window.localStorage.removeItem(WIP_FILE_KEY)
 
   /** Save U-Wert calculations to current project */
   def saveUWertCalculations(): Unit =

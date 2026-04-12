@@ -210,7 +210,22 @@ object JsonCodecs:
   given Decoder[EbfMeasurement] = deriveDecoder[EbfMeasurement]
 
   given Encoder[EbfPlan] = deriveEncoder[EbfPlan]
-  given Decoder[EbfPlan] = deriveDecoder[EbfPlan]
+  // Backward-compatible: imageDataUrl may be absent in old JSON files
+  given Decoder[EbfPlan] = Decoder.instance { c =>
+    for
+      id           <- c.get[String]("id")
+      label        <- c.get[String]("label")
+      driveFileId  <- c.getOrElse[Option[String]]("driveFileId")(None)
+      imageW       <- c.getOrElse[Int]("imageW")(0)
+      imageH       <- c.getOrElse[Int]("imageH")(0)
+      scale        <- c.getOrElse[Option[Double]]("scale")(None)
+      nextId       <- c.getOrElse[Int]("nextId")(1)
+      nextMeasId   <- c.getOrElse[Int]("nextMeasId")(1)
+      polygons     <- c.getOrElse[List[EbfPolygon]]("polygons")(List.empty)
+      measurements <- c.getOrElse[List[EbfMeasurement]]("measurements")(List.empty)
+      imageDataUrl <- c.getOrElse[Option[String]]("imageDataUrl")(None)
+    yield EbfPlan(id, label, driveFileId, imageW, imageH, scale, nextId, nextMeasId, polygons, measurements, imageDataUrl)
+  }
 
   given Encoder[EbfPlans] = deriveEncoder[EbfPlans]
   given Decoder[EbfPlans] = deriveDecoder[EbfPlans]

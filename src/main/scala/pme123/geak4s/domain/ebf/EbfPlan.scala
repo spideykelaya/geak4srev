@@ -22,22 +22,23 @@ case class EbfMeasurement(
 
 /** A single imported plan (PDF or image) with its drawing state.
   *
-  * Note: imageDataUrl is intentionally excluded from JSON persistence –
-  * it is stored in the browser's localStorage (keyed by plan id) and
-  * cached in-memory, keeping the project JSON compact.
-  * The original PDF is uploaded to Google Drive (driveFileId).
+  * imageDataUrl is None during normal operation (image is kept in browser
+  * localStorage keyed by plan id to avoid inflating every auto-save).
+  * It is populated only when the user explicitly exports a local JSON file,
+  * so that the file is fully self-contained and can be imported on any device.
   */
 case class EbfPlan(
     id: String,
     label: String,
-    driveFileId: Option[String] = None, // Google Drive file ID of the uploaded PDF
+    driveFileId: Option[String] = None,
     imageW: Int = 0,
     imageH: Int = 0,
-    scale: Option[Double] = None,       // metres per pixel; None = not calibrated
+    scale: Option[Double] = None,
     nextId: Int = 1,
     nextMeasId: Int = 1,
     polygons: List[EbfPolygon] = List.empty,
-    measurements: List[EbfMeasurement] = List.empty
+    measurements: List[EbfMeasurement] = List.empty,
+    imageDataUrl: Option[String] = None  // populated for local JSON export only
 )
 
 /** Collection of all imported plans for a project */
