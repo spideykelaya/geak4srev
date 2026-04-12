@@ -8,8 +8,11 @@ import pme123.geak4s.state.AppState
 import pme123.geak4s.domain.*
 import pme123.geak4s.services.XmlExportService
 import pme123.geak4s.components.FormField
+import pme123.geak4s.domain.JsonCodecs.given
+import io.circe.syntax.*
 import scala.concurrent.Future
 import scala.concurrent.ExecutionContext.Implicits.global
+import scala.scalajs.js
 
 /** Dedicated view for GEAK reports and exports Provides comprehensive report generation and export
   * functionality
@@ -143,6 +146,15 @@ object ReportView:
           },
           "Lokal herunterladen"
         ),
+        div(marginTop := "0.5rem"),
+        Button(
+          _.design := ButtonDesign.Default,
+          _.icon   := IconName.`save`,
+          _.events.onClick.mapTo(()) --> Observer[Unit] { _ =>
+            downloadProjectJson(project)
+          },
+          "Als JSON speichern"
+        ),
         Label("3. Importieren Sie die XML-Datei vom Google Drive Ordner des Projekts in das GEAK Tool."),
         div(
           marginTop := "0.5rem",
@@ -227,6 +239,44 @@ object ReportView:
         )
       )
     )
+
+  private def downloadProjectJson(project: GeakProject): Unit =
+    try
+      val projectName = project.project.projectName.trim match
+        case n if n.nonEmpty => n.replace(" ", "-")
+        case _               => "geak_projekt"
+      // Enrich plans with images so the exported file is self-contained.
+      // Priority: (1) already in Scala state, (2) JS in-memory via window.getEbfPlanImages(),
+      // (3) localStorage fallback.
+      val jsImages: js.Dictionary[String] =
+        val fn = dom.window.asInstanceOf[js.Dynamic].getEbfPlanImages
+        if !js.isUndefined(fn) && fn != null then
+          fn().asInstanceOf[js.Dictionary[String]]
+        else
+          js.Dictionary.empty[String]
+      val enriched = project.copy(
+        ebfPlans = project.ebfPlans.map { plans =>
+          plans.copy(plans = plans.plans.map { plan =>
+            if plan.imageDataUrl.isDefined then plan
+            else
+              val img =
+                jsImages.get(plan.id)
+                  .orElse(Option(dom.window.localStorage.getItem(s"ebf_plan_image_${plan.id}")))
+                  .filter(_.nonEmpty)
+              plan.copy(imageDataUrl = img)
+          })
+        }
+      )
+      val json = enriched.asJson.noSpaces
+      val blob = new dom.Blob(js.Array(json), dom.BlobPropertyBag("application/json;charset=utf-8"))
+      val url  = dom.URL.createObjectURL(blob)
+      val link = dom.document.createElement("a").asInstanceOf[dom.html.Anchor]
+      link.href = url
+      link.download = s"$projectName.json"
+      link.click()
+      dom.URL.revokeObjectURL(url)
+    catch case ex: Exception =>
+      dom.console.error(s"JSON export fehlgeschlagen: ${ex.getMessage}")
 
   private def renderSummaryItem(label: String, value: String, icon: IconName): HtmlElement =
     div(

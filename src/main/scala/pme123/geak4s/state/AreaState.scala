@@ -60,10 +60,10 @@ object AreaState:
         .map(_.entries)
         .getOrElse(List.empty)
 
-      val syncedEntries = typePolygons.zipWithIndex.map { case ((rawLabel, polygonArea), idx) =>
-        val label = if rawLabel.startsWith("EBF") && rawLabel.drop(3).forall(_.isDigit) then "EBF"
-                    else rawLabel
-        existingEntries.find(_.kuerzel == label) match
+      val syncedLabels = typePolygons.map(_._1).toSet
+
+      val syncedEntries = typePolygons.map { case (rawLabel, polygonArea) =>
+        existingEntries.find(_.kuerzel == rawLabel) match
           case Some(current) =>
             current.copy(
               area = polygonArea,
@@ -72,7 +72,7 @@ object AreaState:
               totalAreaNew = polygonArea * current.quantityNew
             )
           case None =>
-            AreaEntry.empty(label).copy(
+            AreaEntry.empty(rawLabel).copy(
               area = polygonArea,
               quantity = 1,
               totalArea = polygonArea,
@@ -82,7 +82,10 @@ object AreaState:
             )
       }.toList
 
-      val renumbered = syncedEntries
+      // Preserve existing entries whose label is NOT in the current polygon sync
+      // (e.g. manually added rows, or entries from a previous plan that was not synced)
+      val unmatched = existingEntries.filterNot(e => syncedLabels.contains(e.kuerzel))
+      val renumbered = syncedEntries ++ unmatched
 
       updateAreaCalculation(compType, renumbered)
 

@@ -27,7 +27,12 @@ export async function loadPDF(file) {
     const off      = document.createElement('canvas');
     off.width = viewport.width; off.height = viewport.height;
     await page.render({ canvasContext: off.getContext('2d'), viewport }).promise;
-    S.image = off; S.imageW = viewport.width; S.imageH = viewport.height;
+    // Use the actual canvas pixel dimensions (integers) rather than the raw
+    // viewport floats (e.g. 1190.56).  The offscreen canvas truncates the float
+    // to an integer anyway, so using viewport.width would produce a fractional
+    // S.imageW that (a) mismatches the real image and (b) fails Scala's Int
+    // decoder, causing the plans-sync to silently drop the plan data.
+    S.image = off; S.imageW = off.width; S.imageH = off.height;
     S.imageDataUrl = off.toDataURL('image/jpeg', 0.85); // JPEG for smaller size
   } finally { URL.revokeObjectURL(url); }
 }

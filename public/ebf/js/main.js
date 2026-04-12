@@ -10,6 +10,10 @@ import { loadPDF, loadImg, exportData, exportExcel, exportXML, importData, print
 pdfjsLib.GlobalWorkerOptions.workerSrc = PDFJS_WORKER;
 
 let currentUnmount = null;
+// Set to true by onLoadPlans so that the first geak:ebf-request-sync fired by AreaView
+// on mount is suppressed.  Without this, AreaView's mount-time sync overwrites area
+// calculations that were just restored from the project JSON.
+let suppressNextRequestSync = false;
 
 export function mountEbf(root = document) {
   currentUnmount?.();
@@ -73,8 +77,13 @@ function bindUI(ownerDocument) {
   // Handle plan deletion
   window.addEventListener('geak:ebf-delete-plan', onDeletePlan);
 
-  // Re-emit polygon sync on request (e.g. when AreaView mounts)
-  window.addEventListener('geak:ebf-request-sync', () => emitPolygonSyncEvent());
+  // Re-emit polygon sync on request (e.g. when AreaView mounts).
+  // Suppressed once after a project load so that area calculations restored from
+  // the project JSON are not immediately overwritten by the mount-time sync.
+  window.addEventListener('geak:ebf-request-sync', () => {
+    if (suppressNextRequestSync) { suppressNextRequestSync = false; return; }
+    emitPolygonSyncEvent();
+  });
 
   // Handle polygon rename from area calculation table
   window.addEventListener('geak:ebf-rename-polygon', e => {
@@ -166,6 +175,7 @@ async function onFileChange(e) {
   S.scale = null; S.scaleX = null; S.scaleY = null; S.scaleDirX = null; S.scaleDirY = null;
   S.nextId = 1; S.nextMeasId = 1;
 
+  resizeCanvas();
   fitToCanvas();
   show('scale-section'); show('area-type-section'); show('draw-section');
   updateSidebar(); render();
@@ -207,8 +217,11 @@ function saveCurrentPlanState() {
   if (S.imageDataUrl) plan.imageDataUrl = S.imageDataUrl;
 }
 
-/** Switch to a different imported plan.  Saves the current plan first. */
-async function switchToPlan(planId) {
+/** Switch to a different imported plan.  Saves the current plan first.
+ *  @param {boolean} suppressPolygonSync - when true, skip emitPolygonSyncEvent() at the end.
+ *    Used during initial project load (onLoadPlans) so that area calculations already
+ *    restored from the project JSON are not immediately overwritten by a stale polygon sync. */
+async function switchToPlan(planId, { suppressPolygonSync = false } = {}) {
   if (planId === S.activePlanId) return;
 
   saveCurrentPlanState();
@@ -222,18 +235,21 @@ async function switchToPlan(planId) {
 
   // Restore image: try in-memory first, then localStorage
   const imageDataUrl = plan.imageDataUrl || localStorage.getItem('ebf_plan_image_' + planId);
+  console.log(`[EBF] switchToPlan ${planId}: imageDataUrl=${imageDataUrl ? imageDataUrl.substring(0,40)+'...' : 'null'}`);
 
   if (imageDataUrl) {
     try {
       await loadImageFromDataUrl(imageDataUrl);
       plan.imageDataUrl = S.imageDataUrl; // keep in sync
+      console.log(`[EBF] switchToPlan image loaded OK, S.image=${!!S.image} W=${S.imageW} H=${S.imageH}`);
     } catch (err) {
-      console.warn('Failed to load image:', err);
+      console.warn('[EBF] Failed to load image:', err);
       S.image = null;
       S.imageW = plan.imageW;
       S.imageH = plan.imageH;
     }
   } else {
+    console.warn(`[EBF] switchToPlan: no imageDataUrl for plan ${planId} — canvas will be blank`);
     S.image = null;
     S.imageW = plan.imageW;
     S.imageH = plan.imageH;
@@ -254,8 +270,15 @@ async function switchToPlan(planId) {
 
   $('file-name').textContent = plan.label;
 
-  // Fit image to canvas if available
+  // Fit image to canvas if available.
+  // Always re-measure the container first so canvas.width/height reflect the
+  // current DOM layout.  This matters when switchToPlan is called on initial
+  // project load (from JSON upload), where mountEbf may have run before the
+  // browser had finished laying out the canvas container, leaving the canvas
+  // with zero or incorrect dimensions and causing fitToCanvas() to produce a
+  // negative (or near-zero) zoom that makes the plan appear completely warped.
   if (S.image) {
+    resizeCanvas();
     fitToCanvas();
     applyScaleStatus();
   }
@@ -265,27 +288,65 @@ async function switchToPlan(planId) {
   show('draw-section');
   updateSidebar();
   render();
-  emitPolygonSyncEvent();
+  if (!suppressPolygonSync) emitPolygonSyncEvent();
   emitPlansSyncEvent();
 }
 
 /** Restore plans received from the Scala layer (project load). */
 async function onLoadPlans(event) {
   const data = event.detail;
-  if (!data || !Array.isArray(data.plans) || data.plans.length === 0) return;
+  if (!data || !Array.isArray(data.plans)) return;
 
-  // Restore image data URLs from localStorage
-  S.plans = data.plans.map(plan => ({
-    ...plan,
-    imageDataUrl: localStorage.getItem('ebf_plan_image_' + plan.id) || null,
-  }));
+  // Empty plans = new/cleared project: reset all JS canvas state
+  if (data.plans.length === 0) {
+    S.plans = [];
+    S.activePlanId = null;
+    S.image = null;
+    S.imageDataUrl = null;
+    S.imageW = 0;
+    S.imageH = 0;
+    S.polygons = [];
+    S.measurements = [];
+    S.scale = null;
+    S.scaleX = null;
+    S.scaleY = null;
+    S.nextId = 1;
+    S.nextMeasId = 1;
+    S.current = [];
+    $('file-name').textContent = '';
+    updateSidebar();
+    render();
+    return;
+  }
+
+  // Restore image data URLs: prefer localStorage (fast), fall back to embedded imageDataUrl
+  // (present when loaded from a self-contained local JSON export).
+  // Also write back to localStorage so future loads can skip the inline data.
+  S.plans = data.plans.map(plan => {
+    const fromStorage = localStorage.getItem('ebf_plan_image_' + plan.id);
+    const imageDataUrl = fromStorage || plan.imageDataUrl || null;
+    console.log(`[EBF] onLoadPlans plan=${plan.id} fromStorage=${!!fromStorage} fromPlan=${!!plan.imageDataUrl} result=${!!imageDataUrl}`);
+    if (!fromStorage && imageDataUrl) {
+      try { localStorage.setItem('ebf_plan_image_' + plan.id, imageDataUrl); } catch (_) {}
+    }
+    return { ...plan, imageDataUrl };
+  });
 
   const activeId = data.activePlanId || S.plans[0]?.id;
+  // Reset activePlanId so switchToPlan always runs fully and reloads the image
+  // into the freshly mounted canvas (the component may have remounted with a new DOM).
+  S.activePlanId = null;
   updateSidebar();
 
   if (activeId) {
-    await switchToPlan(activeId);
+    console.log(`[EBF] onLoadPlans switching to ${activeId}`);
+    // suppressPolygonSync: area calculations were already restored from the project JSON;
+    // emitting a polygon sync here would overwrite them with potentially incomplete data.
+    await switchToPlan(activeId, { suppressPolygonSync: true });
   }
+  // Suppress the next geak:ebf-request-sync so that AreaView's mount-time sync
+  // does not overwrite the area calculations just restored from the project JSON.
+  suppressNextRequestSync = true;
 }
 
 /** Delete a plan after confirmation. */
@@ -599,6 +660,22 @@ function findNearLabel(sx, sy) {
   }
   return null;
 }
+
+// ── Image export helper (called from Scala for JSON download) ────────────────
+/**
+ * Returns a map of planId → imageDataUrl for all plans that have an image.
+ * Ensures the currently active plan's imageDataUrl is up to date first.
+ * Exposed on window so Scala's downloadProjectJson can call it synchronously.
+ */
+function getEbfPlanImages() {
+  saveCurrentPlanState();
+  const result = {};
+  S.plans.forEach(plan => {
+    if (plan.imageDataUrl) result[plan.id] = plan.imageDataUrl;
+  });
+  return result;
+}
+window.getEbfPlanImages = getEbfPlanImages;
 
 // ── Misc helpers ──────────────────────────────────────────────────────────────
 function show(id) {

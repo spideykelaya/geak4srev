@@ -879,6 +879,9 @@ object XmlExportService:
 
       dom.URL.revokeObjectURL(url)
 
+      // Clear the work-in-progress snapshot — project is now exported
+      pme123.geak4s.state.AppState.clearWip()
+
       dom.console.log(s"✅ XML exported successfully: $exportFileName")
     catch
       case ex: Exception =>

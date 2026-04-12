@@ -65,7 +65,13 @@ object EBFCalculatorView:
           val jsonStr = js.JSON.stringify(detail.asInstanceOf[js.Any])
           decode[EbfPlans](jsonStr) match
             case Right(plans) =>
-              EbfState.updatePlans(plans)
+              // Preserve any imageDataUrl already in EbfState (JS strips it from sync events).
+              val existing = EbfState.getEbfPlans.plans.map(p => p.id -> p.imageDataUrl).toMap
+              val merged   = plans.copy(plans = plans.plans.map { p =>
+                if p.imageDataUrl.isDefined then p
+                else p.copy(imageDataUrl = existing.getOrElse(p.id, None))
+              })
+              EbfState.updatePlans(merged)
               AppState.saveEbfPlans()
             case Left(err) =>
               dom.console.error(s"ebf-plans-sync parse error: $err")
@@ -112,15 +118,16 @@ object EBFCalculatorView:
             .asInstanceOf[js.Promise[js.Function0[Unit]]]
             .`then`[Unit] { (unmount: js.Function0[Unit]) =>
               unmountHandle = Some(unmount)
-              // Restore saved plans into the EBF component after it is ready
-              val saved = EbfState.getEbfPlans
-              if saved.plans.nonEmpty then
-                val plansJson  = saved.asJson.noSpaces
-                val plansJsObj = js.JSON.parse(plansJson)
-                val init = js.Dynamic.literal(detail = plansJsObj, bubbles = false, cancelable = false)
-                dom.window.dispatchEvent(
-                  new dom.CustomEvent(loadPlansEvent, init.asInstanceOf[dom.CustomEventInit])
-                )
+              // Always fire geak:ebf-load-plans so the JS canvas resets or restores state.
+              // Empty plans clears old plans from a previous project; non-empty plans restore them.
+              val saved      = EbfState.getEbfPlans
+              val plansJson  = saved.asJson.noSpaces
+              val plansJsObj = js.JSON.parse(plansJson)
+              val init = js.Dynamic.literal(detail = plansJsObj, bubbles = false, cancelable = false)
+              dom.window.dispatchEvent(
+                new dom.CustomEvent(loadPlansEvent, init.asInstanceOf[dom.CustomEventInit])
+              )
+              ()
             }
             .`catch` { (error: scala.Any) =>
               dom.console.error("Failed to mount EBF calculator", error)

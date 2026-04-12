@@ -6,7 +6,11 @@ import com.raquo.laminar.api.L.{*, given}
 import org.scalajs.dom
 import pme123.geak4s.state.AppState
 import pme123.geak4s.services.GoogleDriveService
+import pme123.geak4s.domain.GeakProject
+import pme123.geak4s.domain.JsonCodecs.given
+import io.circe.parser.decode
 import scala.concurrent.ExecutionContext.Implicits.global
+import scala.scalajs.js
 
 /** Welcome screen with options to start new or import existing project */
 object WelcomeView:
@@ -16,6 +20,7 @@ object WelcomeView:
     val isLoading = Var(false)
     val existingProjects = Var[List[String]](List.empty)
     val loadingProjects = Var(false)
+    val jsonError = Var[Option[String]](None)
 
     // Load existing projects from Google Drive on mount
     def loadExistingProjects(): Unit =
@@ -167,9 +172,78 @@ object WelcomeView:
                 )
             }
           )
+        ),
+
+        // Local JSON Card
+        Card(
+          _.slots.header := CardHeader(
+            _.titleText := "Lokales Projekt",
+            _.subtitleText := "JSON-Datei hochladen",
+            _.slots.avatar := Icon(_.name := IconName.`upload`)
+          ),
+          div(
+            className := "card-content",
+            Label(
+              _.wrappingType := WrappingType.Normal,
+              "Laden Sie ein zuvor gespeichertes Projekt als JSON-Datei hoch, um dort weiterzumachen."
+            ),
+            child.maybe <-- jsonError.signal.map(_.map { msg =>
+              div(
+                marginTop := "0.5rem",
+                MessageStrip(
+                  _.design := MessageStripDesign.Negative,
+                  _.hideCloseButton := true,
+                  msg
+                )
+              )
+            }),
+            div(
+              className := "card-actions",
+              // Hidden file input
+              input(
+                typ := "file",
+                idAttr := "json-upload-input",
+                accept := ".json",
+                display := "none",
+                onChange --> Observer[dom.Event] { e =>
+                  val input = e.target.asInstanceOf[dom.html.Input]
+                  val file = input.files(0)
+                  if file != null then
+                    val reader = new dom.FileReader()
+                    reader.onload = _ =>
+                      val text = reader.result.asInstanceOf[String]
+                      decode[GeakProject](text) match
+                        case Right(project) =>
+                          // Restore EBF plan images to localStorage so the canvas can display them
+                          project.ebfPlans.foreach(_.plans.foreach { plan =>
+                            plan.imageDataUrl.foreach { img =>
+                              if img.nonEmpty then
+                                try dom.window.localStorage.setItem(s"ebf_plan_image_${plan.id}", img)
+                                catch case _: Exception => ()
+                            }
+                          })
+                          jsonError.set(None)
+                          AppState.loadProject(project, file.name)
+                        case Left(err) =>
+                          jsonError.set(Some(s"Ungültige JSON-Datei: ${err.getMessage.take(120)}"))
+                      input.value = "" // allow re-upload of same file
+                    reader.readAsText(file)
+                }
+              ),
+              Button(
+                _.design := ButtonDesign.Default,
+                _.icon := IconName.`upload`,
+                _.events.onClick.mapTo(()) --> Observer[Unit] { _ =>
+                  dom.document.getElementById("json-upload-input")
+                    .asInstanceOf[dom.html.Input].click()
+                },
+                "JSON hochladen"
+              )
+            )
+          )
         )
       ),
-      
+
       // Info section
       div(
         className := "welcome-info",
