@@ -106,6 +106,20 @@ object WorkflowView:
       _.slots.endContent := div(
         className := "action-buttons",
 
+        // Local file auto-save status
+        child.maybe <-- AppState.localFileName.signal.map(_.map { name =>
+          div(
+            display := "flex", alignItems := "center", gap := "0.25rem",
+            Icon(_.name := IconName.`save`, color := "#107e3e"),
+            span(
+              fontSize := "0.75rem",
+              color := "#107e3e",
+              fontWeight := "600",
+              s"Auto-Save: $name"
+            )
+          )
+        }),
+
         // Google Drive connection status with last sync time
         child <-- AppState.driveConnected.signal.combineWith(AppState.lastSyncTime.signal).map {
           case (connected, syncTime) =>

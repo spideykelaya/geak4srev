@@ -15,6 +15,28 @@ import scala.scalajs.js
 /** Welcome screen with options to start new or import existing project */
 object WelcomeView:
 
+  /** Parse JSON text, optionally set a file handle for auto-save, then load the project */
+  private def loadProjectFromText(
+    text: String,
+    fileName: String,
+    handleOpt: Option[js.Dynamic],
+    jsonError: Var[Option[String]]
+  ): Unit =
+    decode[GeakProject](text) match
+      case Right(project) =>
+        project.ebfPlans.foreach(_.plans.foreach { plan =>
+          plan.imageDataUrl.foreach { img =>
+            if img.nonEmpty then
+              try dom.window.localStorage.setItem(s"ebf_plan_image_${plan.id}", img)
+              catch case _: Exception => ()
+          }
+        })
+        jsonError.set(None)
+        handleOpt.foreach(h => AppState.setLocalFileHandle(h, fileName))
+        AppState.loadProject(project, fileName)
+      case Left(err) =>
+        jsonError.set(Some(s"Ungültige JSON-Datei: ${err.getMessage.take(120)}"))
+
   def apply(): HtmlElement =
     val errorMessage = Var[Option[String]](None)
     val isLoading = Var(false)
@@ -199,7 +221,8 @@ object WelcomeView:
             }),
             div(
               className := "card-actions",
-              // Hidden file input
+
+              // Hidden fallback file input (for browsers without File System Access API)
               input(
                 typ := "file",
                 idAttr := "json-upload-input",
@@ -212,30 +235,44 @@ object WelcomeView:
                     val reader = new dom.FileReader()
                     reader.onload = _ =>
                       val text = reader.result.asInstanceOf[String]
-                      decode[GeakProject](text) match
-                        case Right(project) =>
-                          // Restore EBF plan images to localStorage so the canvas can display them
-                          project.ebfPlans.foreach(_.plans.foreach { plan =>
-                            plan.imageDataUrl.foreach { img =>
-                              if img.nonEmpty then
-                                try dom.window.localStorage.setItem(s"ebf_plan_image_${plan.id}", img)
-                                catch case _: Exception => ()
-                            }
-                          })
-                          jsonError.set(None)
-                          AppState.loadProject(project, file.name)
-                        case Left(err) =>
-                          jsonError.set(Some(s"Ungültige JSON-Datei: ${err.getMessage.take(120)}"))
-                      input.value = "" // allow re-upload of same file
+                      loadProjectFromText(text, file.name, None, jsonError)
+                      input.value = ""
                     reader.readAsText(file)
                 }
               ),
+
               Button(
                 _.design := ButtonDesign.Default,
                 _.icon := IconName.`upload`,
                 _.events.onClick.mapTo(()) --> Observer[Unit] { _ =>
-                  dom.document.getElementById("json-upload-input")
-                    .asInstanceOf[dom.html.Input].click()
+                  val win = dom.window.asInstanceOf[js.Dynamic]
+                  if js.typeOf(win.showOpenFilePicker) == "function" then
+                    // File System Access API: writable handle for auto-save.
+                    // "application/json" contains '/' so we cannot use named-arg literal — build the object manually.
+                    val acceptObj = js.Object().asInstanceOf[js.Dynamic]
+                    acceptObj.updateDynamic("application/json")(js.Array(".json"))
+                    val typeItem = js.Dynamic.literal(description = "GEAK JSON Projektdatei", accept = acceptObj)
+                    val opts = js.Dynamic.literal(types = js.Array(typeItem), multiple = false)
+
+                    val onHandles: js.Function1[js.Any, Unit] = handles =>
+                      val arr = handles.asInstanceOf[js.Array[js.Dynamic]]
+                      if arr.length > 0 then
+                        val handle = arr(0)
+                        val onFile: js.Function1[js.Any, Unit] = file =>
+                          val reader = new dom.FileReader()
+                          reader.onload = _ =>
+                            val text = reader.result.asInstanceOf[String]
+                            val name = file.asInstanceOf[js.Dynamic].name.asInstanceOf[String]
+                            loadProjectFromText(text, name, Some(handle), jsonError)
+                          reader.readAsText(file.asInstanceOf[dom.Blob])
+                        handle.getFile().asInstanceOf[js.Dynamic].`then`(onFile)
+
+                    val onCancel: js.Function1[js.Any, Unit] = _ => () // user dismissed
+                    win.showOpenFilePicker(opts).asInstanceOf[js.Dynamic].`then`(onHandles, onCancel)
+                  else
+                    // Fallback for Firefox / Safari
+                    dom.document.getElementById("json-upload-input")
+                      .asInstanceOf[dom.html.Input].click()
                 },
                 "JSON hochladen"
               )
