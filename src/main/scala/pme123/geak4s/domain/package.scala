@@ -53,7 +53,9 @@ package object domain:
       areaCalculations: Option[BuildingEnvelopeArea] = None,
       gisData: Option[gis.MaddResponse] = None,
       ebfPlans: Option[EbfPlans] = None,
-      energyConsumption: Option[EnergyConsumptionData] = None
+      energyConsumption: Option[EnergyConsumptionData] = None,
+      wordFormData: Option[WordFormData] = None,
+      gisXmlContent: Option[String] = None
   )
 
   object GeakProject:

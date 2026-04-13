@@ -4,6 +4,7 @@ import com.raquo.laminar.api.L.*
 import org.scalajs.dom
 import scala.concurrent.duration.*
 import scala.scalajs.concurrent.JSExecutionContext.Implicits.queue
+import scala.scalajs.js
 import pme123.geak4s.domain.*
 import pme123.geak4s.domain.project.*
 import pme123.geak4s.domain.building.*
@@ -55,7 +56,7 @@ object AppState:
   val autoSaveEnabled: Var[Boolean] = Var(true) // Each user logs in with their own account
   val syncInitialized: Var[Boolean] = Var(false) // Tracks if sync has been explicitly started for this project
 
-  // Auto-save timer
+  // Auto-save timer (Google Drive)
   private var autoSaveTimer: Option[Int] = None
   private val AUTO_SAVE_DELAY_MS = 5000 // 5 seconds after last change
 
@@ -65,6 +66,24 @@ object AppState:
 
   // Track which projects have had their folder structure created
   private var projectsWithFolderStructure = Set.empty[String]
+
+  // Local file auto-save (File System Access API)
+  val localFileHandle: Var[Option[js.Dynamic]] = Var(None)
+  val localFileName: Var[Option[String]]        = Var(None)
+  private var localFileSaveTimer: Option[Int]   = None
+  private val LOCAL_SAVE_DELAY_MS               = 3000 // 3 seconds debounce
+
+  /** Store the FileSystemFileHandle obtained from showOpenFilePicker / showSaveFilePicker */
+  def setLocalFileHandle(handle: js.Dynamic, name: String): Unit =
+    localFileHandle.set(Some(handle))
+    localFileName.set(Some(name))
+    dom.console.log(s"✅ Lokales Auto-Save aktiviert für: $name")
+
+  def clearLocalFileHandle(): Unit =
+    localFileHandle.set(None)
+    localFileName.set(None)
+    localFileSaveTimer.foreach(dom.window.clearTimeout)
+    localFileSaveTimer = None
   
   /** Navigation helpers */
   def navigateToWelcome(): Unit = currentView.set(View.Welcome)
@@ -122,6 +141,7 @@ object AppState:
     EnergyState.clear()
     stopPeriodicSync()
     syncInitialized.set(false)
+    clearLocalFileHandle()
     // Don't clear projectsWithFolderStructure - keep track across sessions
     navigateToWelcome()
   
@@ -142,11 +162,58 @@ object AppState:
         triggerAutoSave()
       case _ => // ignore if no project loaded
 
+  /** Enrich project with EBF plan images before export/file-write */
+  def enrichProjectWithImages(project: GeakProject): GeakProject =
+    val jsImages: js.Dictionary[String] =
+      val fn = dom.window.asInstanceOf[js.Dynamic].getEbfPlanImages
+      if !js.isUndefined(fn) && fn != null then fn().asInstanceOf[js.Dictionary[String]]
+      else js.Dictionary.empty[String]
+    project.copy(
+      ebfPlans = project.ebfPlans.map { plans =>
+        plans.copy(plans = plans.plans.map { plan =>
+          if plan.imageDataUrl.isDefined then plan
+          else
+            val img = jsImages.get(plan.id)
+              .orElse(Option(dom.window.localStorage.getItem(s"ebf_plan_image_${plan.id}")))
+              .filter(_.nonEmpty)
+            plan.copy(imageDataUrl = img)
+        })
+      }
+    )
+
+  /** Write JSON string directly to the stored FileSystemFileHandle (no dialog).
+   *  Uses raw js.Function1 callbacks to avoid any js.Thenable / Future conversion issues. */
+  private def writeToLocalFile(jsonStr: String): Unit =
+    localFileHandle.now().foreach { handle =>
+      val onError: js.Function1[js.Any, Unit] = err =>
+        dom.console.error("Lokales Speichern fehlgeschlagen:", err)
+
+      val onCreate: js.Function1[js.Any, Unit] = writable =>
+        val w = writable.asInstanceOf[js.Dynamic]
+        val onWritten: js.Function1[js.Any, Unit] = _ =>
+          w.close()
+          dom.console.log(s"💾 Automatisch gespeichert: ${localFileName.now().getOrElse("")}")
+        w.write(jsonStr).asInstanceOf[js.Dynamic].`then`(onWritten, onError)
+
+      handle.createWritable().asInstanceOf[js.Dynamic].`then`(onCreate, onError)
+    }
+
+  /** Schedule a debounced local file save (3 s after last change) */
+  private def scheduleLocalFileSave(project: GeakProject): Unit =
+    if localFileHandle.now().isEmpty then return
+    localFileSaveTimer.foreach(dom.window.clearTimeout)
+    val timerId = dom.window.setTimeout(() => {
+      val enriched = enrichProjectWithImages(project)
+      writeToLocalFile(enriched.asJson.noSpaces)
+    }, LOCAL_SAVE_DELAY_MS)
+    localFileSaveTimer = Some(timerId)
+
   /** Persist current project to localStorage so it survives a page reload. */
   private def saveWip(project: GeakProject, fileName: String): Unit =
     try
       dom.window.localStorage.setItem(WIP_KEY,      project.asJson.noSpaces)
       dom.window.localStorage.setItem(WIP_FILE_KEY, fileName)
+      scheduleLocalFileSave(project) // also auto-save to local file if handle is set
     catch case ex: Exception =>
       dom.console.error(s"WIP speichern fehlgeschlagen: ${ex.getMessage}")
 
@@ -171,12 +238,14 @@ object AppState:
   def saveEnergyData(): Unit =
     updateProject(project => EnergyState.saveToProject(project))
 
+  /** Pure helper: apply GIS data to a project and return the updated project */
+  def saveGisDataToProject(project: GeakProject, gisData: pme123.geak4s.domain.gis.MaddResponse): GeakProject =
+    val filledProject = fillProjectFromGis(project, gisData)
+    filledProject.copy(gisData = Some(gisData))
+
   /** Save GIS data to current project and autofill project fields when empty */
   def saveGisData(gisData: pme123.geak4s.domain.gis.MaddResponse): Unit =
-    updateProject(project =>
-      val filledProject = fillProjectFromGis(project, gisData)
-      filledProject.copy(gisData = Some(gisData))
-    )
+    updateProject(project => saveGisDataToProject(project, gisData))
 
   /** Fill project fields from extracted GIS data without overriding existing input when present */
   private def fillProjectFromGis(project: GeakProject, gisData: pme123.geak4s.domain.gis.MaddResponse): GeakProject =

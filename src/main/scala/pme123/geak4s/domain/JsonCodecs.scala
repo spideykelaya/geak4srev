@@ -57,6 +57,9 @@ object JsonCodecs:
   
   given Encoder[Project] = deriveEncoder[Project]
   given Decoder[Project] = deriveDecoder[Project]
+
+  given Encoder[WordFormData] = deriveEncoder[WordFormData]
+  given Decoder[WordFormData] = deriveDecoder[WordFormData]
   
   // Building domain
   given Encoder[BuildingUsage] = deriveEncoder[BuildingUsage]
