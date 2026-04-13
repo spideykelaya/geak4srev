@@ -1,6 +1,6 @@
 package pme123.geak4s.views
 
-import upickle.default.{ReadWriter, macroRW, write}
+import upickle.default.write
 import com.raquo.laminar.api.L.{*, given}
 import be.doeraene.webcomponents.ui5.*
 import be.doeraene.webcomponents.ui5.configkeys.*
@@ -10,37 +10,6 @@ import pme123.geak4s.state.AppState
 import pme123.geak4s.domain.*
 import pme123.geak4s.domain.project.*
 import pme123.geak4s.domain.building.BuildingUsage
-
-
-
-// Datenmodell für das Formular
-case class WordFormData(
-  projektnummer: String = "",
-  auftraggeberin: String = "",
-  mail: String = "",
-  tel: String = "",
-  adresse: String = "",
-  baujahr: String = "",
-  datum: String = "",
-  egid: String = "",
-  heizung: String = "",
-  warmwasser: String = "",
-  gebaudeart: String = "",
-  ebf: String = "",
-  wohnungen: String = "",
-  energieart: String = "",
-  energieverbrauch: String = "",
-  energiekennzahl: String = "",
-  erdsonde: String = "",
-  fernwärme: String = "",
-  fossil: String = "",
-  wp: String = "",
-  sondentiefe: String = ""
-)
-
-object WordFormData {
-  given ReadWriter[WordFormData] = upickle.default.macroRW
-}
 
 object WordFormView:
 
@@ -98,6 +67,8 @@ object WordFormView:
     val addr    = parseFormAddress(form.adresse, existingBuildingAddr)
     val ebfOpt  = form.ebf.replace(',', '.').toDoubleOption
     p.copy(
+      // Persist the complete form data so all fields survive JSON export/import
+      wordFormData = Some(form),
       // Keep BuildingUsages area in sync with EBF so <BuildingUsages> > <Area> in the XML is correct
       buildingUsages = ebfOpt match
         case Some(v) if p.buildingUsages.nonEmpty => p.buildingUsages.head.copy(area = v) :: p.buildingUsages.tail
@@ -132,30 +103,35 @@ object WordFormView:
     )
 
   def apply(): HtmlElement =
-    // On every mount: merge project data into any still-empty form fields,
-    // then immediately push the result back to the project so Schritt 7
-    // always reflects what is shown here — even if the user never types.
+    // On every mount: if the project already has persisted wordFormData, restore it directly.
+    // Otherwise fall back to extracting individual fields from the project (e.g. on first visit).
     AppState.getCurrentProject.foreach { p =>
-      val cur = formVar.now()
-      def orProject(v: String, fallback: => String): String = if v.nonEmpty then v else fallback
-      val fmtEbf = p.project.buildingData.energyReferenceArea
-        .map(v => if v == v.toLong then v.toLong.toString else v.toString)
-        .getOrElse("")
-      val synced = cur.copy(
-        projektnummer  = orProject(cur.projektnummer,  p.project.projectName),
-        auftraggeberin = orProject(cur.auftraggeberin, p.project.client.name1.getOrElse("")),
-        mail       = orProject(cur.mail,       p.project.client.email.getOrElse("")),
-        tel        = orProject(cur.tel,        p.project.client.phone1.getOrElse("")),
-        adresse    = orProject(cur.adresse,    formatAddress(p.project.buildingLocation.address)),
-        baujahr    = orProject(cur.baujahr,    p.project.buildingData.constructionYear.map(_.toString).getOrElse("")),
-        egid       = orProject(cur.egid,       p.project.egidEdidGroup.entries.headOption.flatMap(_.egid).getOrElse("")),
-        ebf        = orProject(cur.ebf,        fmtEbf),
-        gebaudeart = orProject(cur.gebaudeart, p.project.buildingLocation.buildingName.getOrElse(""))
-      )
-      formVar.set(synced)
-      // Push the now-complete form state into the project immediately.
-      // WorkflowView no longer re-renders on project changes, so this is loop-safe.
-      AppState.updateProject(syncFormToProject(synced))
+      p.wordFormData match
+        case Some(saved) =>
+          // Full form state was previously persisted – restore it exactly.
+          formVar.set(saved)
+        case None =>
+          // First visit or legacy project without wordFormData: derive fields from project.
+          val cur = formVar.now()
+          def orProject(v: String, fallback: => String): String = if v.nonEmpty then v else fallback
+          val fmtEbf = p.project.buildingData.energyReferenceArea
+            .map(v => if v == v.toLong then v.toLong.toString else v.toString)
+            .getOrElse("")
+          val synced = cur.copy(
+            projektnummer  = orProject(cur.projektnummer,  p.project.projectName),
+            auftraggeberin = orProject(cur.auftraggeberin, p.project.client.name1.getOrElse("")),
+            mail       = orProject(cur.mail,       p.project.client.email.getOrElse("")),
+            tel        = orProject(cur.tel,        p.project.client.phone1.getOrElse("")),
+            adresse    = orProject(cur.adresse,    formatAddress(p.project.buildingLocation.address)),
+            baujahr    = orProject(cur.baujahr,    p.project.buildingData.constructionYear.map(_.toString).getOrElse("")),
+            egid       = orProject(cur.egid,       p.project.egidEdidGroup.entries.headOption.flatMap(_.egid).getOrElse("")),
+            ebf        = orProject(cur.ebf,        fmtEbf),
+            gebaudeart = orProject(cur.gebaudeart, p.project.buildingLocation.buildingName.getOrElse(""))
+          )
+          formVar.set(synced)
+          // Push the now-complete form state into the project immediately.
+          // WorkflowView no longer re-renders on project changes, so this is loop-safe.
+          AppState.updateProject(syncFormToProject(synced))
     }
     div(
       className := "project-view",

@@ -171,12 +171,14 @@ object AppState:
   def saveEnergyData(): Unit =
     updateProject(project => EnergyState.saveToProject(project))
 
+  /** Pure helper: apply GIS data to a project and return the updated project */
+  def saveGisDataToProject(project: GeakProject, gisData: pme123.geak4s.domain.gis.MaddResponse): GeakProject =
+    val filledProject = fillProjectFromGis(project, gisData)
+    filledProject.copy(gisData = Some(gisData))
+
   /** Save GIS data to current project and autofill project fields when empty */
   def saveGisData(gisData: pme123.geak4s.domain.gis.MaddResponse): Unit =
-    updateProject(project =>
-      val filledProject = fillProjectFromGis(project, gisData)
-      filledProject.copy(gisData = Some(gisData))
-    )
+    updateProject(project => saveGisDataToProject(project, gisData))
 
   /** Fill project fields from extracted GIS data without overriding existing input when present */
   private def fillProjectFromGis(project: GeakProject, gisData: pme123.geak4s.domain.gis.MaddResponse): GeakProject =

@@ -45,6 +45,9 @@ object GisDataView:
             // Initialize parsedGisData from project if available
             project.gisData.foreach(gisData => parsedGisData.set(Some(gisData)))
 
+            // Restore saved XML content from project (so re-upload is not necessary)
+            project.gisXmlContent.foreach(content => xmlContent.set(Some(content)))
+
             div(
               className := "card-content",
               Button(
@@ -79,7 +82,7 @@ object GisDataView:
                   )
                 }),
 
-                // Success message
+                // Success / already-loaded message
                 child.maybe <-- xmlContent.signal.map(_.map { content =>
                   MessageStrip(
                     _.design := MessageStripDesign.Positive,
@@ -87,11 +90,13 @@ object GisDataView:
                     _.events.onClose.mapTo(()) --> Observer[Unit] { _ =>
                       xmlContent.set(None)
                       parsedGisData.set(None)
+                      // Remove saved XML from project when user explicitly dismisses it
+                      AppState.updateProject(_.copy(gisXmlContent = None))
                     },
-                    s"XML-Datei erfolgreich geladen (${content.length} Zeichen)"
+                    s"XML-Datei gespeichert (${content.length} Zeichen) – kein erneuter Upload nötig"
                   )
                 }),
-                
+
 
                 div(
                   marginTop := "0.5rem",
@@ -134,9 +139,12 @@ object GisDataView:
                               case Success(maddResponse) =>
                                 parsedGisData.set(Some(maddResponse))
 
-                                // Save to AppState
-                                AppState.saveGisData(maddResponse)
-                                dom.console.log("✅ GIS data saved to project state")
+                                // Save parsed GIS data and raw XML content to project
+                                AppState.updateProject(p =>
+                                  val withGis = AppState.saveGisDataToProject(p, maddResponse)
+                                  withGis.copy(gisXmlContent = Some(content))
+                                )
+                                dom.console.log("✅ GIS data + XML content saved to project state")
 
                                // Auto-fill WordFormView
                                 val building = maddResponse.buildingList.headOption
