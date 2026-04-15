@@ -206,14 +206,29 @@ object JsonCodecs:
   given Encoder[EbfPoint] = deriveEncoder[EbfPoint]
   given Decoder[EbfPoint] = deriveDecoder[EbfPoint]
 
+  given Encoder[EbfScaleDir] = deriveEncoder[EbfScaleDir]
+  given Decoder[EbfScaleDir] = deriveDecoder[EbfScaleDir]
+
+  // Backward-compatible decoder: all new fields have safe defaults
+  given Decoder[EbfPolygon] = Decoder.instance { c =>
+    for
+      id          <- c.get[Int]("id")
+      label       <- c.get[String]("label")
+      areaType    <- c.getOrElse[String]("areaType")("")
+      points      <- c.get[List[EbfPoint]]("points")
+      color       <- c.get[String]("color")
+      pixelArea   <- c.get[Double]("pixelArea")
+      area        <- c.getOrElse[Option[Double]]("area")(None)
+      inclination <- c.getOrElse[Option[Double]]("inclination")(None)
+    yield EbfPolygon(id, label, areaType, points, color, pixelArea, area, inclination)
+  }
   given Encoder[EbfPolygon] = deriveEncoder[EbfPolygon]
-  given Decoder[EbfPolygon] = deriveDecoder[EbfPolygon]
 
   given Encoder[EbfMeasurement] = deriveEncoder[EbfMeasurement]
   given Decoder[EbfMeasurement] = deriveDecoder[EbfMeasurement]
 
   given Encoder[EbfPlan] = deriveEncoder[EbfPlan]
-  // Backward-compatible: imageDataUrl may be absent in old JSON files
+  // Backward-compatible: all new fields have safe defaults
   given Decoder[EbfPlan] = Decoder.instance { c =>
     for
       id           <- c.get[String]("id")
@@ -222,12 +237,18 @@ object JsonCodecs:
       imageW       <- c.getOrElse[Int]("imageW")(0)
       imageH       <- c.getOrElse[Int]("imageH")(0)
       scale        <- c.getOrElse[Option[Double]]("scale")(None)
+      scaleX       <- c.getOrElse[Option[Double]]("scaleX")(None)
+      scaleY       <- c.getOrElse[Option[Double]]("scaleY")(None)
+      scaleDirX    <- c.getOrElse[Option[EbfScaleDir]]("scaleDirX")(None)
+      scaleDirY    <- c.getOrElse[Option[EbfScaleDir]]("scaleDirY")(None)
+      isPdf        <- c.getOrElse[Boolean]("isPdf")(false)
       nextId       <- c.getOrElse[Int]("nextId")(1)
       nextMeasId   <- c.getOrElse[Int]("nextMeasId")(1)
       polygons     <- c.getOrElse[List[EbfPolygon]]("polygons")(List.empty)
       measurements <- c.getOrElse[List[EbfMeasurement]]("measurements")(List.empty)
       imageDataUrl <- c.getOrElse[Option[String]]("imageDataUrl")(None)
-    yield EbfPlan(id, label, driveFileId, imageW, imageH, scale, nextId, nextMeasId, polygons, measurements, imageDataUrl)
+    yield EbfPlan(id, label, driveFileId, imageW, imageH, scale, scaleX, scaleY,
+                  scaleDirX, scaleDirY, isPdf, nextId, nextMeasId, polygons, measurements, imageDataUrl)
   }
 
   given Encoder[EbfPlans] = deriveEncoder[EbfPlans]
