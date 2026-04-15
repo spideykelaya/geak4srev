@@ -5,7 +5,6 @@ import be.doeraene.webcomponents.ui5.configkeys.*
 import com.raquo.laminar.api.L.{*, given}
 import org.scalajs.dom
 import pme123.geak4s.state.AppState
-import pme123.geak4s.services.GoogleDriveService
 import pme123.geak4s.domain.GeakProject
 import pme123.geak4s.domain.JsonCodecs.given
 import io.circe.parser.decode
@@ -40,25 +39,10 @@ object WelcomeView:
   def apply(): HtmlElement =
     val errorMessage = Var[Option[String]](None)
     val isLoading = Var(false)
-    val existingProjects = Var[List[String]](List.empty)
-    val loadingProjects = Var(false)
     val jsonError = Var[Option[String]](None)
 
-    // Load existing projects from Google Drive on mount
-    def loadExistingProjects(): Unit =
-      loadingProjects.set(true)
-      GoogleDriveService.listProjects().foreach { projects =>
-        existingProjects.set(projects)
-        loadingProjects.set(false)
-      }
-    
     div(
       className := "welcome-view",
-
-      // Load projects on mount
-      onMountCallback { _ =>
-        loadExistingProjects()
-      },
 
       // Hero section
       div(
@@ -129,70 +113,6 @@ object WelcomeView:
                 "Create New Project"
               )
             )
-          )
-        ),
-
-        // Existing Projects Card
-        Card(
-          _.slots.header := CardHeader(
-            _.titleText := "Existing Projects",
-            _.subtitleText := "Load from Google Drive",
-            _.slots.avatar := Icon(_.name := IconName.`folder-blank`),
-            _.slots.action := Button(
-              _.icon := IconName.`refresh`,
-              _.design := ButtonDesign.Default,
-              _.disabled <-- loadingProjects.signal.combineWith(isLoading.signal).map { (loading, globalLoading) =>
-                loading || globalLoading
-              },
-              _.events.onClick.mapTo(()) --> Observer[Unit] { _ =>
-                loadExistingProjects()
-              }
-            )
-          ),
-          div(
-            className := "card-content",
-
-            // Projects list
-            child <-- loadingProjects.signal.combineWith(existingProjects.signal).map { (loading, projects) =>
-              if loading then
-                div(
-                  textAlign := "center",
-                  padding := "1rem",
-                  BusyIndicator(_.active := true, _.size := BusyIndicatorSize.Medium)
-                )
-              else if projects.isEmpty then
-                Label(
-                  _.wrappingType := WrappingType.Normal,
-                  "No existing projects found in Google Drive GEAK4S folder. Create a new project to get started."
-                )
-              else
-                div(
-                  className := "projects-list",
-                  projects.map { projectName =>
-                    div(
-                      className := "project-item",
-                      Button(
-                        _.design := ButtonDesign.Default,
-                        _.icon := IconName.`document`,
-                        _.disabled <-- isLoading.signal,
-                        _.events.onClick.mapTo(projectName) --> Observer[String] { name =>
-                          isLoading.set(true)
-                          errorMessage.set(None)
-                          GoogleDriveService.loadProjectState(name).foreach {
-                            case Some(project) =>
-                              isLoading.set(false)
-                              AppState.loadProject(project, name)
-                            case None =>
-                              isLoading.set(false)
-                              errorMessage.set(Some(s"Failed to load project: $name"))
-                          }
-                        },
-                        projectName
-                      )
-                    )
-                  }
-                )
-            }
           )
         ),
 
