@@ -5,7 +5,7 @@ import { PDFJS_WORKER, SNAP_RADIUS }                      from './config.js';
 import { shoelace, findNearVertex, findNearEdge, dist, labelPoint } from './geo.js';
 import { render }                                         from './render.js';
 import { updateSidebar, nextPolygonLabel, setSwitchPlanHandler, setCurrentAreaTypeLabel, colorForCurrentAreaType, getCurrentAreaTypeLabel } from './sidebar.js';
-import { loadPDF, loadImg, exportData, exportExcel, exportXML, importData, printView, loadImageFromDataUrl } from './io.js';
+import { loadPDF, loadPDFPages, loadImg, exportData, exportExcel, exportXML, importData, printView, loadImageFromDataUrl } from './io.js';
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = PDFJS_WORKER;
 
@@ -138,39 +138,67 @@ $('real-length').addEventListener('keydown', e => { if (e.key === 'Enter') confi
 async function onFileChange(e) {
   const file = e.target.files[0]; if (!file) return;
 
-  // Persist the outgoing plan BEFORE loading the new image, so the old plan
+  // Persist the outgoing plan BEFORE loading the new image so the old plan
   // keeps its own imageDataUrl, scale, and polygons intact.
   saveCurrentPlanState();
 
+  let firstPlanId, firstPlanLabel;
+
   try {
-    if (file.type === 'application/pdf') await loadPDF(file);
-    else await loadImg(file);
+    if (file.type === 'application/pdf') {
+      // Render every page and create one plan per page.
+      const pages    = await loadPDFPages(file);
+      if (pages.length === 0) { alert('Leeres PDF – keine Seiten gefunden.'); return; }
+      const baseName = file.name.replace(/\.[^/.]+$/, '');
+      const baseTime = Date.now();
+
+      pages.forEach((pg, idx) => {
+        const planId    = `plan_${baseTime}_p${idx + 1}`;
+        const planLabel = pages.length === 1
+          ? baseName
+          : `${baseName} – Seite ${idx + 1}`;
+
+        const newPlan = {
+          id: planId, label: planLabel, driveFileId: null,
+          imageDataUrl: pg.imageDataUrl,
+          imageW: pg.imageW, imageH: pg.imageH,
+          scale: null, scaleX: null, scaleY: null,
+          nextId: 1, nextMeasId: 1,
+          polygons: [], measurements: [],
+        };
+        try { localStorage.setItem('ebf_plan_image_' + planId, pg.imageDataUrl); } catch (_) {}
+        S.plans.push(newPlan);
+
+        if (idx === 0) { firstPlanId = planId; firstPlanLabel = planLabel; }
+      });
+
+      // Activate first page: load its offscreen canvas into S
+      const first = pages[0];
+      S.image        = first.offscreen;
+      S.imageDataUrl = first.imageDataUrl;
+      S.imageW       = first.imageW;
+      S.imageH       = first.imageH;
+
+    } else {
+      await loadImg(file);
+      firstPlanId    = 'plan_' + Date.now();
+      firstPlanLabel = file.name.replace(/\.[^/.]+$/, '');
+      const newPlan = {
+        id: firstPlanId, label: firstPlanLabel, driveFileId: null,
+        imageDataUrl: S.imageDataUrl,
+        imageW: S.imageW, imageH: S.imageH,
+        scale: null, scaleX: null, scaleY: null,
+        nextId: 1, nextMeasId: 1,
+        polygons: [], measurements: [],
+      };
+      try { localStorage.setItem('ebf_plan_image_' + firstPlanId, S.imageDataUrl); } catch (_) {}
+      S.plans.push(newPlan);
+    }
   } catch (err) { alert('Laden fehlgeschlagen: ' + err.message); return; }
 
-  // Build a new plan entry
-  const planId    = 'plan_' + Date.now();
-  const planLabel = file.name.replace(/\.[^/.]+$/, ''); // strip extension
-  const newPlan = {
-    id: planId,
-    label: planLabel,
-    driveFileId: null,
-    imageDataUrl: S.imageDataUrl,   // stored from loadPDF / loadImg
-    imageW: S.imageW,
-    imageH: S.imageH,
-    scale: null, scaleX: null, scaleY: null,
-    nextId: 1,
-    nextMeasId: 1,
-    polygons: [],
-    measurements: [],
-  };
+  S.activePlanId = firstPlanId;
+  $('file-name').textContent = firstPlanLabel;
 
-  // Cache image in localStorage (best-effort; might fail for very large images)
-  try { localStorage.setItem('ebf_plan_image_' + planId, S.imageDataUrl); } catch (_) {}
-
-  S.plans.push(newPlan);
-  S.activePlanId = planId;
-
-  $('file-name').textContent = planLabel;
   S.polygons = []; S.measurements = []; S.current = [];
   S.scale = null; S.scaleX = null; S.scaleY = null; S.scaleDirX = null; S.scaleDirY = null;
   S.nextId = 1; S.nextMeasId = 1;
@@ -185,15 +213,14 @@ async function onFileChange(e) {
   // Reset input so the same file can be selected again
   e.target.value = '';
 
-  // Upload PDF to Google Drive
+  // Upload the PDF to Google Drive (one upload for the whole file)
   if (file.type === 'application/pdf') {
     file.arrayBuffer().then(buffer => {
       window.dispatchEvent(new CustomEvent('geak:ebf-plan-upload', {
-        detail: { planId, planLabel, fileName: file.name, mimeType: file.type, buffer },
+        detail: { planId: firstPlanId, planLabel: firstPlanLabel, fileName: file.name, mimeType: file.type, buffer },
       }));
     });
   }
-
 }
 
 // ── Plan management ───────────────────────────────────────────────────────────

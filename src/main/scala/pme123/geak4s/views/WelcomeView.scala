@@ -292,8 +292,7 @@ object WelcomeView:
           className := "feature-list",
           featureItem(IconName.`edit`, "Guided Data Entry", "Step-by-step process for all GEAK sections"),
           featureItem(IconName.`validate`, "Data Validation", "Automatic validation of all inputs"),
-          featureItem(IconName.`excel-attachment`, "Excel Export", "Export to standard GEAK Excel format"),
-          featureItem(IconName.`save`, "Auto-Save", "Your work is automatically saved in the browser")
+          featureItem(IconName.`excel-attachment`, "Excel Export", "Export to standard GEAK Excel format")
         )
       )
     )
