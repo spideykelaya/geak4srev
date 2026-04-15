@@ -277,8 +277,10 @@ async function generateMultiPlanPDF(selectedIds) {
       }
     }
     planSections.push(`
-      <h2 class="plan-title">${esc(entry.plan.label)}</h2>
-      ${imgTag}
+      <div class="plan-block">
+        <h2 class="plan-title">${esc(entry.plan.label)}</h2>
+        ${imgTag}
+      </div>
     `);
   }
 
@@ -373,6 +375,7 @@ async function generateMultiPlanPDF(selectedIds) {
     h1   { font-size:22px; font-weight:700; margin-bottom:18px; }
     h2.plan-title { font-size:16px; font-weight:600; margin:32px 0 10px; color:#4f46e5; border-bottom:2px solid #e0e0f0; padding-bottom:6px; }
     img  { max-width:100%; border:1px solid #ccc; border-radius:6px; display:block; margin-bottom:8px; }
+    .plan-block { break-inside: avoid; page-break-inside: avoid; margin-bottom:24px; }
     table{ width:100%; border-collapse:collapse; margin-top:22px; font-size:13px; }
     th   { background:#f4f4f8; padding:9px 12px; text-align:left; border:1px solid #ddd; font-weight:600; }
     td   { padding:7px 12px; border:1px solid #ddd; vertical-align:middle; }
@@ -382,10 +385,9 @@ async function generateMultiPlanPDF(selectedIds) {
     tr:nth-child(even) td { background:#fafafa; }
     tr.type-header td, tr.subtotal-row td, tr.grand-total-row td { background-color: inherit !important; }
     .print-btn { margin-top:20px; padding:10px 24px; cursor:pointer; font-size:14px; font-weight:600; background:#4f46e5; color:#fff; border:none; border-radius:8px; }
-    @media print { .print-btn { display:none; } h2.plan-title { page-break-before: auto; } }
+    @media print { .print-btn { display:none; } }
   </style>
 </head><body>
-  <h1>Flächenbericht</h1>
   ${planSections.join('\n')}
   <h2 style="margin-top:40px;font-size:17px;border-bottom:2px solid #ccc;padding-bottom:6px;">Flächenübersicht</h2>
   <table>
