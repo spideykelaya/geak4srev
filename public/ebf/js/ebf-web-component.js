@@ -21,7 +21,7 @@ function ensurePdfJsLoaded() {
 
 async function mountEbfCalculator(root) {
   await ensurePdfJsLoaded();
-  const module = await import('/ebf/js/main.js');
+  const module = await import('/ebf/js/main.js?v=11');
   return module.mountEbf(root || document);
 }
 
@@ -63,7 +63,7 @@ const TEMPLATE = `
 
     .app { height: 100% !important; }
   </style>
-  <link rel="stylesheet" href="/ebf/styles.css?v=9">
+  <link rel="stylesheet" href="/ebf/styles.css?v=11">
 
   <div class="app">
     <aside class="sidebar">
@@ -89,12 +89,41 @@ const TEMPLATE = `
         <div class="section" id="scale-section" style="display:none">
           <div class="section-label">Massstab</div>
           <div id="scale-status" class="scale-status uncalibrated">Nicht kalibriert</div>
-          <button class="btn" id="calibrate-btn">Massstab kalibrieren</button>
-          <div class="tools-divider"></div>
-          <div class="section-label" style="font-size:0.78rem;opacity:0.7">Separate Massstäbe (verzerrte Pläne)</div>
-          <div class="btn-row">
-            <button class="btn" id="calibrate-y-btn" title="Vertikalen Massstab kalibrieren">Vertikal</button>
-            <button class="btn" id="calibrate-x-btn" title="Horizontalen Massstab kalibrieren">Horizontal</button>
+
+          <!-- Plan type toggle -->
+          <div class="scale-mode-toggle">
+            <button class="scale-mode-btn active" id="scale-mode-accurate-btn" title="Maßstabstreuer Plan – gleicher Massstab in X und Y">Maßstabstreu</button>
+            <button class="scale-mode-btn" id="scale-mode-distorted-btn" title="Verzogener Plan – unterschiedliche Massstäbe in X und Y">Verzerrt</button>
+          </div>
+
+          <!-- Accurate mode controls -->
+          <div id="scale-accurate-controls">
+            <div class="section-label" style="font-size:0.75rem;opacity:0.65;margin-bottom:4px">Verhältnis eingeben</div>
+            <div class="ratio-row">
+              <span class="ratio-label">1 :</span>
+              <input type="number" id="scale-ratio-input" class="ratio-input" min="1" step="1" placeholder="100">
+            </div>
+            <select id="scale-paper-size" class="paper-select">
+              <option value="">– Papierformat –</option>
+              <option value="210">A4 Hoch (210 mm)</option>
+              <option value="297">A4 Quer / A3 Hoch (297 mm)</option>
+              <option value="420">A3 Quer / A2 Hoch (420 mm)</option>
+              <option value="594">A2 Quer / A1 Hoch (594 mm)</option>
+              <option value="841">A1 Quer / A0 Hoch (841 mm)</option>
+              <option value="1189">A0 Quer (1189 mm)</option>
+            </select>
+            <button class="btn btn-primary" id="scale-ratio-btn" style="margin-top:4px">Übernehmen</button>
+            <div class="tools-divider"></div>
+            <div class="section-label" style="font-size:0.75rem;opacity:0.65;margin-bottom:4px">oder Linie einzeichnen</div>
+            <button class="btn" id="calibrate-btn">Linie einzeichnen</button>
+          </div>
+
+          <!-- Distorted mode controls -->
+          <div id="scale-distorted-controls" style="display:none">
+            <div class="btn-row">
+              <button class="btn" id="calibrate-x-btn" title="Horizontalen Massstab kalibrieren">Horizontal</button>
+              <button class="btn" id="calibrate-y-btn" title="Vertikalen Massstab kalibrieren">Vertikal</button>
+            </div>
           </div>
         </div>
 

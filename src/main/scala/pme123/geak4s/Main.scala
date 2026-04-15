@@ -19,17 +19,6 @@ object Main:
     dom.console.log("🎯 Main.main() called")
     dom.console.log(s"📊 Document ready state: ${dom.document.readyState}")
 
-    // Restore work-in-progress from LocalStorage (survives page reload / browser crash)
-    val wipJson = dom.window.localStorage.getItem(AppState.WIP_KEY)
-    val wipFile = dom.window.localStorage.getItem(AppState.WIP_FILE_KEY)
-    if wipJson != null && wipFile != null then
-      decode[GeakProject](wipJson) match
-        case Right(project) =>
-          AppState.loadProject(project, wipFile)
-          dom.console.log(s"✅ Zwischenstand wiederhergestellt: $wipFile")
-        case Left(err) =>
-          dom.console.error(s"WIP laden fehlgeschlagen: ${err.getMessage}")
-
     // Initialize application
     AppState.initializeGoogleDrive()
 
