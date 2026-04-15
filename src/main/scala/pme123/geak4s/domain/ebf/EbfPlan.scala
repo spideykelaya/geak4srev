@@ -3,14 +3,19 @@ package pme123.geak4s.domain.ebf
 /** A 2D point in image pixel coordinates */
 case class EbfPoint(x: Double, y: Double)
 
+/** A 2D direction vector for anisotropic scale calibration */
+case class EbfScaleDir(x: Double, y: Double)
+
 /** A drawn polygon on an EBF plan */
 case class EbfPolygon(
     id: Int,
     label: String,
+    areaType: String = "",
     points: List[EbfPoint],
     color: String,
     pixelArea: Double,
-    area: Option[Double]   // None when not calibrated
+    area: Option[Double],          // None when not calibrated
+    inclination: Option[Double] = None
 )
 
 /** A distance measurement on an EBF plan */
@@ -34,6 +39,11 @@ case class EbfPlan(
     imageW: Int = 0,
     imageH: Int = 0,
     scale: Option[Double] = None,
+    scaleX: Option[Double] = None,
+    scaleY: Option[Double] = None,
+    scaleDirX: Option[EbfScaleDir] = None,
+    scaleDirY: Option[EbfScaleDir] = None,
+    isPdf: Boolean = false,
     nextId: Int = 1,
     nextMeasId: Int = 1,
     polygons: List[EbfPolygon] = List.empty,

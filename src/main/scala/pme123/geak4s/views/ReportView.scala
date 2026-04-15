@@ -101,6 +101,31 @@ object ReportView:
     )
 
   private def renderXmlExportCard(project: GeakProject): HtmlElement =
+    div(
+      display := "flex",
+      flexDirection := "column",
+      gap := "1rem",
+    Card(
+      _.slots.header := CardHeader(
+        _.titleText := "Projekt speichern",
+        _.subtitleText := "Fortschritt mittels JSON-Datei speichern"
+      ),
+      
+      div(
+        padding := "1rem 1rem",
+        width := "100%",
+        Button(
+          _.design := ButtonDesign.Default,
+          _.icon   := IconName.`save`,
+          width := "100%",
+          _.events.onClick.mapTo(()) --> Observer[Unit] { _ =>
+            downloadProjectJson(project)
+          },
+          "als JSON speichern"
+        )
+      )
+    ),
+
     Card(
       _.slots.header := CardHeader(
         _.titleText    := "GEAK XML Export",
@@ -123,7 +148,7 @@ object ReportView:
               )
           )
         ),
-        Label("2. Exportieren Sie das Projekt als XML-Datei in das Google Drive Ordner des Projekts."),
+        Label("2. Exportieren Sie das Projekt als XML-Datei."),
         Button(
           _.design := ButtonDesign.Default,
           _.icon   := IconName.`upload-to-cloud`,
@@ -148,14 +173,6 @@ object ReportView:
           "Lokal herunterladen"
         ),
         div(marginTop := "0.5rem"),
-        Button(
-          _.design := ButtonDesign.Default,
-          _.icon   := IconName.`save`,
-          _.events.onClick.mapTo(()) --> Observer[Unit] { _ =>
-            downloadProjectJson(project)
-          },
-          "Als JSON speichern"
-        ),
         Label("3. Importieren Sie die XML-Datei vom Google Drive Ordner des Projekts in das GEAK Tool."),
         div(
           marginTop := "0.5rem",
@@ -178,6 +195,7 @@ object ReportView:
         )
       )
     )
+  )
 
   private def renderProjectSummaryCard(project: GeakProject): HtmlElement =
     Card(
