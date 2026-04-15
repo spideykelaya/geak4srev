@@ -71,13 +71,58 @@ object EBFSidebarView:
       display := "none",
       div(className := "section-label", "Massstab"),
       div(idAttr := "scale-status", className := "scale-status uncalibrated", "Nicht kalibriert"),
-      button(className := "btn", idAttr := "calibrate-btn", "Massstab kalibrieren"),
-      div(className := "tools-divider"),
-      div(className := "section-label", styleAttr := "font-size:0.78rem;opacity:0.7", "Separate Massstäbe (verzerrte Pläne)"),
+
+      // Plan type toggle
       div(
-        className := "btn-row",
-        button(className := "btn", idAttr := "calibrate-y-btn", title := "Vertikalen Massstab kalibrieren", "Vertikal"),
-        button(className := "btn", idAttr := "calibrate-x-btn", title := "Horizontalen Massstab kalibrieren", "Horizontal")
+        className := "scale-mode-toggle",
+        button(className := "scale-mode-btn active", idAttr := "scale-mode-accurate-btn",
+          title := "Maßstabstreuer Plan – gleicher Massstab in X und Y", "Maßstabstreu"),
+        button(className := "scale-mode-btn", idAttr := "scale-mode-distorted-btn",
+          title := "Verzogener Plan – unterschiedliche Massstäbe in X und Y", "Verzerrt")
+      ),
+
+      // Accurate mode controls
+      div(
+        idAttr := "scale-accurate-controls",
+        div(className := "section-label", styleAttr := "font-size:0.75rem;opacity:0.65;margin-bottom:4px", "Verhältnis eingeben"),
+        div(
+          className := "ratio-row",
+          span(className := "ratio-label", "1 :"),
+          input(tpe := "number", idAttr := "scale-ratio-input", className := "ratio-input",
+            minAttr := "1", stepAttr := "1", placeholder := "100")
+        ),
+        div(
+          idAttr := "scale-paper-row",
+          select(
+            idAttr := "scale-paper-size",
+            className := "paper-select",
+            option(value := "", "– Papierformat –"),
+            option(value := "210", "A4 Hoch (210 mm)"),
+            option(value := "297", "A4 Quer / A3 Hoch (297 mm)"),
+            option(value := "420", "A3 Quer / A2 Hoch (420 mm)"),
+            option(value := "594", "A2 Quer / A1 Hoch (594 mm)"),
+            option(value := "841", "A1 Quer / A0 Hoch (841 mm)"),
+            option(value := "1189", "A0 Quer (1189 mm)")
+          )
+        ),
+        button(className := "btn btn-primary", idAttr := "scale-ratio-btn",
+          styleAttr := "margin-top:4px", "Übernehmen"),
+        div(className := "tools-divider"),
+        div(className := "section-label", styleAttr := "font-size:0.75rem;opacity:0.65;margin-bottom:4px", "oder Linie einzeichnen"),
+        button(className := "btn", idAttr := "calibrate-btn", "Linie einzeichnen")
+      ),
+
+      // Distorted mode controls
+      div(
+        idAttr := "scale-distorted-controls",
+        display := "none",
+        div(
+          className := "btn-row",
+          button(className := "btn", idAttr := "calibrate-x-btn",
+            title := "Horizontalen Massstab kalibrieren", "Horizontal"),
+          button(className := "btn", idAttr := "calibrate-y-btn",
+            title := "Vertikalen Massstab kalibrieren", "Vertikal")
+        )
       )
     )
 

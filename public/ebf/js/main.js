@@ -108,9 +108,15 @@ function bindUI(ownerDocument) {
     setCurrentAreaTypeLabel(e.detail);
   });
 
+  // Scale mode toggle
+  $('scale-mode-accurate-btn')?.addEventListener('click', () => setScaleMode('accurate'));
+  $('scale-mode-distorted-btn')?.addEventListener('click', () => setScaleMode('distorted'));
+
   $('calibrate-btn').addEventListener('click', () => startCalibration('uniform'));
   $('calibrate-x-btn')?.addEventListener('click', () => startCalibration('x'));
   $('calibrate-y-btn')?.addEventListener('click', () => startCalibration('y'));
+  $('scale-ratio-btn')?.addEventListener('click', applyRatioScale);
+  $('scale-ratio-input')?.addEventListener('keydown', e => { if (e.key === 'Enter') applyRatioScale(); });
   $('confirm-scale').addEventListener('click', confirmScale);
   $('cancel-scale').addEventListener('click', cancelCalibration);
   $('draw-btn').addEventListener('click', startDrawing);
@@ -165,6 +171,7 @@ async function onFileChange(e) {
           scale: null, scaleX: null, scaleY: null,
           nextId: 1, nextMeasId: 1,
           polygons: [], measurements: [],
+          isPdf: true,
         };
         try { localStorage.setItem('ebf_plan_image_' + planId, pg.imageDataUrl); } catch (_) {}
         S.plans.push(newPlan);
@@ -190,6 +197,7 @@ async function onFileChange(e) {
         scale: null, scaleX: null, scaleY: null,
         nextId: 1, nextMeasId: 1,
         polygons: [], measurements: [],
+        isPdf: false,
       };
       try { localStorage.setItem('ebf_plan_image_' + firstPlanId, S.imageDataUrl); } catch (_) {}
       S.plans.push(newPlan);
@@ -202,6 +210,9 @@ async function onFileChange(e) {
   S.polygons = []; S.measurements = []; S.current = [];
   S.scale = null; S.scaleX = null; S.scaleY = null; S.scaleDirX = null; S.scaleDirY = null;
   S.nextId = 1; S.nextMeasId = 1;
+
+  const firstPlan = S.plans.find(p => p.id === firstPlanId);
+  updatePaperRowVisibility(firstPlan?.isPdf ?? false);
 
   resizeCanvas();
   fitToCanvas();
@@ -296,6 +307,7 @@ async function switchToPlan(planId, { suppressPolygonSync = false } = {}) {
   S.current       = [];
 
   $('file-name').textContent = plan.label;
+  updatePaperRowVisibility(plan.isPdf ?? false);
 
   // Fit image to canvas if available.
   // Always re-measure the container first so canvas.width/height reflect the
@@ -417,6 +429,75 @@ async function onDeletePlan(event) {
 }
 
 
+// ── Scale mode toggle ─────────────────────────────────────────────────────────
+function setScaleMode(mode) {
+  const accurateBtn = $('scale-mode-accurate-btn');
+  const distortedBtn = $('scale-mode-distorted-btn');
+  const accurateCtrl = $('scale-accurate-controls');
+  const distortedCtrl = $('scale-distorted-controls');
+  if (!accurateBtn) return;
+  if (mode === 'distorted') {
+    accurateBtn.classList.remove('active');
+    distortedBtn.classList.add('active');
+    accurateCtrl.style.display = 'none';
+    distortedCtrl.style.display = 'block';
+  } else {
+    distortedBtn.classList.remove('active');
+    accurateBtn.classList.add('active');
+    accurateCtrl.style.display = 'block';
+    distortedCtrl.style.display = 'none';
+  }
+}
+
+/** Show/hide the paper-size row based on whether the current plan is a PDF. */
+function updatePaperRowVisibility(isPdf) {
+  const row = $('scale-paper-row');
+  if (row) row.style.display = isPdf ? 'none' : 'block';
+}
+
+/** Apply scale from a 1:N ratio.
+ *  PDFs (rendered by pdf.js at scale=2 / 72dpi):  scale = ratio × 25.4 / 144000
+ *  Images (unknown DPI):                           scale = ratio × paperWidthMm / imageW / 1000 */
+function applyRatioScale() {
+  const ratio = parseFloat($('scale-ratio-input')?.value);
+  if (!ratio || ratio <= 0) {
+    $('scale-ratio-input')?.focus();
+    alert('Bitte ein gültiges Verhältnis eingeben (z. B. 100 für 1:100).');
+    return;
+  }
+  if (!S.imageW || S.imageW <= 0) {
+    alert('Kein Plan geladen.');
+    return;
+  }
+  const activePlan = S.plans.find(p => p.id === S.activePlanId);
+  const isPdf = activePlan?.isPdf ?? false;
+  let newScale;
+  if (isPdf) {
+    // pdf.js renders at scale=2; 1px = 0.5pt = 25.4/(72×2) mm on paper
+    newScale = ratio * 25.4 / 144000;
+  } else {
+    const paperMm = parseFloat($('scale-paper-size')?.value);
+    if (!paperMm || paperMm <= 0) {
+      $('scale-paper-size')?.focus();
+      alert('Bitte ein Papierformat auswählen.');
+      return;
+    }
+    newScale = (paperMm * ratio / 1000) / S.imageW;
+  }
+  S.scale     = newScale;
+  S.scaleX    = newScale;
+  S.scaleY    = newScale;
+  S.scaleDirX = null;
+  S.scaleDirY = null;
+
+  applyScaleStatus();
+  S.polygons.forEach(p => { p.area = px2m2(p.pixelArea); });
+  updateSidebar(); render();
+  emitPolygonSyncEvent();
+  saveCurrentPlanState();
+  showScalePropagationDialog();
+}
+
 // ── Calibration ───────────────────────────────────────────────────────────────
 function startCalibration(direction = 'uniform') {
   S.calibDirection = direction;
@@ -474,7 +555,94 @@ function confirmScale() {
   updateSidebar(); render();
   emitPolygonSyncEvent();
   saveCurrentPlanState();
-  emitPlansSyncEvent();
+  showScalePropagationDialog();
+}
+
+/** After any scale calibration: ask the user which other plans should get the same scale. */
+function showScalePropagationDialog() {
+  const otherPlans = S.plans.filter(p => p.id !== S.activePlanId);
+  if (otherPlans.length === 0) return; // Only one plan – nothing to propagate
+
+  const applyToSelected = (selectedIds) => {
+    for (const plan of S.plans) {
+      if (!selectedIds.has(plan.id)) continue;
+      plan.scale     = S.scale;
+      plan.scaleX    = S.scaleX;
+      plan.scaleY    = S.scaleY;
+      plan.scaleDirX = S.scaleDirX;
+      plan.scaleDirY = S.scaleDirY;
+    }
+    emitPlansSyncEvent();
+  };
+
+  const overlay = document.createElement('div');
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center;';
+
+  const dialog = document.createElement('div');
+  dialog.style.cssText = 'background:#1a1a28;border:1px solid rgba(255,255,255,0.1);border-radius:12px;padding:24px;min-width:300px;max-width:460px;box-shadow:0 8px 32px rgba(0,0,0,0.5);font-family:system-ui,sans-serif;color:#f0f0f8;';
+
+  const title = document.createElement('h3');
+  title.textContent = 'Massstab übertragen';
+  title.style.cssText = 'margin:0 0 8px;font-size:16px;font-weight:700;';
+  dialog.appendChild(title);
+
+  const sub = document.createElement('p');
+  sub.textContent = 'Auf welche anderen Pläne soll dieser Massstab angewendet werden?';
+  sub.style.cssText = 'margin:0 0 16px;font-size:12px;color:#8888aa;line-height:1.5;';
+  dialog.appendChild(sub);
+
+  // Select-all toggle
+  const allRow = document.createElement('div');
+  allRow.style.cssText = 'display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.08);margin-bottom:8px;';
+  const allCb = document.createElement('input'); allCb.type = 'checkbox'; allCb.checked = true;
+  allCb.style.cssText = 'width:15px;height:15px;cursor:pointer;accent-color:#6d5acd;';
+  const allLbl = document.createElement('label'); allLbl.textContent = 'Alle auswählen';
+  allLbl.style.cssText = 'font-size:12px;font-weight:600;cursor:pointer;color:#f0f0f8;';
+  allRow.appendChild(allCb); allRow.appendChild(allLbl);
+  dialog.appendChild(allRow);
+
+  const checkboxes = [];
+  const listEl = document.createElement('div');
+  listEl.style.cssText = 'max-height:240px;overflow-y:auto;margin-bottom:16px;';
+
+  for (const plan of otherPlans) {
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.05);';
+    const cb = document.createElement('input'); cb.type = 'checkbox'; cb.checked = true;
+    cb.dataset.planId = plan.id;
+    cb.style.cssText = 'width:15px;height:15px;cursor:pointer;accent-color:#6d5acd;';
+    const lbl = document.createElement('label'); lbl.textContent = plan.label || plan.id;
+    lbl.style.cssText = 'font-size:13px;cursor:pointer;flex:1;color:#f0f0f8;';
+    row.appendChild(cb); row.appendChild(lbl);
+    listEl.appendChild(row);
+    checkboxes.push(cb);
+  }
+
+  allCb.addEventListener('change', () => checkboxes.forEach(cb => { cb.checked = allCb.checked; }));
+  checkboxes.forEach(cb => cb.addEventListener('change', () => { allCb.checked = checkboxes.every(c => c.checked); }));
+  dialog.appendChild(listEl);
+
+  const btnRow = document.createElement('div');
+  btnRow.style.cssText = 'display:flex;gap:10px;justify-content:flex-end;';
+
+  const skipBtn = document.createElement('button');
+  skipBtn.textContent = 'Nur aktueller Plan';
+  skipBtn.style.cssText = 'padding:8px 16px;font-size:12px;font-weight:600;border:1px solid rgba(255,255,255,0.15);background:transparent;color:#8888aa;border-radius:7px;cursor:pointer;';
+  skipBtn.addEventListener('click', () => { document.body.removeChild(overlay); emitPlansSyncEvent(); });
+
+  const applyBtn = document.createElement('button');
+  applyBtn.textContent = 'Übernehmen';
+  applyBtn.style.cssText = 'padding:8px 18px;font-size:12px;font-weight:600;background:#6d5acd;color:#fff;border:none;border-radius:7px;cursor:pointer;';
+  applyBtn.addEventListener('click', () => {
+    document.body.removeChild(overlay);
+    const ids = new Set(checkboxes.filter(cb => cb.checked).map(cb => cb.dataset.planId));
+    applyToSelected(ids);
+  });
+
+  btnRow.appendChild(skipBtn); btnRow.appendChild(applyBtn);
+  dialog.appendChild(btnRow);
+  overlay.appendChild(dialog);
+  document.body.appendChild(overlay);
 }
 
 function cancelCalibration() {
