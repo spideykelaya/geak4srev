@@ -276,7 +276,7 @@ object WorkflowView:
 
   // Step 2: Project Setup durch Word Form ersetzt
   private def renderProjectSetup(project: GeakProject): HtmlElement =
-    ProjectView(project.project).render()
+    ProjectView(project).render()
   
 
   // Step 3: U-Wert Calculation

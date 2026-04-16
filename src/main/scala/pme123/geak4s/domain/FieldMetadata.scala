@@ -447,4 +447,101 @@ object FieldMetadata:
     validation = Some(ValidationRule(maxLength = Some(2000)))
   )
 
+  val expectedGeakNumber = FieldMetadata(
+    name        = "expectedGeakNumber",
+    label       = "Erwartete Stammnummer",
+    fieldType   = FieldType.Integer,
+    tooltip     = Some("Erwartete Stammnummer im GEAK Tool"),
+    placeholder = Some("12345")
+  )
+
+  // BuildingUsage (Gebäudenutzungen) fields
+  val usageType = FieldMetadata(
+    name = "usageType",
+    label = "Nutzungsart",
+    fieldType = FieldType.Select,
+    tooltip = Some("Art der Gebäudenutzung gemäss GEAK"),
+    validation = Some(ValidationRule(required = true)),
+    options = List(
+      SelectOption("Einfamilienhaus",   "Einfamilienhaus"),
+      SelectOption("Mehrfamilienhaus",  "Mehrfamilienhaus"),
+      SelectOption("Büro/Verwaltung",   "Büro/Verwaltung"),
+      SelectOption("Schulen/Bildung",   "Schulen/Bildung"),
+      SelectOption("Gesundheitswesen",  "Gesundheitswesen"),
+      SelectOption("Gastgewerbe",       "Gastgewerbe"),
+      SelectOption("Handel/Verkauf",    "Handel/Verkauf"),
+      SelectOption("Industrie/Gewerbe", "Industrie/Gewerbe"),
+      SelectOption("Sport/Freizeit",    "Sport/Freizeit"),
+      SelectOption("Andere",            "Andere")
+    )
+  )
+
+  val usageSubType = FieldMetadata(
+    name = "usageSubType",
+    label = "Nutzungsuntertyp",
+    fieldType = FieldType.Text,
+    tooltip = Some("Untertyp der Gebäudenutzung (z.B. Wohnung, Büro)"),
+    placeholder = Some("Wohnung"),
+    validation = Some(ValidationRule(maxLength = Some(100)))
+  )
+
+  val usageArea = FieldMetadata(
+    name = "area",
+    label = "Nutzfläche",
+    fieldType = FieldType.Number,
+    tooltip = Some("Nutzfläche der Nutzungszone in m²"),
+    placeholder = Some("850.5"),
+    unit = Some("m²"),
+    validation = Some(ValidationRule(required = true, min = Some(0), max = Some(100000)))
+  )
+
+  val usageAreaPercentage = FieldMetadata(
+    name = "areaPercentage",
+    label = "Flächenanteil",
+    fieldType = FieldType.Number,
+    tooltip = Some("Anteil der Nutzfläche am Gesamtgebäude in %"),
+    placeholder = Some("100"),
+    unit = Some("%"),
+    validation = Some(ValidationRule(min = Some(0), max = Some(100)))
+  )
+
+  val usageConstructionYear = FieldMetadata(
+    name = "usageConstructionYear",
+    label = "Baujahr",
+    fieldType = FieldType.Year,
+    tooltip = Some("Baujahr der Nutzungszone"),
+    placeholder = Some("1975"),
+    validation = Some(ValidationRule(min = Some(1800), max = Some(2100)))
+  )
+
+  val numberOfResidents = FieldMetadata(
+    name        = "numberOfResidents",
+    label       = "Anzahl Bewohner",
+    fieldType   = FieldType.Integer,
+    placeholder = Some("12"),
+    validation  = Some(ValidationRule(min = Some(0)))
+  )
+
+  private def apartmentsMeta(rooms: String, name: String) = FieldMetadata(
+    name      = name,
+    label     = s"$rooms-Zimmer-Wohnungen",
+    fieldType = FieldType.Integer,
+    placeholder = Some("0"),
+    validation  = Some(ValidationRule(min = Some(0)))
+  )
+
+  val apartments1Room      = apartmentsMeta("1",       "apartments1Room")
+  val apartments2Room      = apartmentsMeta("2",       "apartments2Room")
+  val apartments3Room      = apartmentsMeta("3",       "apartments3Room")
+  val apartments4Room      = apartmentsMeta("4",       "apartments4Room")
+  val apartments5Room      = apartmentsMeta("5",       "apartments5Room")
+  val apartments6Room      = apartmentsMeta("6",       "apartments6Room")
+  val apartmentsOver6Room  = FieldMetadata(
+    name        = "apartmentsOver6Room",
+    label       = "Wohnungen mit über 6 Zimmer",
+    fieldType   = FieldType.Integer,
+    placeholder = Some("0"),
+    validation  = Some(ValidationRule(min = Some(0)))
+  )
+
 end FieldMetadata
