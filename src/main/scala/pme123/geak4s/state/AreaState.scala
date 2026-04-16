@@ -39,10 +39,27 @@ object AreaState:
       val area = maybeArea.getOrElse(BuildingEnvelopeArea.empty)
       val calculation = AreaCalculation(componentType, entries)
       Some(area.update(calculation))
-    if syncEbfToWordForm && componentType == ComponentType.EBF then
+    if componentType == ComponentType.EBF then
       val totalEbf    = entries.map(_.totalArea).sum
-      val totalEbfStr = f"$totalEbf%.0f"
-      WordFormView.formVar.update(_.copy(ebf = totalEbfStr))
+      val rounded = math.round(totalEbf).toDouble
+      if rounded > 0 then
+        // Sync to project model (Schritt 7 fields)
+        AppState.updateProject { p =>
+          val updatedBuildingData = p.project.buildingData.copy(
+            energyReferenceArea = Some(rounded)
+          )
+          val updatedUsages =
+            if p.buildingUsages.nonEmpty then
+              p.buildingUsages.updated(0, p.buildingUsages(0).copy(area = rounded))
+            else p.buildingUsages
+          p.copy(
+            project        = p.project.copy(buildingData = updatedBuildingData),
+            buildingUsages = updatedUsages
+          )
+        }
+        if syncEbfToWordForm then
+          val totalEbfStr = f"$totalEbf%.0f"
+          WordFormView.formVar.update(_.copy(ebf = totalEbfStr))
 
   /**
     * Sync polygon data to their respective ComponentType sections.

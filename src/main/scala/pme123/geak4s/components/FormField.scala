@@ -84,6 +84,9 @@ object FormField:
 
     // Bind value to signal, use onInput for immediate updates
     div(
+      display := "flex",
+      alignItems := "center",
+      gap := "0.5rem",
       Input(
         _.value <-- value,
         _.placeholder := metadata.placeholder.getOrElse(""),
