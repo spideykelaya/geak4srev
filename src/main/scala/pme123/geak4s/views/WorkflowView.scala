@@ -28,39 +28,6 @@ object WorkflowView:
       // Top bar with progress and actions
       topBar(projectSignal),
 
-      // Google Drive error notification
-      child.maybe <-- AppState.driveError.signal.map(_.map { errorMsg =>
-        MessageStrip(
-          _.design := MessageStripDesign.Warning,
-          _.hideCloseButton := true,
-          _.events.onClose.mapTo(()) --> Observer[Unit] { _ =>
-            AppState.driveError.set(None)
-          },
-          div(
-            Icon(_.name := IconName.`warning`),
-            span(s" $errorMsg")
-          )
-        )
-      }),
-
-      // Google Drive login notification
-      child <-- AppState.driveLoginPrompt.signal.map { showPrompt =>
-        if showPrompt then
-          MessageStrip(
-            _.design := MessageStripDesign.Information,
-            _.hideCloseButton := true,
-            _.events.onClose.mapTo(()) --> Observer[Unit] { _ =>
-              AppState.driveLoginPrompt.set(false)
-            },
-            div(
-              Icon(_.name := IconName.`cloud`),
-              span(" Google Drive-Anmeldung erforderlich - Bitte melden Sie sich im Popup-Fenster an")
-            )
-          )
-        else
-          emptyNode
-      },
-
       // Progress indicator
       progressBar(),
 
@@ -120,39 +87,6 @@ object WorkflowView:
           )
         }),
 
-        // Google Drive connection status with last sync time
-        child <-- AppState.driveConnected.signal.combineWith(AppState.lastSyncTime.signal).map {
-          case (connected, syncTime) =>
-            if connected then
-              div(
-                className := "drive-status",
-                display := "flex",
-                alignItems := "center",
-                gap := "0.5rem",
-                Icon(_.name := IconName.`cloud`),
-                Label(
-                  syncTime match
-                    case Some(time) =>
-                      val date = new js.Date(time.toDouble)
-                      val hours = date.getHours().toInt
-                      val minutes = date.getMinutes().toInt
-                      val formattedTime = f"$hours%02d:$minutes%02d"
-                      s"Gespeichert $formattedTime"
-                    case None => "Verbunden"
-                )
-              )
-            else
-              // Show connect button when not connected
-              Button(
-                _.icon := IconName.`cloud`,
-                _.design := ButtonDesign.Default,
-                _.tooltip := "Mit Google Drive verbinden",
-                _.events.onClick.mapTo(()) --> Observer[Unit] { _ =>
-                  AppState.signInToGoogleDrive()
-                },
-                "Verbinden"
-              )
-        }
       )
     )
 
@@ -342,7 +276,7 @@ object WorkflowView:
 
   // Step 2: Project Setup durch Word Form ersetzt
   private def renderProjectSetup(project: GeakProject): HtmlElement =
-    ProjectView(project.project).render()
+    ProjectView(project).render()
   
 
   // Step 3: U-Wert Calculation

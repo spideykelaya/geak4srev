@@ -208,12 +208,20 @@ object AppState:
     }, LOCAL_SAVE_DELAY_MS)
     localFileSaveTimer = Some(timerId)
 
-  /** Persist current project to localStorage so it survives a page reload. */
+  /** Persist current project to localStorage so it survives a page reload.
+    * Images are stripped before serialisation — they are already stored individually
+    * under ebf_plan_image_<id> keys and would otherwise overflow the 5 MB quota.
+    */
   private def saveWip(project: GeakProject, fileName: String): Unit =
+    val stripped = project.copy(
+      ebfPlans = project.ebfPlans.map(plans =>
+        plans.copy(plans = plans.plans.map(_.copy(imageDataUrl = None)))
+      )
+    )
     try
-      dom.window.localStorage.setItem(WIP_KEY,      project.asJson.noSpaces)
+      dom.window.localStorage.setItem(WIP_KEY,      stripped.asJson.noSpaces)
       dom.window.localStorage.setItem(WIP_FILE_KEY, fileName)
-      scheduleLocalFileSave(project) // also auto-save to local file if handle is set
+      scheduleLocalFileSave(project) // also auto-save to local file if handle is set (with images)
     catch case ex: Exception =>
       dom.console.error(s"WIP speichern fehlgeschlagen: ${ex.getMessage}")
 

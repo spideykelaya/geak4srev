@@ -63,7 +63,25 @@ object JsonCodecs:
   
   // Building domain
   given Encoder[BuildingUsage] = deriveEncoder[BuildingUsage]
-  given Decoder[BuildingUsage] = deriveDecoder[BuildingUsage]
+  given Decoder[BuildingUsage] = Decoder.instance { c =>
+    for
+      usageType           <- c.get[String]("usageType")
+      usageSubType        <- c.getOrElse[Option[String]]("usageSubType")(None)
+      area                <- c.getOrElse[Double]("area")(0.0)
+      areaPercentage      <- c.getOrElse[Option[Double]]("areaPercentage")(None)
+      constructionYear    <- c.getOrElse[Option[Int]]("constructionYear")(None)
+      numberOfResidents   <- c.getOrElse[Option[Int]]("numberOfResidents")(None)
+      apartments1Room     <- c.getOrElse[Option[Int]]("apartments1Room")(None)
+      apartments2Room     <- c.getOrElse[Option[Int]]("apartments2Room")(None)
+      apartments3Room     <- c.getOrElse[Option[Int]]("apartments3Room")(None)
+      apartments4Room     <- c.getOrElse[Option[Int]]("apartments4Room")(None)
+      apartments5Room     <- c.getOrElse[Option[Int]]("apartments5Room")(None)
+      apartments6Room     <- c.getOrElse[Option[Int]]("apartments6Room")(None)
+      apartmentsOver6Room <- c.getOrElse[Option[Int]]("apartmentsOver6Room")(None)
+    yield BuildingUsage(usageType, usageSubType, area, areaPercentage, constructionYear,
+      numberOfResidents, apartments1Room, apartments2Room, apartments3Room,
+      apartments4Room, apartments5Room, apartments6Room, apartmentsOver6Room)
+  }
   
   // Envelope domain
   given Encoder[RoofCeiling] = deriveEncoder[RoofCeiling]

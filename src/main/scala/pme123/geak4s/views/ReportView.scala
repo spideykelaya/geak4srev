@@ -63,6 +63,9 @@ object ReportView:
       // XML Export Card (moved to first position)
       renderXmlExportCard(project),
 
+      // Excel Export Card
+      renderExcelExportCard(project),
+
       // GEAK Report Card
       renderGeakReportCard(project),
 
@@ -196,6 +199,64 @@ object ReportView:
       )
     )
   )
+
+
+  private def downloadExcel(project: GeakProject): Unit =
+    val projectName = project.project.projectName.trim match
+      case n if n.nonEmpty => n.replace(" ", "-")
+      case _               => "geak_projekt"
+    val json = project.asJson.noSpaces
+
+    val onError: js.Function1[js.Any, Unit] = err =>
+      dom.console.error("Excel-Export fehlgeschlagen:", err)
+      dom.window.alert(s"Excel-Export fehlgeschlagen. Ist der Backend-Server gestartet?")
+
+    val onBlob: js.Function1[js.Any, Unit] = blob =>
+      val url  = dom.URL.createObjectURL(blob.asInstanceOf[dom.Blob])
+      val link = dom.document.createElement("a").asInstanceOf[dom.html.Anchor]
+      link.href = url
+      link.download = s"GEAK_$projectName.xls"
+      link.click()
+      dom.URL.revokeObjectURL(url)
+
+    val onResponse: js.Function1[js.Any, Unit] = resp =>
+      val r = resp.asInstanceOf[js.Dynamic]
+      val ok = r.ok.asInstanceOf[Boolean]
+      if ok then
+        r.blob().asInstanceOf[js.Dynamic].`then`(onBlob, onError)
+      else
+        val onText: js.Function1[js.Any, Unit] = text =>
+          val msg = text.asInstanceOf[String]
+          dom.console.error(s"Backend-Fehler: $msg")
+          dom.window.alert(s"Excel-Export fehlgeschlagen:\n$msg")
+        r.text().asInstanceOf[js.Dynamic].`then`(onText, onError)
+
+    val headers = js.Dynamic.literal()
+    headers.updateDynamic("Content-Type")("application/json")
+    val opts = js.Dynamic.literal(method = "POST", body = json, headers = headers)
+    dom.window.asInstanceOf[js.Dynamic].fetch("/generate-excel", opts)
+      .asInstanceOf[js.Dynamic].`then`(onResponse, onError)
+
+  private def renderExcelExportCard(project: GeakProject): HtmlElement =
+    Card(
+      _.slots.header := CardHeader(
+        _.titleText    := "GEAK Excel Export",
+        _.subtitleText := "Ausgefüllte GEAK-Vorlage herunterladen"
+      ),
+      marginBottom := "1.5rem",
+      div(
+        padding := "1rem",
+        Button(
+          _.design := ButtonDesign.Default,
+          _.icon   := IconName.`excel-attachment`,
+          width := "100%",
+          _.events.onClick.mapTo(()) --> Observer[Unit] { _ =>
+            downloadExcel(project)
+          },
+          "GEAK-Excel herunterladen"
+        )
+      )
+    )
 
   private def renderProjectSummaryCard(project: GeakProject): HtmlElement =
     Card(

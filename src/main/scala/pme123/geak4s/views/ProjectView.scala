@@ -3,554 +3,428 @@ package pme123.geak4s.views
 import be.doeraene.webcomponents.ui5.*
 import be.doeraene.webcomponents.ui5.configkeys.*
 import com.raquo.laminar.api.L.*
+import pme123.geak4s.domain.*
 import pme123.geak4s.domain.project.*
-import pme123.geak4s.domain.{Address, FieldMetadata}
+import pme123.geak4s.domain.building.BuildingUsage
 import pme123.geak4s.state.AppState
-import pme123.geak4s.components.{AddressField, FormField}
-import pme123.geak4s.validation.{Validators, ValidationResult}
+import pme123.geak4s.components.FormField
 
-case class ProjectView(project: Project):
+case class ProjectView(geakProject: GeakProject):
+
+  private val hasEgid = Var(
+    geakProject.project.egidEdidGroup.entries.headOption.flatMap(_.egid).isDefined
+  )
 
   def render(): HtmlElement =
     div(
       className := "project-view",
-
-      // Projekt Section
-      renderSection(
-        title = "Projekt",
-        content = renderProjectSection()
-      ),
-
-      // Auftraggeber Section
-      renderSection(
-        title = "Auftraggeber",
-        content = renderClientSection(project.client)
-      ),
-
-      // Gebäude Section
-      renderSection(
-        title = "Gebäude",
-        content = renderBuildingSection()
-      ),
-
-      // Gebäudedaten Section (Enhanced with FieldMetadata)
-      BuildingDataView(project.buildingData),
-
-      // Beschreibungen Section
-      renderSection(
-        title = "Beschreibungen im Ist-Zustand",
-        content = renderDescriptionsSection()
-      ),
-
-      // EGID_EDID-Gruppe Section
-      renderSection(
-        title = "EGID_EDID-Gruppe",
-        content = renderEgidEdidSection()
-      )
+      card1Auftraggeberschaft(),
+      card2StandortPotenziale(),
+      card3Gebaeude(),
+      card4IstZustand(),
+      card5Gebaeudenutzungen()
     )
-  
-  private def renderSection(title: String, content: HtmlElement): HtmlElement =
+
+  // ── helpers ────────────────────────────────────────────────────────────────
+
+  private def card(title: String, subtitle: String)(content: HtmlElement): HtmlElement =
     div(
-      className := "form-section",
+      marginBottom := "1.5rem",
+      borderRadius := "0.5rem",
+      border       := "1px solid #d9d9d9",
+      overflow     := "hidden",
+      // Header
       div(
-        className := "section-header",
-        Title(
-          _.level := TitleLevel.H3,
+        backgroundColor := "#f0f4ff",
+        borderBottom    := "3px solid #0a6ed1",
+        padding         := "0.9rem 1.5rem",
+        div(
+          fontSize   := "1.1rem",
+          fontWeight := "700",
+          color      := "#0a6ed1",
           title
+        ),
+        div(
+          fontSize   := "0.8rem",
+          color      := "#555",
+          marginTop  := "0.2rem",
+          subtitle
         )
       ),
-      content
-    )
-  
-  private def renderProjectSection(): HtmlElement =
-    div(
-      FormField(
-        metadata = FieldMetadata.projectName,
-        value = AppState.projectSignal.map(_.map(_.project.projectName).getOrElse("")),
-        onChange = value => AppState.updateProject(p => p.copy(
-          project = p.project.copy(projectName = value)
-        ))
-      ),
-
-      // Show "Start Sync" button only if sync is not initialized
-      child.maybe <-- AppState.syncInitialized.signal.combineWith(
-        AppState.projectSignal.map(_.map(_.project.projectName).getOrElse(""))
-      ).map { (initialized, projectName) =>
-        if !initialized then
-          val hasProjectName = projectName.trim.nonEmpty
-          Some(div(
-            marginTop := "1rem",
-            Button(
-              _.design := ButtonDesign.Default,
-              _.icon := IconName.`synchronize`,
-              _.disabled := !hasProjectName,
-              _.events.onClick.mapTo(()) --> Observer[Unit] { _ =>
-                AppState.initializeSync()
-              },
-              "Sync starten"
-            ),
-            div(
-              marginTop := "0.5rem",
-              fontSize := "0.875rem",
-              color := "#666",
-              if hasProjectName then
-                "Klicken Sie hier, um die automatische Synchronisierung mit Google Drive zu starten."
-              else
-                "Bitte geben Sie zuerst eine Projektbezeichnung ein, um die Synchronisierung zu starten."
-            )
-          ))
-        else
-          None
-      }
-    )
-  
-  private def renderClientSection(client: Client): HtmlElement =
-    div(
-      // Salutation - Enhanced with FormField
-      FormField(
-        metadata = FieldMetadata.salutation,
-        value = AppState.projectSignal.map(_.map(_.project.client.salutation).map(_.toString).getOrElse(Anrede.Herr.toString)),
-        onChange = value => AppState.updateProject(p => p.copy(
-          project = p.project.copy(
-            client = p.project.client.copy(salutation = Anrede.valueOf(value))
-          )
-        ))
-      ),
-
-      // Name 1 - Enhanced with FormField
-      FormField(
-        metadata = FieldMetadata.clientName1,
-        value = AppState.projectSignal.map(_.map(_.project.client.name1.getOrElse("")).getOrElse("")),
-        onChange = value => AppState.updateProject(p => p.copy(
-          project = p.project.copy(
-            client = p.project.client.copy(name1 = if value.isEmpty then None else Some(value))
-          )
-        ))
-      ),
-
-      // Name 2 - Enhanced with FormField
-      FormField(
-        metadata = FieldMetadata.clientName2,
-        value = AppState.projectSignal.map(_.map(_.project.client.name2.getOrElse("")).getOrElse("")),
-        onChange = value => AppState.updateProject(p => p.copy(
-          project = p.project.copy(
-            client = p.project.client.copy(name2 = if value.isEmpty then None else Some(value))
-          )
-        ))
-      ),
-
-      // Address Field Component
-      AddressField(
-        label = "Address",
-        required = false,
-        addressSignal = AppState.projectSignal.map(_.map(_.project.client.address).getOrElse(Address.empty)),
-        onAddressChange = address => AppState.updateProject(p => p.copy(
-          project = p.project.copy(
-            client = p.project.client.copy(address = address)
-          )
-        )),
-        disabledFields = true
-      ),
-
-      FormField(
-        metadata = FieldMetadata.poBox,
-        value = AppState.projectSignal.map(_.map(_.project.client.poBox.getOrElse("")).getOrElse("")),
-        onChange = value => AppState.updateProject(p => p.copy(
-          project = p.project.copy(
-            client = p.project.client.copy(poBox = if value.isEmpty then None else Some(value))
-          )
-        ))
-      ),
-
-      FormField(
-        metadata = FieldMetadata.email,
-        value = AppState.projectSignal.map(_.map(_.project.client.email.getOrElse("")).getOrElse("")),
-        onChange = value => AppState.updateProject(p => p.copy(
-          project = p.project.copy(
-            client = p.project.client.copy(email = if value.isEmpty then None else Some(value))
-          )
-        ))
-      ),
-
-      FormField(
-        metadata = FieldMetadata.phone1,
-        value = AppState.projectSignal.map(_.map(_.project.client.phone1.getOrElse("")).getOrElse("")),
-        onChange = value => AppState.updateProject(p => p.copy(
-          project = p.project.copy(
-            client = p.project.client.copy(phone1 = if value.isEmpty then None else Some(value))
-          )
-        ))
-      ),
-
-      FormField(
-        metadata = FieldMetadata.phone2,
-        value = AppState.projectSignal.map(_.map(_.project.client.phone2.getOrElse("")).getOrElse("")),
-        onChange = value => AppState.updateProject(p => p.copy(
-          project = p.project.copy(
-            client = p.project.client.copy(phone2 = if value.isEmpty then None else Some(value))
-          )
-        ))
+      // Content
+      div(
+        padding := "1.25rem 1.5rem 1.5rem",
+        width   := "100%",
+        boxSizing := "border-box",
+        content
       )
     )
-  
-  private def renderBuildingSection(): HtmlElement =
-    // Check if building address matches client address
-    val addressesMatch = project.buildingLocation.address == project.client.address
-    val useSameAddressVar = Var(addressesMatch)
 
-    div(
-      // Checkbox to use client address
+  private def ff(
+    meta:     FieldMetadata,
+    get:      Signal[String],
+    set:      String => Unit,
+    validate: Boolean = false
+  ): HtmlElement =
+    FormField(
+      metadata       = meta,
+      value          = get,
+      onChange       = set,
+      showValidation = Val(validate)
+    )
+
+  private def proj = AppState.projectSignal
+
+  private def upProj(f: GeakProject => GeakProject): Unit = AppState.updateProject(f)
+
+  // ── Card 1: Auftraggeberschaft ─────────────────────────────────────────────
+
+  private def card1Auftraggeberschaft(): HtmlElement =
+    card("Auftraggeberschaft", "Kontakt- und Projektdaten") {
       div(
-        className := "form-field",
-        marginBottom := "1rem",
-        CheckBox(
-          _.text := "Adresse Auftraggeber",
-          _.checked <-- useSameAddressVar.signal,
-          _.events.onChange.mapToChecked --> Observer[Boolean] { checked =>
-            useSameAddressVar.set(checked)
-            if checked then
-              // Copy client address to building location
-              AppState.projectState.now() match
-                case AppState.ProjectState.Loaded(project, filename) =>
-                  AppState.updateProject(p => p.copy(
-                    project = p.project.copy(
-                      buildingLocation = p.project.buildingLocation.copy(address = p.project.client.address)
-                    )
-                  ))
-                case _ => ()
-          }
-        )
-      ),
-
-      // Building Location - Address Field Component (disabled when using client address)
-      child <-- useSameAddressVar.signal.map { useSameAddress =>
-        if useSameAddress then
-          // Show read-only address from client
-          div(
-            className := "address-field",
-            Label(
-              display := "block",
-              marginBottom := "0.5rem",
-              fontWeight := "600",
-              fontSize := "1rem",
-              "Building Address (from Client)"
-            ),
-            div(
-              className := "form-row",
-              div(
-                className := "form-field",
-                Label(
-                  display := "block",
-                  marginBottom := "0.25rem",
-                  fontWeight := "600",
-                  "Street"
-                ),
-                Input(
-                  _.disabled := true,
-                  _.value <-- AppState.projectSignal.map(_.map(_.project.client.address.street.getOrElse("")).getOrElse(""))
-                )
-              ),
-              div(
-                className := "form-field",
-                Label(
-                  display := "block",
-                  marginBottom := "0.25rem",
-                  fontWeight := "600",
-                  "House Number"
-                ),
-                Input(
-                  _.disabled := true,
-                  _.value <-- AppState.projectSignal.map(_.map(_.project.client.address.houseNumber.getOrElse("")).getOrElse(""))
-                )
-              )
-            ),
-            div(
-              className := "form-row",
-              div(
-                className := "form-field",
-                Label(
-                  display := "block",
-                  marginBottom := "0.25rem",
-                  fontWeight := "600",
-                  "ZIP Code"
-                ),
-                Input(
-                  _.disabled := true,
-                  _.value <-- AppState.projectSignal.map(_.map(_.project.client.address.zipCode.getOrElse("")).getOrElse(""))
-                )
-              ),
-              div(
-                className := "form-field",
-                Label(
-                  display := "block",
-                  marginBottom := "0.25rem",
-                  fontWeight := "600",
-                  "City"
-                ),
-                Input(
-                  _.disabled := true,
-                  _.value <-- AppState.projectSignal.map(_.map(_.project.client.address.city.getOrElse("")).getOrElse(""))
-                )
-              )
-            ),
-            div(
-              className := "form-field",
-              Label(
-                display := "block",
-                marginBottom := "0.25rem",
-                fontWeight := "600",
-                "Country"
-              ),
-              Input(
-                _.disabled := true,
-                _.value <-- AppState.projectSignal.map(_.map(_.project.client.address.country.getOrElse("")).getOrElse(""))
-              )
-            )
-          )
-        else
-          // Show editable address field
-          AddressField(
-            label = "Building Address",
-            required = false,
-            addressSignal = AppState.projectSignal.map(_.map(_.project.buildingLocation.address).getOrElse(Address.empty)),
-            onAddressChange = address => AppState.updateProject(p => p.copy(
-              project = p.project.copy(
-                buildingLocation = p.project.buildingLocation.copy(address = address)
-              )
-            )),
-            disabledFields = true
-          )
-      },
-
-      FormField(
-        metadata = FieldMetadata.municipality,
-        value = AppState.projectSignal.map(_.map(_.project.buildingLocation.municipality.getOrElse("")).getOrElse("")),
-        onChange = value => AppState.updateProject(p => p.copy(
-          project = p.project.copy(
-            buildingLocation = p.project.buildingLocation.copy(municipality = if value.isEmpty then None else Some(value))
-          )
-        ))
-      ),
-
-      FormField(
-        metadata = FieldMetadata.buildingName,
-        value = AppState.projectSignal.map(_.map(_.project.buildingLocation.buildingName.getOrElse("")).getOrElse("")),
-        onChange = value => AppState.updateProject(p => p.copy(
-          project = p.project.copy(
-            buildingLocation = p.project.buildingLocation.copy(buildingName = if value.isEmpty then None else Some(value))
-          )
-        ))
-      ),
-
-      FormField(
-        metadata = FieldMetadata.parcelNumber,
-        value = AppState.projectSignal.map(_.map(_.project.buildingLocation.parcelNumber.getOrElse("")).getOrElse("")),
-        onChange = value => AppState.updateProject(p => p.copy(
-          project = p.project.copy(
-            buildingLocation = p.project.buildingLocation.copy(parcelNumber = if value.isEmpty then None else Some(value))
-          )
-        ))
-      ),
-
-      // Building Data
-      div(
-        className := "form-row",
-        FormField(
-          metadata = FieldMetadata.constructionYear,
-          value = AppState.projectSignal.map(_.map(_.project.buildingData.constructionYear.map(_.toString).getOrElse("")).getOrElse("")),
-          onChange = value => AppState.updateProject(p => p.copy(
-            project = p.project.copy(
-              buildingData = p.project.buildingData.copy(constructionYear = if value.isEmpty then None else value.toIntOption)
-            )
-          ))
+        // Projektbezeichnung
+        ff(FieldMetadata.projectName,
+          proj.map(_.map(_.project.projectName).getOrElse("")),
+          v => upProj(p => p.copy(project = p.project.copy(projectName = v)))
         ),
 
-        FormField(
-          metadata = FieldMetadata.lastRenovationYear,
-          value = AppState.projectSignal.map(_.map(_.project.buildingData.lastRenovationYear.map(_.toString).getOrElse("")).getOrElse("")),
-          onChange = value => AppState.updateProject(p => p.copy(
-            project = p.project.copy(
-              buildingData = p.project.buildingData.copy(lastRenovationYear = if value.isEmpty then None else value.toIntOption)
-            )
-          ))
-        )
-      ),
+        // Anrede
+        ff(FieldMetadata.salutation,
+          proj.map(_.map(_.project.client.salutation.toString).getOrElse(Anrede.Herr.toString)),
+          v => upProj(p => p.copy(project = p.project.copy(
+            client = p.project.client.copy(salutation = Anrede.valueOf(v)))))
+        ),
 
-      FormField(
-        metadata = FieldMetadata.weatherStation,
-        value = AppState.projectSignal.map(_.map(_.project.buildingData.weatherStation.getOrElse("")).getOrElse("")),
-        onChange = value => AppState.updateProject(p => p.copy(
-          project = p.project.copy(
-            buildingData = p.project.buildingData.copy(weatherStation = if value.isEmpty then None else Some(value))
-          )
-        ))
-      ),
+        // Name 1
+        ff(FieldMetadata.clientName1,
+          proj.map(_.flatMap(_.project.client.name1).getOrElse("")),
+          v => upProj(p => p.copy(project = p.project.copy(
+            client = p.project.client.copy(name1 = opt(v)))))
+        ),
 
-      FormField(
-        metadata = FieldMetadata.weatherStationValues,
-        value = AppState.projectSignal.map(_.map(_.project.buildingData.weatherStationValues.getOrElse("")).getOrElse("")),
-        onChange = value => AppState.updateProject(p => p.copy(
-          project = p.project.copy(
-            buildingData = p.project.buildingData.copy(weatherStationValues = if value.isEmpty then None else Some(value))
-          )
-        ))
-      ),
+        // Name 2
+        ff(FieldMetadata.clientName2,
+          proj.map(_.flatMap(_.project.client.name2).getOrElse("")),
+          v => upProj(p => p.copy(project = p.project.copy(
+            client = p.project.client.copy(name2 = opt(v)))))
+        ),
 
-      FormField(
-        metadata = FieldMetadata.altitude,
-        value = AppState.projectSignal.map(_.map(_.project.buildingData.altitude.map(_.toString).getOrElse("")).getOrElse("")),
-        onChange = value => AppState.updateProject(p => p.copy(
-          project = p.project.copy(
-            buildingData = p.project.buildingData.copy(altitude = if value.isEmpty then None else value.toDoubleOption)
-          )
-        ))
-      ),
+        // Adresse
+        ff(FieldMetadata.street,
+          proj.map(_.flatMap(_.project.client.address.street).getOrElse("")),
+          v => upProj(p => p.copy(project = p.project.copy(
+            client = p.project.client.copy(address = p.project.client.address.copy(street = opt(v))))))
+        ),
+        ff(FieldMetadata.houseNumber,
+          proj.map(_.flatMap(_.project.client.address.houseNumber).getOrElse("")),
+          v => upProj(p => p.copy(project = p.project.copy(
+            client = p.project.client.copy(address = p.project.client.address.copy(houseNumber = opt(v))))))
+        ),
 
-      FormField(
-        metadata = FieldMetadata.energyReferenceArea,
-        value = AppState.projectSignal.map(_.map(_.project.buildingData.energyReferenceArea.map(_.toString).getOrElse("")).getOrElse("")),
-        onChange = value => AppState.updateProject(p => p.copy(
-          project = p.project.copy(
-            buildingData = p.project.buildingData.copy(energyReferenceArea = if value.isEmpty then None else value.toDoubleOption)
-          )
-        ))
-      ),
+        // PLZ / Ort
+        ff(FieldMetadata.zipCode,
+          proj.map(_.flatMap(_.project.client.address.zipCode).getOrElse("")),
+          v => upProj(p => p.copy(project = p.project.copy(
+            client = p.project.client.copy(address = p.project.client.address.copy(zipCode = opt(v))))))
+        ),
+        ff(FieldMetadata.city,
+          proj.map(_.flatMap(_.project.client.address.city).getOrElse("")),
+          v => upProj(p => p.copy(project = p.project.copy(
+            client = p.project.client.copy(address = p.project.client.address.copy(city = opt(v))))))
+        ),
 
-      FormField(
-        metadata = FieldMetadata.clearRoomHeight,
-        value = AppState.projectSignal.map(_.map(_.project.buildingData.clearRoomHeight.map(_.toString).getOrElse("")).getOrElse("")),
-        onChange = value => AppState.updateProject(p => p.copy(
-          project = p.project.copy(
-            buildingData = p.project.buildingData.copy(clearRoomHeight = if value.isEmpty then None else value.toDoubleOption)
-          )
-        ))
-      ),
+        // Land
+        ff(FieldMetadata.country,
+          proj.map(_.flatMap(_.project.client.address.country).getOrElse("")),
+          v => upProj(p => p.copy(project = p.project.copy(
+            client = p.project.client.copy(address = p.project.client.address.copy(country = opt(v))))))
+        ),
 
-      FormField(
-        metadata = FieldMetadata.numberOfFloors,
-        value = AppState.projectSignal.map(_.map(_.project.buildingData.numberOfFloors.map(_.toString).getOrElse("")).getOrElse("")),
-        onChange = value => AppState.updateProject(p => p.copy(
-          project = p.project.copy(
-            buildingData = p.project.buildingData.copy(numberOfFloors = if value.isEmpty then None else value.toIntOption)
-          )
-        ))
-      ),
+        // E-Mail
+        ff(FieldMetadata.email,
+          proj.map(_.flatMap(_.project.client.email).getOrElse("")),
+          v => upProj(p => p.copy(project = p.project.copy(
+            client = p.project.client.copy(email = opt(v)))))
+        ),
 
-      FormField(
-        metadata = FieldMetadata.buildingWidth,
-        value = AppState.projectSignal.map(_.map(_.project.buildingData.buildingWidth.map(_.toString).getOrElse("")).getOrElse("")),
-        onChange = value => AppState.updateProject(p => p.copy(
-          project = p.project.copy(
-            buildingData = p.project.buildingData.copy(buildingWidth = if value.isEmpty then None else value.toDoubleOption)
-          )
-        ))
-      ),
-
-      FormField(
-        metadata = FieldMetadata.constructionType,
-        value = AppState.projectSignal.map(_.map(_.project.buildingData.constructionType.getOrElse("")).getOrElse("")),
-        onChange = value => AppState.updateProject(p => p.copy(
-          project = p.project.copy(
-            buildingData = p.project.buildingData.copy(constructionType = if value.isEmpty then None else Some(value))
-          )
-        ))
-      ),
-
-      FormField(
-        metadata = FieldMetadata.groundPlanType,
-        value = AppState.projectSignal.map(_.map(_.project.buildingData.groundPlanType.getOrElse("")).getOrElse("")),
-        onChange = value => AppState.updateProject(p => p.copy(
-          project = p.project.copy(
-            buildingData = p.project.buildingData.copy(groundPlanType = if value.isEmpty then None else Some(value))
-          )
-        ))
-      )
-    )
-
-  private def renderDescriptionsSection(): HtmlElement =
-    div(
-      FormField(
-        metadata = FieldMetadata.buildingDescription,
-        value = AppState.projectSignal.map(_.map(_.project.descriptions.buildingDescription.getOrElse("")).getOrElse("")),
-        onChange = value => AppState.updateProject(p => p.copy(
-          project = p.project.copy(
-            descriptions = p.project.descriptions.copy(buildingDescription = if value.isEmpty then None else Some(value))
-          )
-        ))
-      ),
-
-      FormField(
-        metadata = FieldMetadata.envelopeDescription,
-        value = AppState.projectSignal.map(_.map(_.project.descriptions.envelopeDescription.getOrElse("")).getOrElse("")),
-        onChange = value => AppState.updateProject(p => p.copy(
-          project = p.project.copy(
-            descriptions = p.project.descriptions.copy(envelopeDescription = if value.isEmpty then None else Some(value))
-          )
-        ))
-      ),
-
-      FormField(
-        metadata = FieldMetadata.hvacDescription,
-        value = AppState.projectSignal.map(_.map(_.project.descriptions.hvacDescription.getOrElse("")).getOrElse("")),
-        onChange = value => AppState.updateProject(p => p.copy(
-          project = p.project.copy(
-            descriptions = p.project.descriptions.copy(hvacDescription = if value.isEmpty then None else Some(value))
-          )
-        ))
-      )
-    )
-
-  private def renderEgidEdidSection(): HtmlElement =
-    div(
-      project.egidEdidGroup.entries.zipWithIndex.map { case (entry, idx) =>
-        div(
-          className := "egid-entry",
-          marginBottom := "1.5rem",
-          paddingBottom := "1rem",
-          borderBottom := "1px solid #e0e0e0",
-
-          Title(
-            _.level := TitleLevel.H5,
-            s"Eintrag ${idx + 1}"
-          ),
-
-          FormField(
-            metadata = FieldMetadata.egid,
-            value = AppState.projectSignal.map(_.map(_.project.egidEdidGroup.entries.lift(idx).flatMap(_.egid).getOrElse("")).getOrElse("")),
-            onChange = value => updateEgidEntry(idx, entry.copy(egid = if value.isEmpty then None else Some(value)))
-          ),
-
-          FormField(
-            metadata = FieldMetadata.edid,
-            value = AppState.projectSignal.map(_.map(_.project.egidEdidGroup.entries.lift(idx).flatMap(_.edid).getOrElse("")).getOrElse("")),
-            onChange = value => updateEgidEntry(idx, entry.copy(edid = if value.isEmpty then None else Some(value)))
-          ),
-
-          // Address Field with all components
-          AddressField(
-            label = "Adresse",
-            required = false,
-            addressSignal = AppState.projectSignal.map(_.map(_.project.egidEdidGroup.entries.lift(idx).map(_.address).getOrElse(Address.empty)).getOrElse(Address.empty)),
-            onAddressChange = address => updateEgidEntry(idx, entry.copy(address = address)),
-            showStreet = true,
-            showHouseNumber = true,
-            showZipCity = true,
-            showCountry = false
-          )
-        )
-      }
-    )
-
-  private def updateEgidEntry(idx: Int, newEntry: pme123.geak4s.domain.project.EgidEdidEntry): Unit =
-    AppState.updateProject { p =>
-      val updatedEntries = p.project.egidEdidGroup.entries.updated(idx, newEntry)
-      p.copy(
-        project = p.project.copy(
-          egidEdidGroup = p.project.egidEdidGroup.copy(entries = updatedEntries)
+        // Telefon 1 / 2
+        ff(FieldMetadata.phone1,
+          proj.map(_.flatMap(_.project.client.phone1).getOrElse("")),
+          v => upProj(p => p.copy(project = p.project.copy(
+            client = p.project.client.copy(phone1 = opt(v)))))
+        ),
+        ff(FieldMetadata.phone2,
+          proj.map(_.flatMap(_.project.client.phone2).getOrElse("")),
+          v => upProj(p => p.copy(project = p.project.copy(
+            client = p.project.client.copy(phone2 = opt(v)))))
         )
       )
     }
 
+  // ── Card 2: Standort / Potenziale ──────────────────────────────────────────
+
+  private def card2StandortPotenziale(): HtmlElement =
+    card("Standort / Potenziale", "Gebäudestandort und Klimadaten") {
+      div(
+        // Gebäude mit EGID?
+        div(
+          marginBottom := "1rem",
+          CheckBox(
+            _.text    := "Gebäude mit EGID?",
+            _.checked <-- hasEgid.signal,
+            _.events.onChange.mapToChecked --> Observer[Boolean] { v =>
+              hasEgid.set(v)
+            }
+          )
+        ),
+        child <-- hasEgid.signal.map { show =>
+          if show then
+            ff(FieldMetadata.egid,
+              proj.map(_.map(_.project.egidEdidGroup.entries.headOption.flatMap(_.egid).getOrElse("")).getOrElse("")),
+              v => upProj { p =>
+                val entry = p.project.egidEdidGroup.entries.headOption.getOrElse(
+                  EgidEdidEntry(egid = None, edid = None, address = Address.empty)
+                ).copy(egid = opt(v))
+                val entries = if p.project.egidEdidGroup.entries.isEmpty then List(entry)
+                              else p.project.egidEdidGroup.entries.updated(0, entry)
+                p.copy(project = p.project.copy(
+                  egidEdidGroup = p.project.egidEdidGroup.copy(entries = entries)))
+              }
+            )
+          else div()
+        },
+
+        // Parzellen-Nummer
+        ff(FieldMetadata.parcelNumber,
+          proj.map(_.flatMap(_.project.buildingLocation.parcelNumber).getOrElse("")),
+          v => upProj(p => p.copy(project = p.project.copy(
+            buildingLocation = p.project.buildingLocation.copy(parcelNumber = opt(v)))))
+        ),
+
+        // Adresse im GEAK (Strasse + Hausnummer, PLZ + Ort)
+        div(
+          fontWeight := "600", fontSize := "0.875rem", marginBottom := "0.5rem", color := "#32363a",
+          "Adresse im GEAK"
+        ),
+        ff(FieldMetadata.street,
+          proj.map(_.flatMap(_.project.buildingLocation.address.street).getOrElse("")),
+          v => upProj(p => p.copy(project = p.project.copy(
+            buildingLocation = p.project.buildingLocation.copy(
+              address = p.project.buildingLocation.address.copy(street = opt(v))))))
+        ),
+        ff(FieldMetadata.houseNumber,
+          proj.map(_.flatMap(_.project.buildingLocation.address.houseNumber).getOrElse("")),
+          v => upProj(p => p.copy(project = p.project.copy(
+            buildingLocation = p.project.buildingLocation.copy(
+              address = p.project.buildingLocation.address.copy(houseNumber = opt(v))))))
+        ),
+        ff(FieldMetadata.zipCode,
+          proj.map(_.flatMap(_.project.buildingLocation.address.zipCode).getOrElse("")),
+          v => upProj(p => p.copy(project = p.project.copy(
+            buildingLocation = p.project.buildingLocation.copy(
+              address = p.project.buildingLocation.address.copy(zipCode = opt(v))))))
+        ),
+        ff(FieldMetadata.city,
+          proj.map(_.flatMap(_.project.buildingLocation.address.city).getOrElse("")),
+          v => upProj(p => p.copy(project = p.project.copy(
+            buildingLocation = p.project.buildingLocation.copy(
+              address = p.project.buildingLocation.address.copy(city = opt(v))))))
+        ),
+
+        // Erwartete Stammnummer
+        ff(FieldMetadata.expectedGeakNumber,
+          proj.map(_.flatMap(_.geakId).map(_.toString).getOrElse("")),
+          v => upProj(p => p.copy(geakId = v.toIntOption))
+        ),
+
+        // Klimastation
+        ff(FieldMetadata.weatherStation,
+          proj.map(_.flatMap(_.project.buildingData.weatherStation).getOrElse("")),
+          v => upProj(p => p.copy(project = p.project.copy(
+            buildingData = p.project.buildingData.copy(weatherStation = opt(v)))))
+        ),
+
+        // Klimastation mit bestbekannten Werten
+        ff(FieldMetadata.weatherStationValues,
+          proj.map(_.flatMap(_.project.buildingData.weatherStationValues).getOrElse("")),
+          v => upProj(p => p.copy(project = p.project.copy(
+            buildingData = p.project.buildingData.copy(weatherStationValues = opt(v)))))
+        ),
+
+        // Höhe ü. M.
+        ff(FieldMetadata.altitude,
+          proj.map(_.flatMap(_.project.buildingData.altitude).map(_.toString).getOrElse("")),
+          v => upProj(p => p.copy(project = p.project.copy(
+            buildingData = p.project.buildingData.copy(altitude = v.toDoubleOption))))
+        )
+      )
+    }
+
+  // ── Card 3: Gebäude ────────────────────────────────────────────────────────
+
+  private def card3Gebaeude(): HtmlElement =
+    card("Gebäude", "Technische Gebäudedaten") {
+      div(
+        ff(FieldMetadata.constructionYear,
+          proj.map(_.flatMap(_.project.buildingData.constructionYear).map(_.toString).getOrElse("")),
+          v => upProj(p => p.copy(project = p.project.copy(
+            buildingData = p.project.buildingData.copy(constructionYear = v.toIntOption))))
+        ),
+        ff(FieldMetadata.lastRenovationYear,
+          proj.map(_.flatMap(_.project.buildingData.lastRenovationYear).map(_.toString).getOrElse("")),
+          v => upProj(p => p.copy(project = p.project.copy(
+            buildingData = p.project.buildingData.copy(lastRenovationYear = v.toIntOption))))
+        ),
+        ff(FieldMetadata.energyReferenceArea,
+          proj.map(_.flatMap(_.project.buildingData.energyReferenceArea).map(_.toString).getOrElse("")),
+          v => upProj(p => p.copy(project = p.project.copy(
+            buildingData = p.project.buildingData.copy(energyReferenceArea = v.toDoubleOption)))),
+          validate = true
+        ),
+        ff(FieldMetadata.clearRoomHeight,
+          proj.map(_.flatMap(_.project.buildingData.clearRoomHeight).map(_.toString).getOrElse("")),
+          v => upProj(p => p.copy(project = p.project.copy(
+            buildingData = p.project.buildingData.copy(clearRoomHeight = v.toDoubleOption))))
+        ),
+        ff(FieldMetadata.numberOfFloors,
+          proj.map(_.flatMap(_.project.buildingData.numberOfFloors).map(_.toString).getOrElse("")),
+          v => upProj(p => p.copy(project = p.project.copy(
+            buildingData = p.project.buildingData.copy(numberOfFloors = v.toIntOption))))
+        ),
+        ff(FieldMetadata.buildingWidth,
+          proj.map(_.flatMap(_.project.buildingData.buildingWidth).map(_.toString).getOrElse("")),
+          v => upProj(p => p.copy(project = p.project.copy(
+            buildingData = p.project.buildingData.copy(buildingWidth = v.toDoubleOption))))
+        ),
+        ff(FieldMetadata.constructionType,
+          proj.map(_.flatMap(_.project.buildingData.constructionType).getOrElse("")),
+          v => upProj(p => p.copy(project = p.project.copy(
+            buildingData = p.project.buildingData.copy(constructionType = opt(v)))))
+        ),
+        ff(FieldMetadata.groundPlanType,
+          proj.map(_.flatMap(_.project.buildingData.groundPlanType).getOrElse("")),
+          v => upProj(p => p.copy(project = p.project.copy(
+            buildingData = p.project.buildingData.copy(groundPlanType = opt(v)))))
+        )
+      )
+    }
+
+  // ── Card 4: IST-Zustand ────────────────────────────────────────────────────
+
+  private def card4IstZustand(): HtmlElement =
+    card("IST-Zustand", "Beschreibungen des aktuellen Zustands") {
+      div(
+        ff(FieldMetadata.buildingDescription,
+          proj.map(_.flatMap(_.project.descriptions.buildingDescription).getOrElse("")),
+          v => upProj(p => p.copy(project = p.project.copy(
+            descriptions = p.project.descriptions.copy(buildingDescription = opt(v)))))
+        )
+      )
+    }
+
+  // ── Card 5: Gebäudenutzungen ───────────────────────────────────────────────
+
+  private def card5Gebaeudenutzungen(): HtmlElement =
+    card("Gebäudenutzungen", "Nutzungsarten und Wohnungsdaten") {
+      div(
+        children <-- proj.map { projOpt =>
+          val usages = projOpt.map(_.buildingUsages).getOrElse(List.empty)
+          usages.zipWithIndex.map { case (u, i) => usageBlock(u, i, usages.length) }
+        },
+        child <-- proj.map { projOpt =>
+          val count = projOpt.map(_.buildingUsages.length).getOrElse(0)
+          if count < 3 then
+            div(
+              marginTop := "1rem",
+              Button(
+                _.design := ButtonDesign.Default,
+                _.icon   := IconName.`add`,
+                _.events.onClick.mapTo(()) --> Observer[Unit] { _ =>
+                  upProj(p => p.copy(buildingUsages = p.buildingUsages :+
+                    BuildingUsage(usageType = "", area = 0.0)))
+                },
+                "Nutzung hinzufügen"
+              )
+            )
+          else div(fontSize := "0.875rem", color := "#666", "Max. 3 Nutzungszonen erreicht.")
+        }
+      )
+    }
+
+  private def usageBlock(u: BuildingUsage, idx: Int, total: Int): HtmlElement =
+    def uSig[A](f: BuildingUsage => A): Signal[String] =
+      proj.map(_.map(_.buildingUsages.lift(idx).map(f).map(_.toString).getOrElse("")).getOrElse(""))
+    def upU(f: BuildingUsage => BuildingUsage): Unit =
+      upProj(p => p.copy(buildingUsages = p.buildingUsages.updated(idx, f(u))))
+
+    div(
+      marginBottom  := "1.5rem",
+      paddingBottom := "1rem",
+      borderBottom  := (if idx < total - 1 then "1px solid #e0e0e0" else "none"),
+
+      div(
+        display := "flex", alignItems := "center", justifyContent := "space-between",
+        marginBottom := "0.75rem",
+        div(fontWeight := "600", fontSize := "0.875rem", color := "#32363a", s"Nutzung ${idx + 1}"),
+        Button(
+          _.design := ButtonDesign.Transparent, _.icon := IconName.`delete`,
+          _.events.onClick.mapTo(()) --> Observer[Unit] { _ =>
+            upProj(p => p.copy(buildingUsages = p.buildingUsages.patch(idx, Nil, 1)))
+          }
+        )
+      ),
+
+      // Nutzungsart
+      ff(FieldMetadata.usageType,
+        proj.map(_.map(_.buildingUsages.lift(idx).map(_.usageType).getOrElse("")).getOrElse("")),
+        v => upU(_.copy(usageType = v))
+      ),
+
+      // Energiebezugsfläche
+      ff(FieldMetadata.usageArea,
+        proj.map(_.map(_.buildingUsages.lift(idx).map(_.area.toString).getOrElse("")).getOrElse("")),
+        v => upU(_.copy(area = v.toDoubleOption.getOrElse(u.area)))
+      ),
+
+      // Anzahl Bewohner
+      ff(FieldMetadata.numberOfResidents,
+        proj.map(_.map(_.buildingUsages.lift(idx).flatMap(_.numberOfResidents).map(_.toString).getOrElse("")).getOrElse("")),
+        v => upU(_.copy(numberOfResidents = v.toIntOption))
+      ),
+
+      // Zimmer-Wohnungen
+      ff(FieldMetadata.apartments1Room,
+        proj.map(_.map(_.buildingUsages.lift(idx).flatMap(_.apartments1Room).map(_.toString).getOrElse("")).getOrElse("")),
+        v => upU(_.copy(apartments1Room = v.toIntOption))
+      ),
+      ff(FieldMetadata.apartments2Room,
+        proj.map(_.map(_.buildingUsages.lift(idx).flatMap(_.apartments2Room).map(_.toString).getOrElse("")).getOrElse("")),
+        v => upU(_.copy(apartments2Room = v.toIntOption))
+      ),
+      ff(FieldMetadata.apartments3Room,
+        proj.map(_.map(_.buildingUsages.lift(idx).flatMap(_.apartments3Room).map(_.toString).getOrElse("")).getOrElse("")),
+        v => upU(_.copy(apartments3Room = v.toIntOption))
+      ),
+      ff(FieldMetadata.apartments4Room,
+        proj.map(_.map(_.buildingUsages.lift(idx).flatMap(_.apartments4Room).map(_.toString).getOrElse("")).getOrElse("")),
+        v => upU(_.copy(apartments4Room = v.toIntOption))
+      ),
+      ff(FieldMetadata.apartments5Room,
+        proj.map(_.map(_.buildingUsages.lift(idx).flatMap(_.apartments5Room).map(_.toString).getOrElse("")).getOrElse("")),
+        v => upU(_.copy(apartments5Room = v.toIntOption))
+      ),
+      ff(FieldMetadata.apartments6Room,
+        proj.map(_.map(_.buildingUsages.lift(idx).flatMap(_.apartments6Room).map(_.toString).getOrElse("")).getOrElse("")),
+        v => upU(_.copy(apartments6Room = v.toIntOption))
+      ),
+      ff(FieldMetadata.apartmentsOver6Room,
+        proj.map(_.map(_.buildingUsages.lift(idx).flatMap(_.apartmentsOver6Room).map(_.toString).getOrElse("")).getOrElse("")),
+        v => upU(_.copy(apartmentsOver6Room = v.toIntOption))
+      )
+    )
+
+  // ── utility ────────────────────────────────────────────────────────────────
+
+  private def opt(v: String): Option[String] = if v.isEmpty then None else Some(v)
 
 end ProjectView
-

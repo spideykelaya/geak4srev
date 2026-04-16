@@ -125,7 +125,7 @@ object ProjectEditorView:
 
   private def renderSection(section: Section, project: GeakProject): HtmlElement =
     section match
-      case Section.ProjectInfo => ProjectView(project.project).render()
+      case Section.ProjectInfo => ProjectView(project).render()
       case Section.BuildingUsage => renderBuildingUsage(project)
       case Section.Envelope => renderEnvelope(project)
       case Section.HVAC => renderHVAC(project)
