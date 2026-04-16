@@ -238,31 +238,53 @@ object FieldMetadata:
 
   val weatherStation = FieldMetadata(
     name = "weatherStation",
-    label = "Klimastation",
+    label = "Klimastation mit bestbekannten Werten",
     fieldType = FieldType.Select,
     tooltip = Some("Nächstgelegene Klimastation für Wetterdaten"),
     options = List(
-      SelectOption("Zürich-Fluntern", "Zürich-Fluntern"),
+      SelectOption("Zürich-MeteoSchweiz", "Zürich-MeteoSchweiz"),
       SelectOption("Zürich-Kloten", "Zürich-Kloten"),
       SelectOption("St. Gallen", "St. Gallen"),
-      SelectOption("Bern-Zollikofen", "Bern-Zollikofen"),
+      SelectOption("Bern-Liebefeld", "Bern-Liebefeld"),
+      SelectOption("Adelboden", "Adelboden"),
+      SelectOption("Aigle", "Aigle"),
+      SelectOption("Altdorf", "Altdorf"),
       SelectOption("Basel-Binningen", "Basel-Binningen"),
-      SelectOption("Genève-Cointrin", "Genève-Cointrin"),
-      SelectOption("Luzern", "Luzern"),
-      SelectOption("Lugano", "Lugano"),
+      SelectOption("Buchs-Aarau", "Buchs-Aarau"),
+      SelectOption("Chur", "Chur"),
       SelectOption("Davos", "Davos"),
-      SelectOption("Sion", "Sion")
+      SelectOption("Disentis", "Disentis"),
+      SelectOption("Engelberg", "Engelberg"),
+      SelectOption("Genève-Cointrin", "Genève-Cointrin"),
+      SelectOption("Glarus", "Glarus"),
+      SelectOption("Grand-St-Bernard", "Grand-St-Bernard"),
+      SelectOption("Güttingen", "Güttingen"),
+      SelectOption("Interlaken", "Interlaken"),
+      SelectOption("La Chaux-de-Fonds", "La Chaux-de-Fonds"),
+      SelectOption("La Frétaz", "La Frétaz"),
+      SelectOption("Locarno-Monti", "Locarno-Monti"),
+      SelectOption("Lugano", "Lugano"),
+      SelectOption("Luzern", "Luzern"),
+      SelectOption("Magadino", "Magadino"),
+      SelectOption("Montana", "Montana"),
+      SelectOption("Neuchâtel", "Neuchâtel"),
+      SelectOption("Payerne", "Payerne"),
+      SelectOption("Piotta", "Piotta"),
+      SelectOption("Pully", "Pully"),
+      SelectOption("Robbia", "Robbia"),
+      SelectOption("Rünenberg", "Rünenberg"),
+      SelectOption("Samedan", "Samedan"),
+      SelectOption("San Bernardino", "San Bernardino"),
+      SelectOption("Schaffhausen", "Schaffhausen"),
+      SelectOption("Scuol", "Scuol"),
+      SelectOption("Sion", "Sion"),
+      SelectOption("Ulrichen", "Ulrichen"),
+      SelectOption("Vaduz", "Vaduz"),
+      SelectOption("Wynau", "Wynau"),
+      SelectOption("Zermatt", "Zermatt")
     )
   )
 
-  val weatherStationValues = FieldMetadata(
-    name = "weatherStationValues",
-    label = "Bestbekannte Werte Klimastation",
-    fieldType = FieldType.Text,
-    tooltip = Some("Referenzwerte der Klimastation"),
-    placeholder = Some("Standard"),
-    validation = Some(ValidationRule(maxLength = Some(100)))
-  )
 
   val altitude = FieldMetadata(
     name = "altitude",
@@ -301,7 +323,7 @@ object FieldMetadata:
     label = "Lichte Raumhöhe",
     fieldType = FieldType.Number,
     tooltip = Some("Durchschnittliche lichte Raumhöhe in Metern"),
-    placeholder = Some("2.6"),
+    placeholder = Some("2.4"),
     unit = Some("m"),
     validation = Some(ValidationRule(
       min = Some(1.5),
@@ -343,11 +365,10 @@ object FieldMetadata:
     fieldType = FieldType.Select,
     tooltip = Some("Bauweise des Gebäudes"),
     options = List(
-      SelectOption("Massivbau", "Massivbau", Some("Mauerwerk, Beton")),
-      SelectOption("Holzbau", "Holzbau", Some("Holzständer, Holzrahmen")),
-      SelectOption("Mischbauweise", "Mischbauweise", Some("Kombination verschiedener Bauweisen")),
-      SelectOption("Stahlbau", "Stahlbau", Some("Stahlkonstruktion")),
-      SelectOption("Leichtbau", "Leichtbau", Some("Leichte Konstruktion"))
+      SelectOption("schwer", "schwer"),
+      SelectOption("mittel", "mittel"),
+      SelectOption("leicht", "leicht"),
+      SelectOption("sehr leicht", "sehr leicht")
     )
   )
 
@@ -357,11 +378,8 @@ object FieldMetadata:
     fieldType = FieldType.Select,
     tooltip = Some("Grundrisstyp des Gebäudes"),
     options = List(
-      SelectOption("kompakt", "Kompakt", Some("Kompakte Bauform, A/V < 0.8")),
-      SelectOption("mittel", "Mittel", Some("Mittlere Bauform, 0.8 ≤ A/V < 1.2")),
-      SelectOption("aufgelöst", "Aufgelöst", Some("Aufgelöste Bauform, A/V ≥ 1.2")),
-      SelectOption("reihenhaus", "Reihenhaus", Some("Reihenhausbauweise")),
-      SelectOption("eckhaus", "Eckhaus", Some("Eckhaus"))
+      SelectOption("kompakt", "kompakt"),
+      SelectOption("gestreckt", "gestreckt")
     ),
     helpText = Some("A/V = Verhältnis Gebäudehüllfläche zu Gebäudevolumen")
   )
@@ -463,16 +481,13 @@ object FieldMetadata:
     tooltip = Some("Art der Gebäudenutzung gemäss GEAK"),
     validation = Some(ValidationRule(required = true)),
     options = List(
-      SelectOption("Einfamilienhaus",   "Einfamilienhaus"),
-      SelectOption("Mehrfamilienhaus",  "Mehrfamilienhaus"),
-      SelectOption("Büro/Verwaltung",   "Büro/Verwaltung"),
-      SelectOption("Schulen/Bildung",   "Schulen/Bildung"),
-      SelectOption("Gesundheitswesen",  "Gesundheitswesen"),
-      SelectOption("Gastgewerbe",       "Gastgewerbe"),
-      SelectOption("Handel/Verkauf",    "Handel/Verkauf"),
-      SelectOption("Industrie/Gewerbe", "Industrie/Gewerbe"),
-      SelectOption("Sport/Freizeit",    "Sport/Freizeit"),
-      SelectOption("Andere",            "Andere")
+      SelectOption("Einfamilienhaus", "Einfamilienhaus (Kat. II)"),
+      SelectOption("Mehrfamilienhaus", "Mehrfamilienhaus (Kat. I)"),
+      SelectOption("Hotel", "Hotel (Kat. I)"),
+      SelectOption("Büro/Verwaltung", "Büro/Verwaltung (Kat. III)"),
+      SelectOption("Schule", "Schule (Kat. IV)"),
+      SelectOption("Verkauf", "Verkauf (Kat. V)"),
+      SelectOption("Restaurant", "Restaurant (Kat. VI)")
     )
   )
 
@@ -487,9 +502,8 @@ object FieldMetadata:
 
   val usageArea = FieldMetadata(
     name = "area",
-    label = "Nutzfläche",
+    label = "Energiebezugsfläche",
     fieldType = FieldType.Number,
-    tooltip = Some("Nutzfläche der Nutzungszone in m²"),
     placeholder = Some("850.5"),
     unit = Some("m²"),
     validation = Some(ValidationRule(required = true, min = Some(0), max = Some(100000)))

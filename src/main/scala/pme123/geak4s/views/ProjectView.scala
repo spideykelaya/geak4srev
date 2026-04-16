@@ -8,6 +8,7 @@ import pme123.geak4s.domain.project.*
 import pme123.geak4s.domain.building.BuildingUsage
 import pme123.geak4s.state.AppState
 import pme123.geak4s.components.FormField
+import org.scalajs.dom
 
 case class ProjectView(geakProject: GeakProject):
 
@@ -244,18 +245,79 @@ case class ProjectView(geakProject: GeakProject):
             buildingData = p.project.buildingData.copy(weatherStation = opt(v)))))
         ),
 
-        // Klimastation mit bestbekannten Werten
-        ff(FieldMetadata.weatherStationValues,
-          proj.map(_.flatMap(_.project.buildingData.weatherStationValues).getOrElse("")),
-          v => upProj(p => p.copy(project = p.project.copy(
-            buildingData = p.project.buildingData.copy(weatherStationValues = opt(v)))))
-        ),
-
         // Höhe ü. M.
-        ff(FieldMetadata.altitude,
-          proj.map(_.flatMap(_.project.buildingData.altitude).map(_.toString).getOrElse("")),
-          v => upProj(p => p.copy(project = p.project.copy(
-            buildingData = p.project.buildingData.copy(altitude = v.toDoubleOption))))
+        div(
+          className := "form-field",
+          // Label row: "Höhe ü. M." + tooltip hint + button
+          div(
+            className := "form-field-label",
+            display   := "flex",
+            alignItems := "center",
+            gap := "0.5rem",
+            Label(_.showColon := true, "Höhe ü. M."),
+            span(
+              className := "field-tooltip-wrapper",
+              dataAttr("tooltip") := "Höhe über Meer in Metern",
+              Icon(
+                _.name             := IconName.hint,
+                _.design           := IconDesign.Information,
+                _.accessibleName   := "Höhe über Meer in Metern"
+              )
+            ),
+            // Hidden anchor for reliable new-tab navigation
+            a(
+              idAttr  := "hoehe-link",
+              href    := "https://geo.zh.ch/maps?x=2697995&y=1246619&scale=270&basemap=arelkbackgroundzh",
+              target  := "_blank",
+              rel     := "noopener noreferrer",
+              display := "none"
+            ),
+            Button(
+              _.design := ButtonDesign.Default,
+              _.icon   := IconName.map,
+              _.events.onClick.mapTo(()) --> Observer[Unit] { _ =>
+                // Copy building address to clipboard, then open the map
+                val address = AppState.getCurrentProject.flatMap { p =>
+                  val loc = p.project.buildingLocation.address
+                  val street = loc.street.getOrElse("")
+                  val nr     = loc.houseNumber.getOrElse("")
+                  val zip    = loc.zipCode.getOrElse("")
+                  val city   = loc.city.getOrElse("")
+                  val full   = s"$street $nr, $zip $city".trim.stripSuffix(",")
+                  if full.nonEmpty then Some(full) else None
+                }
+                address.foreach { addr =>
+                  val d  = scala.scalajs.js.Dynamic.global.document
+                  val ta = d.createElement("textarea")
+                  ta.value = addr
+                  ta.style.cssText = "position:fixed;top:-9999px;left:-9999px;opacity:0"
+                  d.body.appendChild(ta)
+                  ta.focus()
+                  ta.select()
+                  d.execCommand("copy")
+                  d.body.removeChild(ta)
+                }
+                dom.document.getElementById("hoehe-link").asInstanceOf[dom.HTMLAnchorElement].click()
+              },
+              "GIS Browser"
+            )
+          ),
+          div(
+            display     := "flex",
+            alignItems  := "center",
+            gap         := "0.5rem",
+            Input(
+              _.tpe         := InputType.Number,
+              _.value      <-- proj.map(_.flatMap(_.project.buildingData.altitude).map(_.toString).getOrElse("")),
+              _.placeholder := "556",
+              onBlur.mapToValue --> Observer[String] { v =>
+                upProj(p => p.copy(project = p.project.copy(
+                  buildingData = p.project.buildingData.copy(altitude = v.toDoubleOption))))
+              },
+              className := "form-input"
+            ),
+            span(className := "input-unit", "m")
+          )
         )
       )
     }
@@ -381,9 +443,11 @@ case class ProjectView(geakProject: GeakProject):
       ),
 
       // Energiebezugsfläche
-      ff(FieldMetadata.usageArea,
-        proj.map(_.map(_.buildingUsages.lift(idx).map(_.area.toString).getOrElse("")).getOrElse("")),
-        v => upU(_.copy(area = v.toDoubleOption.getOrElse(u.area)))
+      ff(FieldMetadata.energyReferenceArea,
+        proj.map(_.flatMap(_.project.buildingData.energyReferenceArea).map(_.toString).getOrElse("")),
+        v => upProj(p => p.copy(project = p.project.copy(
+          buildingData = p.project.buildingData.copy(energyReferenceArea = v.toDoubleOption)))),
+        validate = true
       ),
 
       // Anzahl Bewohner
