@@ -74,5 +74,32 @@ object Main extends cask.MainRoutes {
     )
   }
 
+  @cask.post("/generate-excel")
+  def generateExcel(request: cask.Request) = {
+    try {
+      val bodyStr = new String(request.readAllBytes(), "UTF-8")
+      println(s"[generate-excel] received ${bodyStr.length} chars")
+      val bytes = ExcelService.generateExcel(bodyStr)
+      println(s"[generate-excel] OK, ${bytes.length} bytes")
+      cask.Response(
+        bytes,
+        headers = Seq(
+          "Content-Type"        -> "application/vnd.ms-excel",
+          "Content-Disposition" -> "attachment; filename=\"GEAK_Export.xls\""
+        )
+      )
+    } catch {
+      case ex: Throwable =>
+        println(s"[generate-excel] ERROR: ${ex.getClass.getName}: ${ex.getMessage}")
+        ex.printStackTrace()
+        val msg = s"Excel generation failed: ${ex.getClass.getSimpleName}: ${ex.getMessage}"
+        cask.Response(
+          msg.getBytes("UTF-8"),
+          statusCode = 500,
+          headers = Seq("Content-Type" -> "text/plain; charset=UTF-8")
+        )
+    }
+  }
+
   initialize()
 }

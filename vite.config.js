@@ -16,6 +16,10 @@ export default defineConfig({
       '/generate': {
         target: 'http://localhost:8080',
         changeOrigin: true
+      },
+      '/generate-excel': {
+        target: 'http://localhost:8080',
+        changeOrigin: true
       }
     }
   }
