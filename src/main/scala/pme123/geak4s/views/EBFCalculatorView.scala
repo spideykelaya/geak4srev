@@ -22,7 +22,7 @@ object EBFCalculatorView:
   private val polygonRenamedEvent = "geak:ebf-polygon-renamed"
   private val polygonResetEvent   = "geak:ebf-polygon-reset"
 
-  private def decodePolygons(event: dom.Event): Seq[(String, String, Double)] =
+  private def decodePolygons(event: dom.Event): Seq[(String, String, Double, Option[Double], Option[Double])] =
     val payload = event.asInstanceOf[dom.CustomEvent].detail.asInstanceOf[js.Array[js.Dynamic]]
     payload.toSeq.flatMap { item =>
       val rawLabel = item.selectDynamic("label")
@@ -38,7 +38,15 @@ object EBFCalculatorView:
         val rawArea = item.selectDynamic("area")
         val parsed  = js.Dynamic.global.Number(rawArea).asInstanceOf[Double]
         val area    = if parsed.isNaN || parsed < 0 then 0.0 else parsed
-        Some((label, areaType, area))
+        def decodeOptDouble(field: String): Option[Double] =
+          val raw = item.selectDynamic(field)
+          if js.isUndefined(raw) || raw == null then None
+          else
+            val d = js.Dynamic.global.Number(raw).asInstanceOf[Double]
+            if d.isNaN then None else Some(d)
+        val overhangDist = decodeOptDouble("overhangDist")
+        val sideDist     = decodeOptDouble("sideDist")
+        Some((label, areaType, area, overhangDist, sideDist))
     }
 
   def apply(): HtmlElement =
@@ -56,7 +64,7 @@ object EBFCalculatorView:
         // ── polygon sync → AreaState ──
         val polyListener: js.Function1[dom.Event, Unit] = (event: dom.Event) =>
           val polygons = decodePolygons(event)
-          dom.console.log(s"[AreaState] polygon-sync received ${polygons.length}: ${polygons.map((l,t,a) => s"$l($t)=%.2f".format(a)).mkString(", ")}")
+          dom.console.log(s"[AreaState] polygon-sync received ${polygons.length}: ${polygons.map((l,t,a,_,_) => s"$l($t)=%.2f".format(a)).mkString(", ")}")
           AreaState.syncPolygons(polygons)
           dom.console.log(s"[AreaState] after sync, entries: ${AreaState.areaCalculations.now().map(_.calculations.flatMap(c => c.entries.map(e => s"${c.componentType.polygonLabel}/${e.kuerzel}")).mkString(", ")).getOrElse("None")}")
           AppState.saveAreaCalculations()
@@ -154,7 +162,7 @@ object EBFCalculatorView:
         unmountHandle.foreach(_())
         unmountHandle = None
       },
-      htmlTag("link")(rel := "stylesheet", href := "/ebf/styles.css?v=28"),
+      htmlTag("link")(rel := "stylesheet", href := "/ebf/styles.css?v=33"),
       div(
         className := "app",
         styleAttr := "height: 100%;",

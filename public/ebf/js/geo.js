@@ -109,6 +109,20 @@ export function findNearVertex(sx, sy) {
   return null;
 }
 
+/** Returns index of the Fenster polygon whose center marker is within 12px of screen point, or null. */
+export function findWindowCenterMarker(sx, sy) {
+  const HIT_RADIUS = 12;
+  for (let i = S.polygons.length - 1; i >= 0; i--) {
+    const poly = S.polygons[i];
+    if ((poly.areaType || '').toLowerCase() !== 'fenster') continue;
+    if (poly.points.length < 3) continue;
+    const c = labelPoint(poly.points);
+    const s = w2s(c.x, c.y);
+    if (Math.hypot(s.x - sx, s.y - sy) <= HIT_RADIUS) return i;
+  }
+  return null;
+}
+
 export function findNearEdge(sx, sy) {
   let best = null, bestD = EDGE_HIT_RADIUS;
   for (let pi = 0; pi < S.polygons.length; pi++) {

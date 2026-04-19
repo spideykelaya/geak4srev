@@ -66,29 +66,33 @@ object AreaState:
     * Groups polygons by label prefix, routes each group to the matching ComponentType.
     * Preserves manually-set fields (quantity, orientation) for matching labels.
     */
-  def syncPolygons(polygons: Seq[(String, String, Double)]): Unit =
+  def syncPolygons(polygons: Seq[(String, String, Double, Option[Double], Option[Double])]): Unit =
     val normalized = polygons
-      .map((label, areaType, area) => (label.trim, areaType.trim, if area.isNaN || area < 0 then 0.0 else area))
+      .map((label, areaType, area, ovhDist, sdDist) => (label.trim, areaType.trim, if area.isNaN || area < 0 then 0.0 else area, ovhDist, sdDist))
       .filter(_._1.nonEmpty)
 
     // Route each polygon to a ComponentType using areaType if present, else fall back to label inference.
     // Polygons that don't match any known type default to EBF so they are never silently dropped.
-    val byType: Map[ComponentType, Seq[(String, Double)]] =
+    val byType: Map[ComponentType, Seq[(String, Double, Option[Double], Option[Double])]] =
       normalized
-        .groupBy { case (label, areaType, _) =>
+        .groupBy { case (label, areaType, _, _, _) =>
           val resolved =
             if areaType.nonEmpty then ComponentType.fromPolygonLabel(areaType)
             else ComponentType.fromPolygonLabel(label)
           resolved.getOrElse(ComponentType.EBF)
         }
-        .map { case (ct, entries) => ct -> entries.map((label, _, area) => (label, area)) }
+        .map { case (ct, entries) => ct -> entries.map((label, _, area, ovhDist, sdDist) => (label, area, ovhDist, sdDist)) }
 
-    // Clear any ComponentType that had entries before but has no polygons now
+    // For types with no polygons in this sync: clear polygon-derived entries but keep manual ones.
     val presentTypes = byType.keySet
     areaCalculations.now().foreach { area =>
       area.calculations
-        .filter(c => c.entries.nonEmpty && !presentTypes.contains(c.componentType))
-        .foreach(c => updateAreaCalculation(c.componentType, List.empty))
+        .filter(c => !presentTypes.contains(c.componentType))
+        .foreach { c =>
+          val manualOnly = c.entries.filter(_.isManual)
+          if manualOnly.length != c.entries.length then
+            updateAreaCalculation(c.componentType, manualOnly)
+        }
     }
 
     byType.foreach { case (compType, typePolygons) =>
@@ -97,14 +101,16 @@ object AreaState:
         .map(_.entries)
         .getOrElse(List.empty)
 
-      val syncedEntries = typePolygons.map { case (rawLabel, polygonArea) =>
-        existingEntries.find(_.kuerzel == rawLabel) match
+      val syncedEntries = typePolygons.map { case (rawLabel, polygonArea, ovhDist, sdDist) =>
+        existingEntries.find(e => e.kuerzel == rawLabel && !e.isManual) match
           case Some(current) =>
             current.copy(
               area = polygonArea,
               totalArea = polygonArea * current.quantity,
               areaNew = polygonArea,
-              totalAreaNew = polygonArea * current.quantityNew
+              totalAreaNew = polygonArea * current.quantityNew,
+              overhangDist   = ovhDist.getOrElse(current.overhangDist),
+              sideShadingDist = sdDist.getOrElse(current.sideShadingDist)
             )
           case None =>
             AreaEntry.empty(rawLabel).copy(
@@ -113,11 +119,15 @@ object AreaState:
               totalArea = polygonArea,
               areaNew = polygonArea,
               quantityNew = 1,
-              totalAreaNew = polygonArea
+              totalAreaNew = polygonArea,
+              overhangDist    = ovhDist.getOrElse(0.0),
+              sideShadingDist = sdDist.getOrElse(0.0)
             )
       }.toList
 
-      updateAreaCalculation(compType, syncedEntries)
+      // Manual entries for this type are preserved alongside polygon-derived ones
+      val manualEntries = existingEntries.filter(_.isManual)
+      updateAreaCalculation(compType, syncedEntries ++ manualEntries)
     }
 
   /** Rename a kuerzel across all component types (triggered when EBF polygon is renamed) */

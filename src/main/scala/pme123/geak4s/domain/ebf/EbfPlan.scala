@@ -15,7 +15,9 @@ case class EbfPolygon(
     color: String,
     pixelArea: Double,
     area: Option[Double],          // None when not calibrated
-    inclination: Option[Double] = None
+    inclination: Option[Double] = None,
+    overhangDist: Option[Double] = None,
+    sideDist: Option[Double] = None
 )
 
 /** A distance measurement on an EBF plan */

@@ -22,6 +22,9 @@ export const S = {
   panning: false, lastMouse: null,
   mouse: null,         // {sx, sy, wx, wy}
   nextId: 1, nextMeasId: 1, nextAngleId: 1, nextAnnotationId: 1,
+  shadingPolyId:  null, // polygon ID being measured for shading (stable, not an index)
+  shadingType:    null, // 'overhang' | 'side'
+  shadingPt1:     null, // world-coord center point of shading measure
   dragVertex: null,    // {polyIdx, vtxIdx}
   dragPoly:       null,    // {polyIdx, startWX, startWY, origPoints, origLabelOffset}
   dragMeas:       null,    // {measIdx, startWX, startWY, origPt1, origPt2}
@@ -87,7 +90,7 @@ export function px2m2(px) {
 
 export function setMode(m) {
   S.mode = m;
-  canvas.style.cursor = (m === 'draw' || m === 'measure' || m === 'angle' || m === 'text' || m.startsWith('calibrate'))
+  canvas.style.cursor = (m === 'draw' || m === 'measure' || m === 'angle' || m === 'text' || m === 'shading_measure' || m.startsWith('calibrate'))
     ? 'crosshair' : 'grab';
 }
 
@@ -103,9 +106,11 @@ export function emitPolygonSyncEvent() {
         const raw = Number.isFinite(poly.area) ? poly.area : 0;
         const area = (inc > 0) ? raw / Math.cos(inc * Math.PI / 180) : raw;
         return {
-          label:    (poly.label    || '').trim(),
-          areaType: (poly.areaType || '').trim(),
+          label:       (poly.label    || '').trim(),
+          areaType:    (poly.areaType || '').trim(),
           area,
+          overhangDist: Number.isFinite(poly.overhangDist) ? poly.overhangDist : null,
+          sideDist:     Number.isFinite(poly.sideDist)     ? poly.sideDist     : null,
         };
       })
       .filter(poly => poly.label)

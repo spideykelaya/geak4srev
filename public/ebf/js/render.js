@@ -1,5 +1,5 @@
 import { S, canvas, ctx, w2s, pxVecToM }                          from './state.js';
-import { CLOSE_VERTEX_RADIUS, SNAP_RADIUS, MEAS_COLOR, ANGLE_COLOR } from './config.js';
+import { CLOSE_VERTEX_RADIUS, SNAP_RADIUS, MEAS_COLOR, ANGLE_COLOR, SHADING_COLOR } from './config.js';
 import { labelPoint, clamp, fmtArea, fmtLength }          from './geo.js';
 import { colorForCurrentAreaType }                        from './sidebar.js';
 
@@ -21,6 +21,7 @@ export function render() {
   ctx.setTransform(S.zoom, 0, 0, S.zoom, S.panX, S.panY);
   ctx.drawImage(S.image, 0, 0);
   S.polygons.forEach(drawPolygon);
+  drawWindowCenterMarkers();
   S.measurements.forEach(drawMeasurement);
   S.angles.forEach(drawAngle);
   S.annotations.forEach(drawAnnotation);
@@ -28,6 +29,7 @@ export function render() {
   drawCurrentPolygon();
   drawMeasureLine();
   drawAngleLine();
+  drawShadingLine();
   ctx.restore();
 
   drawEdgeLengthTooltip(); // screen-space overlay
@@ -302,6 +304,69 @@ function drawAnnotation(ann) {
   // Dark text
   ctx.fillStyle = '#111';
   lines.forEach((line, i) => ctx.fillText(line, ann.x + pad, ann.y + pad * 0.75 + i * lineH));
+}
+
+// ── Window shading markers ────────────────────────────────────────────────────
+function drawWindowCenterMarkers() {
+  S.polygons.forEach(poly => {
+    if ((poly.areaType || '').toLowerCase() !== 'fenster') return;
+    if (poly.points.length < 3) return;
+    const c = labelPoint(poly.points);
+    const r = 9 / S.zoom;
+    // Amber circle
+    ctx.beginPath(); ctx.arc(c.x, c.y, r, 0, Math.PI * 2);
+    ctx.fillStyle = SHADING_COLOR + 'cc'; ctx.fill();
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5 / S.zoom; ctx.setLineDash([]); ctx.stroke();
+    // Cross
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5 / S.zoom;
+    ctx.beginPath(); ctx.moveTo(c.x - r * 0.6, c.y); ctx.lineTo(c.x + r * 0.6, c.y); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(c.x, c.y - r * 0.6); ctx.lineTo(c.x, c.y + r * 0.6); ctx.stroke();
+    // Show stored shading measurements near the marker
+    const fsz = clamp(10 / S.zoom, 8, 20);
+    ctx.font = `bold ${fsz}px system-ui, sans-serif`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    const lineH = fsz * 1.4;
+    let offsetY = r + lineH;
+    if (Number.isFinite(poly.overhangDist)) {
+      const lbl = `Ü: ${fmtLength(poly.overhangDist)}`;
+      const tw = ctx.measureText(lbl).width;
+      ctx.fillStyle = 'rgba(0,0,0,0.7)';
+      rrect(c.x - tw / 2 - 4 / S.zoom, c.y + offsetY - lineH / 2, tw + 8 / S.zoom, lineH, 3 / S.zoom);
+      ctx.fill();
+      ctx.fillStyle = SHADING_COLOR; ctx.fillText(lbl, c.x, c.y + offsetY);
+      offsetY += lineH + 2 / S.zoom;
+    }
+    if (Number.isFinite(poly.sideDist)) {
+      const lbl = `S: ${fmtLength(poly.sideDist)}`;
+      const tw = ctx.measureText(lbl).width;
+      ctx.fillStyle = 'rgba(0,0,0,0.7)';
+      rrect(c.x - tw / 2 - 4 / S.zoom, c.y + offsetY - lineH / 2, tw + 8 / S.zoom, lineH, 3 / S.zoom);
+      ctx.fill();
+      ctx.fillStyle = SHADING_COLOR; ctx.fillText(lbl, c.x, c.y + offsetY);
+    }
+  });
+}
+
+function drawShadingLine() {
+  if (S.mode !== 'shading_measure' || !S.shadingPt1 || !S.mouse) return;
+  const pt2 = { x: S.mouse.wx, y: S.mouse.wy };
+  const dx = pt2.x - S.shadingPt1.x, dy = pt2.y - S.shadingPt1.y;
+  const realLen = pxVecToM(dx, dy);
+  const lbl = realLen !== null ? fmtLength(realLen) : Math.hypot(dx, dy).toFixed(1) + ' px';
+  ctx.strokeStyle = SHADING_COLOR; ctx.lineWidth = 2 / S.zoom;
+  ctx.setLineDash([6 / S.zoom, 4 / S.zoom]);
+  ctx.beginPath(); ctx.moveTo(S.shadingPt1.x, S.shadingPt1.y); ctx.lineTo(pt2.x, pt2.y);
+  ctx.stroke(); ctx.setLineDash([]);
+  dot(pt2, SHADING_COLOR, 4 / S.zoom);
+  const mx = (S.shadingPt1.x + pt2.x) / 2, my = (S.shadingPt1.y + pt2.y) / 2;
+  const fsz = clamp(12 / S.zoom, 9, 28);
+  ctx.font = `bold ${fsz}px system-ui, sans-serif`;
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  const tw = ctx.measureText(lbl).width, th = fsz * 1.5;
+  ctx.fillStyle = 'rgba(0,0,0,0.7)';
+  rrect(mx - tw / 2 - 5 / S.zoom, my - th / 2, tw + 10 / S.zoom, th, 3 / S.zoom);
+  ctx.fill();
+  ctx.fillStyle = SHADING_COLOR; ctx.fillText(lbl, mx, my);
 }
 
 // ── Canvas primitives ─────────────────────────────────────────────────────────

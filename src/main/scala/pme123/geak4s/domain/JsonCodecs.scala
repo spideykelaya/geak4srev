@@ -159,7 +159,12 @@ object JsonCodecs:
       quantityNew    <- c.getOrElse[Int]("quantityNew")(1)
       totalAreaNew   <- c.getOrElse[Double]("totalAreaNew")(0.0)
       descriptionNew <- c.getOrElse[String]("descriptionNew")("")
-    yield AreaEntry(kuerzel, orientation, description, length, width, area, quantity, totalArea, areaNew, quantityNew, totalAreaNew, descriptionNew)
+      isManual        <- c.getOrElse[Boolean]("isManual")(false)
+      overhang        <- c.getOrElse[Double]("overhang")(0.0)
+      overhangDist    <- c.getOrElse[Double]("overhangDist")(0.0)
+      sideShading     <- c.getOrElse[Double]("sideShading")(0.0)
+      sideShadingDist <- c.getOrElse[Double]("sideShadingDist")(0.0)
+    yield AreaEntry(kuerzel, orientation, description, length, width, area, quantity, totalArea, areaNew, quantityNew, totalAreaNew, descriptionNew, isManual, overhang, overhangDist, sideShading, sideShadingDist)
   }
 
   given Encoder[AreaCalculation] = deriveEncoder[AreaCalculation]
@@ -237,8 +242,10 @@ object JsonCodecs:
       color       <- c.get[String]("color")
       pixelArea   <- c.get[Double]("pixelArea")
       area        <- c.getOrElse[Option[Double]]("area")(None)
-      inclination <- c.getOrElse[Option[Double]]("inclination")(None)
-    yield EbfPolygon(id, label, areaType, points, color, pixelArea, area, inclination)
+      inclination  <- c.getOrElse[Option[Double]]("inclination")(None)
+      overhangDist <- c.getOrElse[Option[Double]]("overhangDist")(None)
+      sideDist     <- c.getOrElse[Option[Double]]("sideDist")(None)
+    yield EbfPolygon(id, label, areaType, points, color, pixelArea, area, inclination, overhangDist, sideDist)
   }
   given Encoder[EbfPolygon] = deriveEncoder[EbfPolygon]
 

@@ -1,8 +1,8 @@
 'use strict';
 
-import { S, initDom, canvas, s2w, w2s, setMode, px2m2, $, emitPolygonSyncEvent, emitPlansSyncEvent, EBF_LOAD_PLANS_EVENT } from './state.js';
+import { S, initDom, canvas, s2w, w2s, setMode, px2m2, pxVecToM, $, emitPolygonSyncEvent, emitPlansSyncEvent, EBF_LOAD_PLANS_EVENT } from './state.js';
 import { PDFJS_WORKER, SNAP_RADIUS }                      from './config.js';
-import { shoelace, findNearVertex, findNearEdge, dist, labelPoint, findPolygonAt, findNearMeasurement, findNearAnnotation } from './geo.js';
+import { shoelace, findNearVertex, findNearEdge, dist, labelPoint, findPolygonAt, findNearMeasurement, findNearAnnotation, findWindowCenterMarker } from './geo.js';
 import { render }                                         from './render.js';
 import { updateSidebar, nextPolygonLabel, setSwitchPlanHandler, setCurrentAreaTypeLabel, colorForCurrentAreaType, getCurrentAreaTypeLabel, pasteFromClipboard, setSaveAnnotationsHandler } from './sidebar.js';
 import { loadPDF, loadPDFPages, loadImg, exportData, exportExcel, exportXML, importData, printView, loadImageFromDataUrl } from './io.js';
@@ -701,6 +701,104 @@ function finishPolygon() {
   emitPlansSyncEvent();
 }
 
+// ── Window shading measurement ────────────────────────────────────────────────
+function showShadingTypeDialog(polyIdx) {
+  // Store polygon ID (not index) so lookup stays valid after any array changes
+  const poly = S.polygons[polyIdx];
+  if (!poly) return;
+  const polyId = poly.id;
+
+  const overlay = document.createElement('div');
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center;';
+
+  const dialog = document.createElement('div');
+  dialog.style.cssText = 'background:#1a1a28;border:1px solid rgba(255,255,255,0.1);border-radius:12px;padding:24px;min-width:280px;box-shadow:0 8px 32px rgba(0,0,0,0.5);font-family:system-ui,sans-serif;color:#f0f0f8;';
+
+  const title = document.createElement('h3');
+  title.textContent = 'Verschattung messen';
+  title.style.cssText = 'margin:0 0 8px;font-size:16px;';
+
+  const desc = document.createElement('p');
+  desc.textContent = 'Was möchten Sie ausmessen?';
+  desc.style.cssText = 'margin:0 0 18px;font-size:13px;color:#aaa;';
+
+  const btnRow = document.createElement('div');
+  btnRow.style.cssText = 'display:flex;gap:10px;justify-content:center;';
+
+  const closeAndStart = (type) => {
+    document.body.removeChild(overlay);
+    enterShadingMeasure(polyId, type);
+  };
+
+  const ovhBtn = document.createElement('button');
+  ovhBtn.textContent = 'Überhang';
+  ovhBtn.style.cssText = 'padding:10px 20px;font-size:13px;font-weight:600;background:#f59e0b;color:#000;border:none;border-radius:8px;cursor:pointer;';
+  ovhBtn.addEventListener('click', () => closeAndStart('overhang'));
+
+  const sideBtn = document.createElement('button');
+  sideBtn.textContent = 'Seitenblende';
+  sideBtn.style.cssText = 'padding:10px 20px;font-size:13px;font-weight:600;background:#6d5acd;color:#fff;border:none;border-radius:8px;cursor:pointer;';
+  sideBtn.addEventListener('click', () => closeAndStart('side'));
+
+  const cancelBtn = document.createElement('button');
+  cancelBtn.textContent = 'Abbrechen';
+  cancelBtn.style.cssText = 'margin-top:10px;padding:8px 14px;font-size:12px;font-weight:600;background:transparent;color:#888;border:1px solid rgba(255,255,255,0.15);border-radius:8px;cursor:pointer;display:block;margin-left:auto;';
+  cancelBtn.addEventListener('click', () => document.body.removeChild(overlay));
+
+  btnRow.appendChild(ovhBtn); btnRow.appendChild(sideBtn);
+  dialog.appendChild(title); dialog.appendChild(desc); dialog.appendChild(btnRow); dialog.appendChild(cancelBtn);
+  overlay.appendChild(dialog);
+  document.body.appendChild(overlay);
+}
+
+function enterShadingMeasure(polyId, type) {
+  // Find polygon by ID for stable reference
+  const poly = S.polygons.find(p => p.id === polyId);
+  if (!poly) return;
+  S.shadingPolyId = polyId;   // store ID, not index
+  S.shadingType   = type;
+  S.shadingPt1    = labelPoint(poly.points); // center fixed as pt1
+  setMode('shading_measure');
+  setInstructions(type === 'overhang'
+    ? 'Klicken Sie auf den Punkt am Überhang'
+    : 'Klicken Sie auf den Punkt an der Seitenblende');
+  render();
+}
+
+function finishShadingMeasure(wp) {
+  // Find polygon by ID (stable even if array order changes)
+  const poly = S.polygons.find(p => p.id === S.shadingPolyId);
+  if (!poly || !S.shadingPt1) { cancelShadingMeasure(); return; }
+
+  const dx = wp.x - S.shadingPt1.x, dy = wp.y - S.shadingPt1.y;
+  const realLen = pxVecToM(dx, dy);
+
+  if (realLen === null) {
+    // No calibration — stay in shading mode so user can try after calibrating
+    setInstructions('⚠ Plan nicht kalibriert – bitte zuerst den Massstab setzen');
+    return;
+  }
+
+  if (S.shadingType === 'overhang') poly.overhangDist = realLen;
+  else                               poly.sideDist     = realLen;
+
+  console.log(`[EBF] shading saved: type=${S.shadingType} dist=${realLen.toFixed(3)}m poly=${poly.label}`);
+
+  S.shadingPolyId = null; S.shadingType = null; S.shadingPt1 = null;
+  setMode('idle');
+  setInstructions('Verschattung gespeichert ✓');
+  setTimeout(() => setInstructions(''), 2000);
+  updateSidebar(); render();
+  emitPolygonSyncEvent();
+  saveCurrentPlanState();
+  emitPlansSyncEvent();
+}
+
+function cancelShadingMeasure() {
+  S.shadingPolyId = null; S.shadingType = null; S.shadingPt1 = null;
+  setMode('idle'); setInstructions(''); render();
+}
+
 function startMeasuring() {
   if (!S.image) return;
   S.measPt1 = null; setMode('measure');
@@ -821,6 +919,7 @@ function cancelCurrent() {
   else if (S.mode === 'measure')           { S.measPt1 = null; setMode('idle'); setInstructions(''); render(); }
   else if (S.mode === 'angle')             { S.anglePt1 = null; S.anglePt2 = null; setMode('idle'); setInstructions(''); render(); }
   else if (S.mode === 'text')              { setMode('idle'); setInstructions(''); }
+  else if (S.mode === 'shading_measure') cancelShadingMeasure();
   else if (S.mode.startsWith('calibrate')) cancelCalibration();
 }
 
@@ -887,6 +986,14 @@ function onMouseDown(e) {
     }
     render(); return;
   }
+  if (S.mode === 'shading_measure') {
+    finishShadingMeasure(wp);
+    return;
+  }
+
+  // Idle: check shading center markers first (inside polygon, needs priority)
+  const shadingIdx = findWindowCenterMarker(sx, sy);
+  if (shadingIdx !== null) { showShadingTypeDialog(shadingIdx); return; }
 
   // Idle: drag vertex → label → measurement → polygon fill → pan
   const nv = findNearVertex(sx, sy);

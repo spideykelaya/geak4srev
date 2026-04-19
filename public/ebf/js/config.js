@@ -5,3 +5,4 @@ export const CLOSE_VERTEX_RADIUS = 6;    // world px  – vertex dot size
 export const EDGE_HIT_RADIUS     = 8;    // screen px – edge tooltip trigger
 export const MEAS_COLOR          = '#fbbf24';
 export const ANGLE_COLOR         = '#22d3ee';
+export const SHADING_COLOR       = '#f59e0b';

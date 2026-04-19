@@ -55,6 +55,16 @@ object AreaView:
         ComponentType.orderedVisibleTypes.filter(present.contains).toList
       }
 
+  // ComponentTypes not yet shown — available for manual addition
+  private val missingTypesSignal: Signal[List[ComponentType]] =
+    allTypesSignal.map { shown =>
+      ComponentType.orderedVisibleTypes.filterNot(shown.contains).toList
+    }
+
+  private def addManualSection(ct: ComponentType): Unit =
+    val entry = AreaEntry.empty("").copy(isManual = true)
+    saveEntriesToState(ct, List(entry))
+
   private lazy val viewElement: HtmlElement =
     div(
       className := "area-view",
@@ -77,6 +87,27 @@ object AreaView:
           padding   := "1.5rem",
           children <-- allTypesSignal.split(identity) { (ct, _, _) =>
             renderSection(ct)
+          },
+          child <-- missingTypesSignal.map { missing =>
+            if missing.isEmpty then div()
+            else
+              div(
+                marginTop := "1.5rem",
+                select(
+                  styleAttr := "padding:0.4rem 0.6rem;min-width:280px;border:1px solid #ccc;border-radius:4px;font-size:0.9rem;cursor:pointer",
+                  option(value := "", disabled := true, selected := true, "Abschnitt manuell hinzufügen …"),
+                  missing.map(ct => option(value := ct.polygonLabel, ct.label)),
+                  onChange --> Observer[org.scalajs.dom.Event] { e =>
+                    val sel = e.target.asInstanceOf[org.scalajs.dom.html.Select]
+                    ComponentType.orderedVisibleTypes
+                      .find(_.polygonLabel == sel.value)
+                      .foreach { ct =>
+                        addManualSection(ct)
+                        sel.value = "" // reset so same type can be selected again if needed
+                      }
+                  }
+                )
+              )
           }
         )
       )
