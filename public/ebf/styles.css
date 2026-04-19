@@ -333,6 +333,28 @@ h1 {
   flex-shrink: 0;
 }
 
+.btn-copy {
+  background: none;
+  border: none;
+  color: var(--text-3);
+  cursor: pointer;
+  font-size: 13px;
+  line-height: 1;
+  padding: 2px 3px;
+  border-radius: 4px;
+  transition: background 0.1s, color 0.1s;
+  flex-shrink: 0;
+}
+.btn-copy:hover { color: var(--accent-hi); background: rgba(155,138,244,0.1); }
+
+.btn-paste {
+  background: rgba(155,138,244,0.08);
+  border-color: rgba(155,138,244,0.18);
+  color: var(--accent-hi);
+}
+.btn-paste:hover:not(:disabled) { background: rgba(155,138,244,0.16); }
+.btn-paste:disabled { opacity: 0.3; cursor: not-allowed; }
+
 .btn-delete {
   background: none;
   border: none;

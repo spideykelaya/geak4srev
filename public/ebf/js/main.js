@@ -4,7 +4,7 @@ import { S, initDom, canvas, s2w, w2s, setMode, px2m2, $, emitPolygonSyncEvent, 
 import { PDFJS_WORKER, SNAP_RADIUS }                      from './config.js';
 import { shoelace, findNearVertex, findNearEdge, dist, labelPoint } from './geo.js';
 import { render }                                         from './render.js';
-import { updateSidebar, nextPolygonLabel, setSwitchPlanHandler, setCurrentAreaTypeLabel, colorForCurrentAreaType, getCurrentAreaTypeLabel } from './sidebar.js';
+import { updateSidebar, nextPolygonLabel, setSwitchPlanHandler, setCurrentAreaTypeLabel, colorForCurrentAreaType, getCurrentAreaTypeLabel, pasteFromClipboard } from './sidebar.js';
 import { loadPDF, loadPDFPages, loadImg, exportData, exportExcel, exportXML, importData, printView, loadImageFromDataUrl } from './io.js';
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = PDFJS_WORKER;
@@ -122,6 +122,7 @@ function bindUI(ownerDocument) {
   $('draw-btn').addEventListener('click', startDrawing);
   $('measure-btn').addEventListener('click', startMeasuring);
   $('angle-btn').addEventListener('click', startAngling);
+  $('paste-btn').addEventListener('click', pasteFromClipboard);
   $('clear-btn').addEventListener('click', clearAll);
   $('export-btn').addEventListener('click', exportData);
   $('export-excel-btn').addEventListener('click', exportExcel);

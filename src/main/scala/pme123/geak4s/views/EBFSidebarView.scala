@@ -164,6 +164,7 @@ object EBFSidebarView:
       button(className := "btn btn-success btn-draw-main", idAttr := "draw-btn", "Neues Polygon"),
       button(className := "btn btn-measure", idAttr := "measure-btn", "Distanz messen"),
       button(className := "btn btn-angle", idAttr := "angle-btn", "Winkel messen"),
+      button(className := "btn btn-paste", idAttr := "paste-btn", disabled := true, title := "Zwischenablage leer", "Einfügen"),
       button(className := "btn btn-danger", idAttr := "clear-btn", "Alles loeschen"),
       div(className := "tools-divider"),
       div(className := "section-label", "Export"),

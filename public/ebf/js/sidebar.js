@@ -1,11 +1,58 @@
-import { S, $, emitPolygonSyncEvent, emitPlansSyncEvent, pxVecToM } from './state.js';
+import { S, $, emitPolygonSyncEvent, emitPlansSyncEvent, pxVecToM, px2m2 } from './state.js';
 import { MEAS_COLOR, ANGLE_COLOR }  from './config.js';
-import { fmtArea, fmtLength } from './geo.js';
+import { fmtArea, fmtLength, shoelace } from './geo.js';
 import { render }                  from './render.js';
 
 const DEFAULT_POLYGON_LABEL = 'Flaeche';
 
 let currentAreaTypeLabel = DEFAULT_POLYGON_LABEL;
+
+// ── Clipboard (persists across plan switches) ─────────────────────────────────
+let clipboard = null; // { type: 'polygon' | 'measurement', data: {...} }
+
+function setClipboard(type, data) {
+  clipboard = { type, data: JSON.parse(JSON.stringify(data)) };
+  updatePasteBtn();
+}
+
+function updatePasteBtn() {
+  const btn = $('paste-btn');
+  if (!btn) return;
+  btn.disabled = !clipboard;
+  btn.title = clipboard
+    ? (clipboard.type === 'polygon' ? 'Fläche einfügen' : 'Distanz einfügen')
+    : 'Zwischenablage leer';
+}
+
+export function pasteFromClipboard() {
+  if (!clipboard) return;
+  const OFFSET = 30; // world-pixel nudge so paste doesn't land exactly on original
+  if (clipboard.type === 'polygon') {
+    const src = clipboard.data;
+    const pts = src.points.map(p => ({ x: p.x + OFFSET, y: p.y + OFFSET }));
+    const pixelArea = shoelace(pts);
+    S.polygons.push({
+      ...src,
+      id: S.nextId++,
+      label: createUniquePolygonLabel(src.label),
+      points: pts,
+      pixelArea,
+      area: px2m2(pixelArea),
+      labelOffset: null,
+    });
+    updateSidebar(); render();
+    emitPolygonSyncEvent();
+    emitPlansSyncEvent();
+  } else if (clipboard.type === 'measurement') {
+    const src = clipboard.data;
+    S.measurements.push({
+      id: S.nextMeasId++,
+      pt1: { x: src.pt1.x + OFFSET, y: src.pt1.y + OFFSET },
+      pt2: { x: src.pt2.x + OFFSET, y: src.pt2.y + OFFSET },
+    });
+    updateSidebar(); render();
+  }
+}
 
 const POLYGON_PREFIXES = {
   'EBF':                   'EBF',
@@ -90,6 +137,7 @@ export function updateSidebar() {
   updatePolygonList();
   updateMeasurementList();
   updateAngleList();
+  updatePasteBtn();
 }
 
 // ── Plans ─────────────────────────────────────────────────────────────────────
@@ -265,8 +313,12 @@ function updatePolygonList() {
     areaEl.className = 'polygon-area';
     areaEl.textContent = fmtArea(displayArea);
 
+    const copy = document.createElement('button');
+    copy.className = 'btn-copy'; copy.textContent = '\u29c9'; copy.title = 'Kopieren';
+    copy.onclick = () => setClipboard('polygon', poly);
+
     const del = document.createElement('button');
-    del.className = 'btn-delete'; del.textContent = '\u00d7'; del.title = 'Supprimer';
+    del.className = 'btn-delete'; del.textContent = '\u00d7'; del.title = 'Löschen';
     del.onclick = () => {
       S.polygons = S.polygons.filter(p => p.label !== poly.label);
       updateSidebar(); render();
@@ -275,9 +327,9 @@ function updatePolygonList() {
     };
 
     if (NEIGUNG_TYPES.has(poly.areaType)) {
-      li.append(cdot, lbl, createInclinationInput(poly), areaEl, del);
+      li.append(cdot, lbl, createInclinationInput(poly), areaEl, copy, del);
     } else {
-      li.append(cdot, lbl, areaEl, del);
+      li.append(cdot, lbl, areaEl, copy, del);
     }
     listEl.appendChild(li);
     if (displayArea !== null) { total += displayArea; hasScale = true; }
@@ -317,6 +369,10 @@ function updateMeasurementList() {
     val.className = 'polygon-area';
     val.textContent = realLen !== null ? fmtLength(realLen) : Math.hypot(dx, dy).toFixed(1) + ' px';
 
+    const copy = document.createElement('button');
+    copy.className = 'btn-copy'; copy.textContent = '\u29c9'; copy.title = 'Kopieren';
+    copy.onclick = () => setClipboard('measurement', meas);
+
     const del = document.createElement('button');
     del.className = 'btn-delete'; del.textContent = '\u00d7';
     del.onclick = () => {
@@ -324,7 +380,7 @@ function updateMeasurementList() {
       updateSidebar(); render();
     };
 
-    li.append(icon, lbl, val, del);
+    li.append(icon, lbl, val, copy, del);
     listEl.appendChild(li);
   });
 }
