@@ -72,6 +72,21 @@ export function findPolygonAt(sx, sy) {
   return null;
 }
 
+/** Returns annotation index whose bounding box contains screen point, or null. */
+export function findNearAnnotation(sx, sy) {
+  for (let i = S.annotations.length - 1; i >= 0; i--) {
+    const ann = S.annotations[i];
+    const sp = w2s(ann.x, ann.y);
+    const lines = (ann.text || ' ').split('\n');
+    const charW = 7.5; // approx px per char at 13px font
+    const lineH = 18;
+    const w = Math.max(...lines.map(l => l.length)) * charW + 20;
+    const h = lines.length * lineH + 10;
+    if (sx >= sp.x - 4 && sx <= sp.x + w && sy >= sp.y - 4 && sy <= sp.y + h) return i;
+  }
+  return null;
+}
+
 /** Returns measurement index whose line is within EDGE_HIT_RADIUS of screen point, or null. */
 export function findNearMeasurement(sx, sy) {
   for (let i = S.measurements.length - 1; i >= 0; i--) {
@@ -114,15 +129,12 @@ export function findNearEdge(sx, sy) {
 // ── Formatters ────────────────────────────────────────────────────────────────
 export function fmtArea(m2) {
   if (m2 === null) return '?';
-  if (m2 >= 10000) return (m2 / 10000).toFixed(3) + ' ha';
-  if (m2 >= 1)     return m2.toFixed(3) + ' m\u00b2';
-  return (m2 * 10000).toFixed(1) + ' cm\u00b2';
+  return m2.toFixed(3) + ' m\u00b2';
 }
 
 export function fmtLength(m) {
-  if (m >= 1000) return (m / 1000).toFixed(3) + ' km';
-  if (m >= 1)    return m.toFixed(3) + ' m';
-  return (m * 100).toFixed(1) + ' cm';
+  if (m === null) return '?';
+  return m.toFixed(3) + ' m';
 }
 
 export function esc(str) {

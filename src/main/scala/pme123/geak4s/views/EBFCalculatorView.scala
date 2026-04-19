@@ -143,7 +143,7 @@ object EBFCalculatorView:
         unmountHandle.foreach(_())
         unmountHandle = None
       },
-      htmlTag("link")(rel := "stylesheet", href := "/ebf/styles.css?v=15"),
+      htmlTag("link")(rel := "stylesheet", href := "/ebf/styles.css?v=18"),
       div(
         className := "app",
         styleAttr := "height: 100%;",

@@ -137,6 +137,7 @@ export function updateSidebar() {
   updatePolygonList();
   updateMeasurementList();
   updateAngleList();
+  updateAnnotationList();
   updatePasteBtn();
 }
 
@@ -423,6 +424,46 @@ function updateAngleList() {
     listEl.appendChild(li);
   });
 }
+
+// ── Annotations ───────────────────────────────────────────────────────────────
+function updateAnnotationList() {
+  const section = $('annotations-section');
+  const listEl  = $('annotation-list');
+  if (!section || !listEl) return;
+  if (!S.annotations.length) { section.style.display = 'none'; return; }
+  section.style.display = 'block';
+  listEl.innerHTML = '';
+
+  S.annotations.forEach(ann => {
+    const li = document.createElement('li');
+    li.className = 'polygon-item';
+
+    const icon = document.createElement('span');
+    icon.className = 'color-dot';
+    icon.style.cssText = 'background:rgba(155,138,244,0.7);border-radius:2px;width:8px;height:8px;flex-shrink:0';
+
+    const lbl = document.createElement('span');
+    lbl.className = 'polygon-label';
+    lbl.title = ann.text;
+    lbl.textContent = ann.text.split('\n')[0] || '…';
+
+    const del = document.createElement('button');
+    del.className = 'btn-delete'; del.textContent = '\u00d7'; del.title = 'Löschen';
+    del.onclick = () => {
+      S.annotations = S.annotations.filter(a => a.id !== ann.id);
+      updateSidebar(); render();
+      saveAnnotations();
+    };
+
+    li.append(icon, lbl, del);
+    listEl.appendChild(li);
+  });
+}
+
+// saveAnnotations is resolved at runtime from main.js via exported ref
+let _saveAnnotations = () => {};
+export function setSaveAnnotationsHandler(fn) { _saveAnnotations = fn; }
+function saveAnnotations() { _saveAnnotations(); }
 
 // ── Plan deletion ──────────────────────────────────────────────────────────
 function showPlanDeleteConfirm(planId, planLabel) {

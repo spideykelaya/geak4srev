@@ -23,6 +23,7 @@ export function render() {
   S.polygons.forEach(drawPolygon);
   S.measurements.forEach(drawMeasurement);
   S.angles.forEach(drawAngle);
+  S.annotations.forEach(drawAnnotation);
   drawCalibLine();
   drawCurrentPolygon();
   drawMeasureLine();
@@ -276,6 +277,31 @@ function drawCurrentPolygon() {
       ctx.fillStyle = color; ctx.fillText(lbl, mx, my);
     }
   }
+}
+
+// ── Annotations ───────────────────────────────────────────────────────────────
+function drawAnnotation(ann) {
+  const text = ann.text || '';
+  if (!text.trim()) return;
+  const lines  = text.split('\n');
+  const fsz    = ann.fontSize || 16;
+  const lineH  = fsz * 1.45;
+  const pad    = 8 / S.zoom;
+  ctx.font = `${fsz}px system-ui, sans-serif`;
+  ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+  const maxW = Math.max(...lines.map(l => ctx.measureText(l).width));
+  const boxW = maxW + pad * 2;
+  const boxH = lineH * lines.length + pad * 1.5;
+  // White background
+  ctx.fillStyle = '#fff';
+  rrect(ann.x, ann.y, boxW, boxH, 5 / S.zoom);
+  ctx.fill();
+  // Black border
+  ctx.strokeStyle = '#000'; ctx.lineWidth = 1.5 / S.zoom; ctx.setLineDash([]);
+  ctx.stroke();
+  // Dark text
+  ctx.fillStyle = '#111';
+  lines.forEach((line, i) => ctx.fillText(line, ann.x + pad, ann.y + pad * 0.75 + i * lineH));
 }
 
 // ── Canvas primitives ─────────────────────────────────────────────────────────

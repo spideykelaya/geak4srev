@@ -21,7 +21,7 @@ function ensurePdfJsLoaded() {
 
 async function mountEbfCalculator(root) {
   await ensurePdfJsLoaded();
-  const module = await import('/ebf/js/main.js?v=15');
+  const module = await import('/ebf/js/main.js?v=22');
   return module.mountEbf(root || document);
 }
 
@@ -63,7 +63,7 @@ const TEMPLATE = `
 
     .app { height: 100% !important; }
   </style>
-  <link rel="stylesheet" href="/ebf/styles.css?v=15">
+  <link rel="stylesheet" href="/ebf/styles.css?v=22">
 
   <div class="app">
     <aside class="sidebar">
@@ -132,6 +132,7 @@ const TEMPLATE = `
           <button class="btn btn-success btn-draw-main" id="draw-btn">Neues Polygon</button>
           <button class="btn btn-measure" id="measure-btn">Distanz messen</button>
           <button class="btn btn-angle" id="angle-btn">Winkel messen</button>
+          <button class="btn btn-text" id="text-btn">Kommentar</button>
           <button class="btn btn-paste" id="paste-btn" disabled title="Zwischenablage leer">Einfügen</button>
           <button class="btn btn-danger" id="clear-btn">Alles loeschen</button>
           <div class="tools-divider"></div>
@@ -162,6 +163,11 @@ const TEMPLATE = `
         <div class="section" id="angles-section" style="display:none">
           <div class="section-label">Winkel</div>
           <ul id="angle-list"></ul>
+        </div>
+
+        <div class="section" id="annotations-section" style="display:none">
+          <div class="section-label">Kommentare</div>
+          <ul id="annotation-list"></ul>
         </div>
       </div>
 

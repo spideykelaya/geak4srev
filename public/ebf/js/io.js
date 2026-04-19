@@ -156,7 +156,7 @@ export async function importData(file) {
 // ── Print ─────────────────────────────────────────────────────────────────────
 
 /** Draw one plan's image + polygons + measurements onto an offscreen canvas and return dataURL. */
-function renderPlanCanvas(imageEl, imageW, imageH, polygons, measurements, scale) {
+function renderPlanCanvas(imageEl, imageW, imageH, polygons, measurements, annotations, scale) {
   const MAX = 1800;
   const sc  = Math.min(MAX / imageW, MAX / imageH, 1);
   const w   = Math.round(imageW * sc);
@@ -227,6 +227,29 @@ function renderPlanCanvas(imageEl, imageW, imageH, polygons, measurements, scale
     c.fillStyle = '#fbbf24'; c.fillText(lbl, mx, my);
   });
 
+  // Annotations
+  (annotations || []).forEach(ann => {
+    if (!ann.text?.trim()) return;
+    const [ax, ay] = px(ann);
+    const lines = ann.text.split('\n');
+    const fsz   = (ann.fontSize || 16) * sc;
+    const lineH = fsz * 1.45;
+    const pad   = 8;
+    c.font = `${fsz}px system-ui`; c.textAlign = 'left'; c.textBaseline = 'top';
+    const maxW = Math.max(...lines.map(l => c.measureText(l).width));
+    const boxW = maxW + pad * 2, boxH = lines.length * lineH + pad * 1.5;
+    const r = 5;
+    c.beginPath();
+    c.moveTo(ax+r, ay); c.lineTo(ax+boxW-r, ay); c.quadraticCurveTo(ax+boxW, ay, ax+boxW, ay+r);
+    c.lineTo(ax+boxW, ay+boxH-r); c.quadraticCurveTo(ax+boxW, ay+boxH, ax+boxW-r, ay+boxH);
+    c.lineTo(ax+r, ay+boxH); c.quadraticCurveTo(ax, ay+boxH, ax, ay+boxH-r);
+    c.lineTo(ax, ay+r); c.quadraticCurveTo(ax, ay, ax+r, ay); c.closePath();
+    c.fillStyle = '#fff'; c.fill();
+    c.strokeStyle = '#000'; c.lineWidth = 1.5; c.stroke();
+    c.fillStyle = '#111';
+    lines.forEach((line, i) => c.fillText(line, ax + pad, ay + pad * 0.75 + i * lineH));
+  });
+
   return off.toDataURL('image/png');
 }
 
@@ -247,8 +270,9 @@ async function generateMultiPlanPDF(selectedIds) {
   for (const plan of S.plans) {
     if (!selectedIds.has(plan.id)) continue;
     const isActive = plan.id === S.activePlanId;
-    const polygons = isActive ? S.polygons : (plan.polygons || []);
+    const polygons     = isActive ? S.polygons     : (plan.polygons     || []);
     const measurements = isActive ? S.measurements : (plan.measurements || []);
+    const annotations  = isActive ? S.annotations  : (plan.annotations  || []);
     const scale = isActive ? S.scale : (plan.scale ?? null);
     const imageDataUrl = isActive ? S.imageDataUrl : plan.imageDataUrl;
     const imageW = isActive ? S.imageW : plan.imageW;
@@ -259,7 +283,7 @@ async function generateMultiPlanPDF(selectedIds) {
     } catch (_) {
       imageEl = null;
     }
-    planEntries.push({ plan, polygons, measurements, scale, imageDataUrl, imageW, imageH, imageEl });
+    planEntries.push({ plan, polygons, measurements, annotations, scale, imageDataUrl, imageW, imageH, imageEl });
   }
 
   if (planEntries.length === 0) return;
@@ -270,7 +294,7 @@ async function generateMultiPlanPDF(selectedIds) {
     let imgTag = '';
     if (entry.imageEl && entry.imageW && entry.imageH) {
       try {
-        const dataUrl = renderPlanCanvas(entry.imageEl, entry.imageW, entry.imageH, entry.polygons, entry.measurements, entry.scale);
+        const dataUrl = renderPlanCanvas(entry.imageEl, entry.imageW, entry.imageH, entry.polygons, entry.measurements, entry.annotations, entry.scale);
         imgTag = `<img src="${dataUrl}" alt="${esc(entry.plan.label)}">`;
       } catch (_) {
         imgTag = `<p style="color:#c00">Bild konnte nicht gerendert werden.</p>`;
