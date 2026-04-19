@@ -1,4 +1,4 @@
-import { S, w2s }                   from './state.js';
+import { S, w2s, s2w }              from './state.js';
 import { SNAP_RADIUS, EDGE_HIT_RADIUS } from './config.js';
 
 // ── Pure geometry ─────────────────────────────────────────────────────────────
@@ -50,6 +50,54 @@ export function labelPoint(pts) {
 }
 
 // ── Hit detection ─────────────────────────────────────────────────────────────
+
+/** Ray-casting point-in-polygon test (world coords). */
+export function pointInPolygon(px, py, pts) {
+  let inside = false;
+  for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) {
+    const xi = pts[i].x, yi = pts[i].y, xj = pts[j].x, yj = pts[j].y;
+    if ((yi > py) !== (yj > py) && px < (xj - xi) * (py - yi) / (yj - yi) + xi)
+      inside = !inside;
+  }
+  return inside;
+}
+
+/** Returns the topmost polygon index whose fill contains screen point (sx,sy), or null. */
+export function findPolygonAt(sx, sy) {
+  const wp = s2w(sx, sy);
+  for (let i = S.polygons.length - 1; i >= 0; i--) {
+    if (S.polygons[i].points.length >= 3 && pointInPolygon(wp.x, wp.y, S.polygons[i].points))
+      return i;
+  }
+  return null;
+}
+
+/** Returns annotation index whose bounding box contains screen point, or null. */
+export function findNearAnnotation(sx, sy) {
+  for (let i = S.annotations.length - 1; i >= 0; i--) {
+    const ann = S.annotations[i];
+    const sp = w2s(ann.x, ann.y);
+    const lines = (ann.text || ' ').split('\n');
+    const charW = 7.5; // approx px per char at 13px font
+    const lineH = 18;
+    const w = Math.max(...lines.map(l => l.length)) * charW + 20;
+    const h = lines.length * lineH + 10;
+    if (sx >= sp.x - 4 && sx <= sp.x + w && sy >= sp.y - 4 && sy <= sp.y + h) return i;
+  }
+  return null;
+}
+
+/** Returns measurement index whose line is within EDGE_HIT_RADIUS of screen point, or null. */
+export function findNearMeasurement(sx, sy) {
+  for (let i = S.measurements.length - 1; i >= 0; i--) {
+    const m = S.measurements[i];
+    const a = { x: m.pt1.x * S.zoom + S.panX, y: m.pt1.y * S.zoom + S.panY };
+    const b = { x: m.pt2.x * S.zoom + S.panX, y: m.pt2.y * S.zoom + S.panY };
+    if (distToSegScreen(sx, sy, a.x, a.y, b.x, b.y) <= EDGE_HIT_RADIUS) return i;
+  }
+  return null;
+}
+
 export function findNearVertex(sx, sy) {
   for (let pi = 0; pi < S.polygons.length; pi++) {
     const pts = S.polygons[pi].points;
@@ -57,6 +105,20 @@ export function findNearVertex(sx, sy) {
       const s = w2s(pts[vi].x, pts[vi].y);
       if (Math.hypot(s.x - sx, s.y - sy) <= SNAP_RADIUS) return { polyIdx: pi, vtxIdx: vi };
     }
+  }
+  return null;
+}
+
+/** Returns index of the Fenster polygon whose center marker is within 12px of screen point, or null. */
+export function findWindowCenterMarker(sx, sy) {
+  const HIT_RADIUS = 12;
+  for (let i = S.polygons.length - 1; i >= 0; i--) {
+    const poly = S.polygons[i];
+    if ((poly.areaType || '').toLowerCase() !== 'fenster') continue;
+    if (poly.points.length < 3) continue;
+    const c = labelPoint(poly.points);
+    const s = w2s(c.x, c.y);
+    if (Math.hypot(s.x - sx, s.y - sy) <= HIT_RADIUS) return i;
   }
   return null;
 }
@@ -81,15 +143,12 @@ export function findNearEdge(sx, sy) {
 // ── Formatters ────────────────────────────────────────────────────────────────
 export function fmtArea(m2) {
   if (m2 === null) return '?';
-  if (m2 >= 10000) return (m2 / 10000).toFixed(3) + ' ha';
-  if (m2 >= 1)     return m2.toFixed(3) + ' m\u00b2';
-  return (m2 * 10000).toFixed(1) + ' cm\u00b2';
+  return m2.toFixed(3) + ' m\u00b2';
 }
 
 export function fmtLength(m) {
-  if (m >= 1000) return (m / 1000).toFixed(3) + ' km';
-  if (m >= 1)    return m.toFixed(3) + ' m';
-  return (m * 100).toFixed(1) + ' cm';
+  if (m === null) return '?';
+  return m.toFixed(3) + ' m';
 }
 
 export function esc(str) {

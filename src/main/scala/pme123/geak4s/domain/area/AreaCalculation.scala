@@ -4,19 +4,25 @@ import pme123.geak4s.domain.uwert.ComponentType
 
 /** Single area entry (one row in the table) */
 case class AreaEntry(
-    kuerzel: String,       // Kürzel / Label (z.B. "EBF1", "DA1") – sync mit EBF-Rechner
-    orientation: String,   // Ausrichtung (N, S, O, W, horizontal, etc.)
-    description: String,   // Beschrieb (freies Textfeld, später U-Wert-Kopplung)
-    length: Double,        // Länge / Umfang [m]
-    width: Double,         // Breite / Höhe [m]
-    area: Double,          // Fläche [m2]
-    quantity: Int,         // Anzahl [Stk.]
-    totalArea: Double,     // Fläche Total [m2]
+    kuerzel: String,           // Kürzel / Label (z.B. "EBF1", "DA1") – sync mit EBF-Rechner
+    orientation: String,       // Ausrichtung (N, S, O, W, horizontal, etc.)
+    description: String,       // Beschrieb (freies Textfeld, später U-Wert-Kopplung)
+    length: Double,            // Länge / Umfang [m]
+    width: Double,             // Breite / Höhe [m]
+    area: Double,              // Fläche [m2]
+    quantity: Int,             // Anzahl [Stk.]
+    totalArea: Double,         // Fläche Total [m2]
     // SOLL values (new state)
-    areaNew: Double,       // Fläche Neu [m2]
-    quantityNew: Int,      // Anzahl Neu [Stk.]
-    totalAreaNew: Double,  // Fläche Total Neu [m2]
-    descriptionNew: String // Beschrieb Neu
+    areaNew: Double,           // Fläche Neu [m2]
+    quantityNew: Int,          // Anzahl Neu [Stk.]
+    totalAreaNew: Double,      // Fläche Total Neu [m2]
+    descriptionNew: String,    // Beschrieb Neu
+    isManual: Boolean = false,  // true = manually added, not from polygon sync
+    // Fenster shading (only used for ComponentType.Window)
+    overhang: Double = 0.0,         // Überhang [m] (manually entered)
+    overhangDist: Double = 0.0,     // Abstand Überhang [m] (from canvas measurement)
+    sideShading: Double = 0.0,      // Seitenblende [m] (manually entered)
+    sideShadingDist: Double = 0.0   // Abstand Seitenblende [m] (from canvas measurement)
 ):
   /** Calculate total area from individual values */
   def calculateTotalArea: Double = area * quantity

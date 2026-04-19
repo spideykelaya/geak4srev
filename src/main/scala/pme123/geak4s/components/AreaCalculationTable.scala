@@ -46,7 +46,7 @@ object AreaCalculationTable:
           _.icon   := IconName.add,
           _.events.onClick.mapTo(()) --> Observer[Unit] { _ =>
             val currentEntries = entries.now()
-            val newEntries     = currentEntries :+ AreaEntry.empty()
+            val newEntries     = currentEntries :+ AreaEntry.empty().copy(isManual = true)
             entries.set(newEntries)
             displayEntries.set(newEntries)  // Update display immediately
             onSave(category, newEntries)
@@ -85,6 +85,18 @@ object AreaCalculationTable:
             th(border := "1px solid #e0e0e0", padding := "0.5rem", "Anzahl Neu [Stk.]"),
             th(border := "1px solid #e0e0e0", padding := "0.5rem", "Fläche Total Neu [m²]"),
             th(border := "1px solid #e0e0e0", padding := "0.5rem", "Beschrieb Neu"),
+            Option.when(componentType == ComponentType.Window)(
+              th(border := "1px solid #e0e0e0", padding := "0.5rem", backgroundColor := "#fff8e1", "Überhang [m]")
+            ),
+            Option.when(componentType == ComponentType.Window)(
+              th(border := "1px solid #e0e0e0", padding := "0.5rem", backgroundColor := "#fff8e1", "Abstand Überhang [m]")
+            ),
+            Option.when(componentType == ComponentType.Window)(
+              th(border := "1px solid #e0e0e0", padding := "0.5rem", backgroundColor := "#fff8e1", "Seitenblende [m]")
+            ),
+            Option.when(componentType == ComponentType.Window)(
+              th(border := "1px solid #e0e0e0", padding := "0.5rem", backgroundColor := "#fff8e1", "Abstand Seitenblende [m]")
+            ),
             th(border := "1px solid #e0e0e0", padding := "0.5rem", "") // Delete button column
           )
         ),
@@ -157,8 +169,12 @@ object AreaCalculationTable:
               }
             ),
 
-            // Empty cells for Beschrieb Neu and Delete button - columns 12-13
+            // Empty cells for Beschrieb Neu, optional Fenster shading cols, and Delete button
             td(border    := "1px solid #e0e0e0", padding := "0.5rem"),
+            Option.when(componentType == ComponentType.Window)(td(border := "1px solid #e0e0e0", padding := "0.5rem", backgroundColor := "#fffde7")),
+            Option.when(componentType == ComponentType.Window)(td(border := "1px solid #e0e0e0", padding := "0.5rem", backgroundColor := "#fffde7")),
+            Option.when(componentType == ComponentType.Window)(td(border := "1px solid #e0e0e0", padding := "0.5rem", backgroundColor := "#fffde7")),
+            Option.when(componentType == ComponentType.Window)(td(border := "1px solid #e0e0e0", padding := "0.5rem", backgroundColor := "#fffde7")),
             td(border    := "1px solid #e0e0e0", padding := "0.5rem")
           )
         )
@@ -173,13 +189,19 @@ object AreaCalculationTable:
       onSave: (ComponentType, List[AreaEntry]) => Unit
   ): HtmlElement =
     tr(
-      // Kürzel - read-only, kommt vom EBF-Rechner
+      // Kürzel - editable
       td(
-        border          := "1px solid #e0e0e0",
-        backgroundColor := "#f9f9f9",
-        padding         := "0.25rem",
-        textAlign       := "center",
-        child.text <-- dataEntries.signal.map(es => if index < es.length then es(index).kuerzel else "")
+        border  := "1px solid #e0e0e0",
+        padding := "0.25rem",
+        renderEditableCell(
+          displayEntry,
+          index,
+          _.kuerzel,
+          dataEntries,
+          (e, v) => e.copy(kuerzel = v),
+          componentType,
+          onSave
+        )
       ),
 
       // Ausrichtung
@@ -368,6 +390,40 @@ object AreaCalculationTable:
           (e, v) => e.copy(descriptionNew = v),
           componentType,
           onSave
+        )
+      ),
+
+      // Fenster shading columns
+      Option.when(componentType == ComponentType.Window)(
+        td(
+          border := "1px solid #e0e0e0", padding := "0.25rem", backgroundColor := "#fffde7",
+          renderNumericCell(displayEntry, index, _.overhang, dataEntries,
+            (e, v) => e.copy(overhang = v), componentType, onSave)
+        )
+      ),
+      Option.when(componentType == ComponentType.Window)(
+        td(
+          border := "1px solid #e0e0e0", padding := "0.25rem", backgroundColor := "#fffde7",
+          textAlign := "right",
+          child.text <-- dataEntries.signal.map { entries =>
+            if index < entries.length then f"${entries(index).overhangDist}%.2f" else "0.00"
+          }
+        )
+      ),
+      Option.when(componentType == ComponentType.Window)(
+        td(
+          border := "1px solid #e0e0e0", padding := "0.25rem", backgroundColor := "#fffde7",
+          renderNumericCell(displayEntry, index, _.sideShading, dataEntries,
+            (e, v) => e.copy(sideShading = v), componentType, onSave)
+        )
+      ),
+      Option.when(componentType == ComponentType.Window)(
+        td(
+          border := "1px solid #e0e0e0", padding := "0.25rem", backgroundColor := "#fffde7",
+          textAlign := "right",
+          child.text <-- dataEntries.signal.map { entries =>
+            if index < entries.length then f"${entries(index).sideShadingDist}%.2f" else "0.00"
+          }
         )
       ),
 

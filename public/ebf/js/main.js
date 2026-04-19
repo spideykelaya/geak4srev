@@ -1,10 +1,10 @@
 'use strict';
 
-import { S, initDom, canvas, s2w, w2s, setMode, px2m2, $, emitPolygonSyncEvent, emitPlansSyncEvent, EBF_LOAD_PLANS_EVENT } from './state.js';
+import { S, initDom, canvas, s2w, w2s, setMode, px2m2, pxVecToM, $, emitPolygonSyncEvent, emitPlansSyncEvent, EBF_LOAD_PLANS_EVENT } from './state.js';
 import { PDFJS_WORKER, SNAP_RADIUS }                      from './config.js';
-import { shoelace, findNearVertex, findNearEdge, dist, labelPoint } from './geo.js';
+import { shoelace, findNearVertex, findNearEdge, dist, labelPoint, findPolygonAt, findNearMeasurement, findNearAnnotation, findWindowCenterMarker } from './geo.js';
 import { render }                                         from './render.js';
-import { updateSidebar, nextPolygonLabel, setSwitchPlanHandler, setCurrentAreaTypeLabel, colorForCurrentAreaType, getCurrentAreaTypeLabel } from './sidebar.js';
+import { updateSidebar, nextPolygonLabel, setSwitchPlanHandler, setCurrentAreaTypeLabel, colorForCurrentAreaType, getCurrentAreaTypeLabel, pasteFromClipboard, setSaveAnnotationsHandler } from './sidebar.js';
 import { loadPDF, loadPDFPages, loadImg, exportData, exportExcel, exportXML, importData, printView, loadImageFromDataUrl } from './io.js';
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = PDFJS_WORKER;
@@ -57,6 +57,7 @@ function fitToCanvas() {
 // ── UI bindings ───────────────────────────────────────────────────────────────
 function bindUI(ownerDocument) {
   setSwitchPlanHandler(switchToPlan);
+  setSaveAnnotationsHandler(() => { saveCurrentPlanState(); });
 
   $('file-input').addEventListener('change', onFileChange);
   $('import-input').addEventListener('change', async e => {
@@ -66,6 +67,8 @@ function bindUI(ownerDocument) {
     applyScaleStatus();
     show('scale-section'); show('area-type-section'); show('draw-section');
     updateSidebar(); render();
+    // Reset area calculations before sync so old labels don't cause duplicates
+    window.dispatchEvent(new CustomEvent('geak:ebf-polygon-reset', { bubbles: false }));
     emitPolygonSyncEvent();
     saveCurrentPlanState();
     emitPlansSyncEvent();
@@ -121,6 +124,9 @@ function bindUI(ownerDocument) {
   $('cancel-scale').addEventListener('click', cancelCalibration);
   $('draw-btn').addEventListener('click', startDrawing);
   $('measure-btn').addEventListener('click', startMeasuring);
+  $('angle-btn').addEventListener('click', startAngling);
+  $('text-btn').addEventListener('click', startTextTool);
+  $('paste-btn').addEventListener('click', pasteFromClipboard);
   $('clear-btn').addEventListener('click', clearAll);
   $('export-btn').addEventListener('click', exportData);
   $('export-excel-btn').addEventListener('click', exportExcel);
@@ -207,9 +213,9 @@ async function onFileChange(e) {
   S.activePlanId = firstPlanId;
   $('file-name').textContent = firstPlanLabel;
 
-  S.polygons = []; S.measurements = []; S.current = [];
+  S.polygons = []; S.measurements = []; S.angles = []; S.current = [];
   S.scale = null; S.scaleX = null; S.scaleY = null; S.scaleDirX = null; S.scaleDirY = null;
-  S.nextId = 1; S.nextMeasId = 1;
+  S.nextId = 1; S.nextMeasId = 1; S.nextAngleId = 1;
 
   const firstPlan = S.plans.find(p => p.id === firstPlanId);
   updatePaperRowVisibility(firstPlan?.isPdf ?? false);
@@ -243,6 +249,9 @@ function saveCurrentPlanState() {
   if (!plan) return;
   plan.polygons     = S.polygons.map(p => ({ ...p }));
   plan.measurements = S.measurements.map(m => ({ ...m }));
+  plan.angles       = S.angles.map(a => ({ ...a }));
+  plan.annotations  = S.annotations.map(a => ({ ...a }));
+  plan.nextAnnotationId = S.nextAnnotationId;
   plan.scale        = S.scale;
   plan.scaleX       = S.scaleX;
   plan.scaleY       = S.scaleY;
@@ -250,6 +259,7 @@ function saveCurrentPlanState() {
   plan.scaleDirY    = S.scaleDirY;
   plan.nextId       = S.nextId;
   plan.nextMeasId   = S.nextMeasId;
+  plan.nextAngleId  = S.nextAngleId;
   plan.imageW       = S.imageW;
   plan.imageH       = S.imageH;
   if (S.imageDataUrl) plan.imageDataUrl = S.imageDataUrl;
@@ -297,6 +307,9 @@ async function switchToPlan(planId, { suppressPolygonSync = false } = {}) {
   S.activePlanId  = planId;
   S.polygons      = plan.polygons.map(p => ({ ...p }));
   S.measurements  = plan.measurements.map(m => ({ ...m }));
+  S.angles        = (plan.angles       || []).map(a => ({ ...a }));
+  S.annotations   = (plan.annotations  || []).map(a => ({ ...a }));
+  S.nextAnnotationId = plan.nextAnnotationId ?? 1;
   S.scale         = plan.scale     ?? null;
   S.scaleX        = plan.scaleX    ?? plan.scale ?? null;
   S.scaleY        = plan.scaleY    ?? plan.scale ?? null;
@@ -304,6 +317,7 @@ async function switchToPlan(planId, { suppressPolygonSync = false } = {}) {
   S.scaleDirY     = plan.scaleDirY ?? null;
   S.nextId        = plan.nextId ?? 1;
   S.nextMeasId    = plan.nextMeasId ?? 1;
+  S.nextAngleId   = plan.nextAngleId ?? 1;
   S.current       = [];
 
   $('file-name').textContent = plan.label;
@@ -687,20 +701,212 @@ function finishPolygon() {
   emitPlansSyncEvent();
 }
 
+// ── Window shading measurement ────────────────────────────────────────────────
+function showShadingTypeDialog(polyIdx) {
+  // Store polygon ID (not index) so lookup stays valid after any array changes
+  const poly = S.polygons[polyIdx];
+  if (!poly) return;
+  const polyId = poly.id;
+
+  const overlay = document.createElement('div');
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center;';
+
+  const dialog = document.createElement('div');
+  dialog.style.cssText = 'background:#1a1a28;border:1px solid rgba(255,255,255,0.1);border-radius:12px;padding:24px;min-width:280px;box-shadow:0 8px 32px rgba(0,0,0,0.5);font-family:system-ui,sans-serif;color:#f0f0f8;';
+
+  const title = document.createElement('h3');
+  title.textContent = 'Verschattung messen';
+  title.style.cssText = 'margin:0 0 8px;font-size:16px;';
+
+  const desc = document.createElement('p');
+  desc.textContent = 'Was möchten Sie ausmessen?';
+  desc.style.cssText = 'margin:0 0 18px;font-size:13px;color:#aaa;';
+
+  const btnRow = document.createElement('div');
+  btnRow.style.cssText = 'display:flex;gap:10px;justify-content:center;';
+
+  const closeAndStart = (type) => {
+    document.body.removeChild(overlay);
+    enterShadingMeasure(polyId, type);
+  };
+
+  const ovhBtn = document.createElement('button');
+  ovhBtn.textContent = 'Überhang';
+  ovhBtn.style.cssText = 'padding:10px 20px;font-size:13px;font-weight:600;background:#f59e0b;color:#000;border:none;border-radius:8px;cursor:pointer;';
+  ovhBtn.addEventListener('click', () => closeAndStart('overhang'));
+
+  const sideBtn = document.createElement('button');
+  sideBtn.textContent = 'Seitenblende';
+  sideBtn.style.cssText = 'padding:10px 20px;font-size:13px;font-weight:600;background:#6d5acd;color:#fff;border:none;border-radius:8px;cursor:pointer;';
+  sideBtn.addEventListener('click', () => closeAndStart('side'));
+
+  const cancelBtn = document.createElement('button');
+  cancelBtn.textContent = 'Abbrechen';
+  cancelBtn.style.cssText = 'margin-top:10px;padding:8px 14px;font-size:12px;font-weight:600;background:transparent;color:#888;border:1px solid rgba(255,255,255,0.15);border-radius:8px;cursor:pointer;display:block;margin-left:auto;';
+  cancelBtn.addEventListener('click', () => document.body.removeChild(overlay));
+
+  btnRow.appendChild(ovhBtn); btnRow.appendChild(sideBtn);
+  dialog.appendChild(title); dialog.appendChild(desc); dialog.appendChild(btnRow); dialog.appendChild(cancelBtn);
+  overlay.appendChild(dialog);
+  document.body.appendChild(overlay);
+}
+
+function enterShadingMeasure(polyId, type) {
+  // Find polygon by ID for stable reference
+  const poly = S.polygons.find(p => p.id === polyId);
+  if (!poly) return;
+  S.shadingPolyId = polyId;   // store ID, not index
+  S.shadingType   = type;
+  S.shadingPt1    = labelPoint(poly.points); // center fixed as pt1
+  setMode('shading_measure');
+  setInstructions(type === 'overhang'
+    ? 'Klicken Sie auf den Punkt am Überhang'
+    : 'Klicken Sie auf den Punkt an der Seitenblende');
+  render();
+}
+
+function finishShadingMeasure(wp) {
+  // Find polygon by ID (stable even if array order changes)
+  const poly = S.polygons.find(p => p.id === S.shadingPolyId);
+  if (!poly || !S.shadingPt1) { cancelShadingMeasure(); return; }
+
+  const dx = wp.x - S.shadingPt1.x, dy = wp.y - S.shadingPt1.y;
+  const realLen = pxVecToM(dx, dy);
+
+  if (realLen === null) {
+    // No calibration — stay in shading mode so user can try after calibrating
+    setInstructions('⚠ Plan nicht kalibriert – bitte zuerst den Massstab setzen');
+    return;
+  }
+
+  if (S.shadingType === 'overhang') poly.overhangDist = realLen;
+  else                               poly.sideDist     = realLen;
+
+  console.log(`[EBF] shading saved: type=${S.shadingType} dist=${realLen.toFixed(3)}m poly=${poly.label}`);
+
+  S.shadingPolyId = null; S.shadingType = null; S.shadingPt1 = null;
+  setMode('idle');
+  setInstructions('Verschattung gespeichert ✓');
+  setTimeout(() => setInstructions(''), 2000);
+  updateSidebar(); render();
+  emitPolygonSyncEvent();
+  saveCurrentPlanState();
+  emitPlansSyncEvent();
+}
+
+function cancelShadingMeasure() {
+  S.shadingPolyId = null; S.shadingType = null; S.shadingPt1 = null;
+  setMode('idle'); setInstructions(''); render();
+}
+
 function startMeasuring() {
   if (!S.image) return;
   S.measPt1 = null; setMode('measure');
   setInstructions('Klicken Sie auf den ersten Messpunkt');
 }
 
+function startAngling() {
+  if (!S.image) return;
+  S.anglePt1 = null; S.anglePt2 = null; setMode('angle');
+  setInstructions('Klicken Sie auf den Scheitelpunkt (Winkelspitze)');
+}
+
+// ── Text annotations ──────────────────────────────────────────────────────────
+let _activeEditor = null; // { wrap, ta, annId }
+
+function startTextTool() {
+  if (!S.image) return;
+  commitEditor();
+  setMode('text');
+  setInstructions('Klicken Sie, um einen Kommentar zu platzieren');
+}
+
+function showAnnotationEditor(annId, sx, sy) {
+  commitEditor();
+  const container = $('canvas-container');
+  if (!container) return;
+
+  const ann      = S.annotations.find(a => a.id === annId);
+  const fontSize = ann?.fontSize || 16;
+
+  // Wrapper div (positioned in canvas-container)
+  const wrap = document.createElement('div');
+  wrap.className = 'annotation-editor-wrap';
+  wrap.style.left = sx + 'px';
+  wrap.style.top  = sy + 'px';
+
+  // Toolbar: font size control
+  const toolbar = document.createElement('div');
+  toolbar.className = 'annotation-editor-toolbar';
+  const sizeLbl = document.createElement('label');
+  sizeLbl.textContent = 'Grösse:';
+  const sizeInp = document.createElement('input');
+  sizeInp.type = 'number'; sizeInp.min = '6'; sizeInp.max = '96'; sizeInp.value = fontSize;
+  sizeInp.addEventListener('keydown', e => e.stopPropagation());
+  sizeInp.addEventListener('input', () => {
+    const v = Math.max(6, Math.min(96, parseInt(sizeInp.value) || 16));
+    const a = S.annotations.find(a => a.id === annId);
+    if (a) { a.fontSize = v; render(); }
+  });
+  toolbar.append(sizeLbl, sizeInp);
+
+  // Textarea
+  const ta = document.createElement('textarea');
+  ta.className   = 'annotation-editor';
+  ta.value       = ann ? ann.text : '';
+  ta.rows        = Math.max(2, (ann?.text || '').split('\n').length);
+  ta.placeholder = 'Kommentar…';
+  ta.addEventListener('input', () => { ta.rows = Math.max(2, ta.value.split('\n').length); });
+  ta.addEventListener('keydown', e => {
+    e.stopPropagation();
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); commitEditor(); }
+    if (e.key === 'Escape') { discardEditor(annId); }
+  });
+
+  // Commit when focus leaves the entire wrap (not just textarea)
+  wrap.addEventListener('focusout', e => {
+    if (!wrap.contains(e.relatedTarget)) commitEditor();
+  });
+
+  wrap.append(toolbar, ta);
+  container.appendChild(wrap);
+  _activeEditor = { wrap, ta, annId };
+  requestAnimationFrame(() => { ta.focus(); ta.select(); });
+}
+
+function commitEditor() {
+  if (!_activeEditor) return;
+  const { wrap, ta, annId } = _activeEditor;
+  _activeEditor = null;
+  wrap.remove();
+  const ann = S.annotations.find(a => a.id === annId);
+  if (ann) {
+    ann.text = ta.value;
+    if (!ann.text.trim()) S.annotations = S.annotations.filter(a => a.id !== annId);
+  }
+  if (S.mode === 'text') { setMode('idle'); setInstructions(''); }
+  updateSidebar(); render();
+  saveCurrentPlanState();
+}
+
+function discardEditor(annId) {
+  if (!_activeEditor) return;
+  const { wrap } = _activeEditor;
+  _activeEditor = null;
+  wrap.remove();
+  const ann = S.annotations.find(a => a.id === annId);
+  if (ann && !ann.text.trim()) S.annotations = S.annotations.filter(a => a.id !== annId);
+  render();
+}
+
 function clearAll() {
-  if (!S.polygons.length && !S.current.length && !S.measurements.length) return;
+  if (!S.polygons.length && !S.current.length && !S.measurements.length && !S.angles.length) return;
   $('clear-confirm-modal').style.display = 'flex';
 }
 
 function clearAllConfirmed() {
   $('clear-confirm-modal').style.display = 'none';
-  S.polygons = []; S.measurements = []; S.current = [];
+  S.polygons = []; S.measurements = []; S.angles = []; S.annotations = []; S.current = [];
   setMode('idle'); setInstructions('');
   updateSidebar(); render();
   emitPolygonSyncEvent();
@@ -711,6 +917,9 @@ function clearAllConfirmed() {
 function cancelCurrent() {
   if (S.mode === 'draw')                   { S.current = []; setMode('idle'); setInstructions(''); render(); }
   else if (S.mode === 'measure')           { S.measPt1 = null; setMode('idle'); setInstructions(''); render(); }
+  else if (S.mode === 'angle')             { S.anglePt1 = null; S.anglePt2 = null; setMode('idle'); setInstructions(''); render(); }
+  else if (S.mode === 'text')              { setMode('idle'); setInstructions(''); }
+  else if (S.mode === 'shading_measure') cancelShadingMeasure();
   else if (S.mode.startsWith('calibrate')) cancelCalibration();
 }
 
@@ -758,8 +967,35 @@ function onMouseDown(e) {
     }
     render(); return;
   }
+  if (S.mode === 'text') {
+    const newAnn = { id: S.nextAnnotationId++, x: wp.x, y: wp.y, text: '', fontSize: 16 };
+    S.annotations.push(newAnn);
+    render();
+    showAnnotationEditor(newAnn.id, sx, sy);
+    return;
+  }
+  if (S.mode === 'angle') {
+    if (!S.anglePt1) {
+      S.anglePt1 = wp; setInstructions('Klicken Sie auf den ersten Punkt (Arm 1)');
+    } else if (!S.anglePt2) {
+      S.anglePt2 = wp; setInstructions('Klicken Sie auf den zweiten Punkt (Arm 2)');
+    } else {
+      S.angles.push({ id: S.nextAngleId++, vertex: S.anglePt1, pt1: S.anglePt2, pt2: wp });
+      S.anglePt1 = null; S.anglePt2 = null; setMode('idle'); setInstructions(''); updateSidebar();
+      saveCurrentPlanState();
+    }
+    render(); return;
+  }
+  if (S.mode === 'shading_measure') {
+    finishShadingMeasure(wp);
+    return;
+  }
 
-  // Idle: drag vertex, label, or pan
+  // Idle: check shading center markers first (inside polygon, needs priority)
+  const shadingIdx = findWindowCenterMarker(sx, sy);
+  if (shadingIdx !== null) { showShadingTypeDialog(shadingIdx); return; }
+
+  // Idle: drag vertex → label → measurement → polygon fill → pan
   const nv = findNearVertex(sx, sy);
   if (nv) { S.dragVertex = nv; S.mode = 'drag_vertex'; canvas.style.cursor = 'move'; return; }
   const li = findNearLabel(sx, sy);
@@ -767,6 +1003,26 @@ function onMouseDown(e) {
     const poly = S.polygons[li];
     S.dragLabel = { polyIdx: li, startSX: sx, startSY: sy, origDX: poly.labelOffset?.dx || 0, origDY: poly.labelOffset?.dy || 0 };
     S.mode = 'drag_label'; canvas.style.cursor = 'move'; return;
+  }
+  const na = findNearAnnotation(sx, sy);
+  if (na !== null) {
+    const ann = S.annotations[na];
+    S.dragAnnotation = { annIdx: na, startWX: wp.x, startWY: wp.y, origX: ann.x, origY: ann.y };
+    S.mode = 'drag_annotation'; canvas.style.cursor = 'move'; return;
+  }
+  const nm = findNearMeasurement(sx, sy);
+  if (nm !== null) {
+    const m = S.measurements[nm];
+    S.dragMeas = { measIdx: nm, startWX: wp.x, startWY: wp.y, origPt1: { ...m.pt1 }, origPt2: { ...m.pt2 } };
+    S.mode = 'drag_meas'; canvas.style.cursor = 'move'; return;
+  }
+  const pi = findPolygonAt(sx, sy);
+  if (pi !== null) {
+    const poly = S.polygons[pi];
+    S.dragPoly = { polyIdx: pi, startWX: wp.x, startWY: wp.y,
+      origPoints: poly.points.map(p => ({ ...p })),
+      origLabelOffset: poly.labelOffset ? { ...poly.labelOffset } : { dx: 0, dy: 0 } };
+    S.mode = 'drag_poly'; canvas.style.cursor = 'move'; return;
   }
   S.panning = true; S.lastMouse = { x: e.clientX, y: e.clientY };
   canvas.style.cursor = 'grabbing';
@@ -790,6 +1046,29 @@ function onMouseMove(e) {
     poly.labelOffset = { dx: dl.origDX + (sx - dl.startSX) / S.zoom, dy: dl.origDY + (sy - dl.startSY) / S.zoom };
     render(); return;
   }
+  if (S.mode === 'drag_poly' && S.dragPoly !== null) {
+    const dp = S.dragPoly;
+    const ddx = wp.x - dp.startWX, ddy = wp.y - dp.startWY;
+    const poly = S.polygons[dp.polyIdx];
+    poly.points = dp.origPoints.map(p => ({ x: p.x + ddx, y: p.y + ddy }));
+    poly.labelOffset = { dx: dp.origLabelOffset.dx, dy: dp.origLabelOffset.dy };
+    render(); return;
+  }
+  if (S.mode === 'drag_meas' && S.dragMeas !== null) {
+    const dm = S.dragMeas;
+    const ddx = wp.x - dm.startWX, ddy = wp.y - dm.startWY;
+    const m = S.measurements[dm.measIdx];
+    m.pt1 = { x: dm.origPt1.x + ddx, y: dm.origPt1.y + ddy };
+    m.pt2 = { x: dm.origPt2.x + ddx, y: dm.origPt2.y + ddy };
+    render(); return;
+  }
+  if (S.mode === 'drag_annotation' && S.dragAnnotation !== null) {
+    const da = S.dragAnnotation;
+    const ann = S.annotations[da.annIdx];
+    ann.x = da.origX + (wp.x - da.startWX);
+    ann.y = da.origY + (wp.y - da.startWY);
+    render(); return;
+  }
 
   if (S.panning) {
     S.panX += e.clientX - S.lastMouse.x;
@@ -799,7 +1078,10 @@ function onMouseMove(e) {
   }
 
   if (S.mode === 'idle' && !S.panning) {
-    canvas.style.cursor = (findNearVertex(sx, sy) || findNearLabel(sx, sy) !== null) ? 'move' : 'grab';
+    const hovering = findNearVertex(sx, sy) || findNearLabel(sx, sy) !== null
+      || findNearAnnotation(sx, sy) !== null || findNearMeasurement(sx, sy) !== null
+      || findPolygonAt(sx, sy) !== null;
+    canvas.style.cursor = hovering ? 'move' : 'grab';
     S.hoverEdge = findNearEdge(sx, sy);
   } else {
     S.hoverEdge = null;
@@ -822,11 +1104,34 @@ function onMouseUp() {
     emitPlansSyncEvent();
     return;
   }
+  if (S.mode === 'drag_poly') {
+    S.dragPoly = null; setMode('idle'); canvas.style.cursor = 'grab';
+    emitPolygonSyncEvent();
+    saveCurrentPlanState();
+    emitPlansSyncEvent();
+    return;
+  }
+  if (S.mode === 'drag_meas') {
+    S.dragMeas = null; setMode('idle'); canvas.style.cursor = 'grab';
+    saveCurrentPlanState();
+    return;
+  }
+  if (S.mode === 'drag_annotation') {
+    S.dragAnnotation = null; setMode('idle'); canvas.style.cursor = 'grab';
+    saveCurrentPlanState();
+    return;
+  }
   if (S.panning) { S.panning = false; canvas.style.cursor = S.mode === 'idle' ? 'grab' : 'crosshair'; }
 }
 
-function onDblClick() {
-  if (S.mode === 'draw' && S.current.length >= 3) { S.current.pop(); finishPolygon(); }
+function onDblClick(e) {
+  if (S.mode === 'draw' && S.current.length >= 3) { S.current.pop(); finishPolygon(); return; }
+  if (S.mode === 'idle') {
+    const r  = canvas.getBoundingClientRect();
+    const sx = e.clientX - r.left, sy = e.clientY - r.top;
+    const na = findNearAnnotation(sx, sy);
+    if (na !== null) showAnnotationEditor(S.annotations[na].id, sx, sy);
+  }
 }
 
 function onWheel(e) {

@@ -1,6 +1,6 @@
 // Mutable app state — single source of truth
 export const S = {
-  mode: 'idle', // idle | calibrate_1 | calibrate_2 | calibrate_confirm | draw | measure | drag_vertex | drag_label
+  mode: 'idle', // idle | calibrate_1 | calibrate_2 | calibrate_confirm | draw | measure | angle | drag_vertex | drag_label | drag_poly | drag_meas | drag_annotation | text
   scale: null,         // meters per world-pixel (uniform, kept for backward compat)
   scaleX: null,        // meters per pixel along scaleDirX
   scaleY: null,        // meters per pixel along scaleDirY
@@ -9,16 +9,26 @@ export const S = {
   calibDirection: 'uniform', // 'uniform' | 'x' | 'y'
   polygons: [],        // [{id, label, points, color, pixelArea, area}] label is the external sync identifier
   measurements: [],    // [{id, pt1, pt2}]
+  angles: [],          // [{id, vertex, pt1, pt2}]  vertex=Scheitelpunkt, pt1/pt2=Arme
+  annotations: [],     // [{id, x, y, text}]
   current: [],         // in-progress polygon world-coords
   calibPt1: null, calibPt2: null,
   measPt1: null,
+  anglePt1: null,      // Scheitelpunkt
+  anglePt2: null,      // Ende Arm 1
   image: null, imageW: 0, imageH: 0,
   imageDataUrl: null,  // data URL of the current plan image (for plan persistence)
   zoom: 1, panX: 0, panY: 0,
   panning: false, lastMouse: null,
   mouse: null,         // {sx, sy, wx, wy}
-  nextId: 1, nextMeasId: 1,
+  nextId: 1, nextMeasId: 1, nextAngleId: 1, nextAnnotationId: 1,
+  shadingPolyId:  null, // polygon ID being measured for shading (stable, not an index)
+  shadingType:    null, // 'overhang' | 'side'
+  shadingPt1:     null, // world-coord center point of shading measure
   dragVertex: null,    // {polyIdx, vtxIdx}
+  dragPoly:       null,    // {polyIdx, startWX, startWY, origPoints, origLabelOffset}
+  dragMeas:       null,    // {measIdx, startWX, startWY, origPt1, origPt2}
+  dragAnnotation: null,    // {annIdx, startWX, startWY, origX, origY}
   hoverEdge: null,     // {wmx, wmy, len}
   // ── Plans ────────────────────────────────────────────────────────────────
   plans: [],           // [{id, label, driveFileId, imageDataUrl, imageW, imageH, scale, scaleX, scaleY, nextId, nextMeasId, polygons, measurements}]
@@ -80,7 +90,7 @@ export function px2m2(px) {
 
 export function setMode(m) {
   S.mode = m;
-  canvas.style.cursor = (m === 'draw' || m === 'measure' || m.startsWith('calibrate'))
+  canvas.style.cursor = (m === 'draw' || m === 'measure' || m === 'angle' || m === 'text' || m === 'shading_measure' || m.startsWith('calibrate'))
     ? 'crosshair' : 'grab';
 }
 
@@ -96,9 +106,11 @@ export function emitPolygonSyncEvent() {
         const raw = Number.isFinite(poly.area) ? poly.area : 0;
         const area = (inc > 0) ? raw / Math.cos(inc * Math.PI / 180) : raw;
         return {
-          label:    (poly.label    || '').trim(),
-          areaType: (poly.areaType || '').trim(),
+          label:       (poly.label    || '').trim(),
+          areaType:    (poly.areaType || '').trim(),
           area,
+          overhangDist: Number.isFinite(poly.overhangDist) ? poly.overhangDist : null,
+          sideDist:     Number.isFinite(poly.sideDist)     ? poly.sideDist     : null,
         };
       })
       .filter(poly => poly.label)
@@ -107,14 +119,24 @@ export function emitPolygonSyncEvent() {
   // Send labels exactly as they are in the canvas — no renumbering.
   const polygons = allRaw;
 
+  console.log('[EBF] emitPolygonSyncEvent:', polygons.length, 'polygons:', polygons.map(p => `${p.label}(${p.areaType})`));
   window.dispatchEvent(new CustomEvent(EBF_POLYGONS_SYNC_EVENT, { detail: polygons }));
 }
 
-/** Emit full plans list (without image data URLs) so the Scala layer can persist it. */
+/** Emit full plans list (without image data URLs) so the Scala layer can persist it.
+ *  Uses live S.polygons/S.measurements for the active plan so renames and last-drawn
+ *  polygons are always captured even before saveCurrentPlanState() is called. */
 export function emitPlansSyncEvent() {
   if (typeof window === 'undefined' || typeof window.dispatchEvent !== 'function') return;
   const payload = {
-    plans: S.plans.map(({ imageDataUrl, ...rest }) => rest), // strip large image data
+    plans: S.plans.map(plan => {
+      const { imageDataUrl, ...rest } = plan;
+      return {
+        ...rest,
+        polygons:     plan.id === S.activePlanId ? S.polygons     : (plan.polygons     ?? []),
+        measurements: plan.id === S.activePlanId ? S.measurements : (plan.measurements ?? []),
+      };
+    }),
     activePlanId: S.activePlanId,
   };
   window.dispatchEvent(new CustomEvent(EBF_PLANS_SYNC_EVENT, { detail: payload }));

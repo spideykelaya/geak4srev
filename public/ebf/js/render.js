@@ -1,5 +1,5 @@
-import { S, canvas, ctx, w2s, pxVecToM }                 from './state.js';
-import { CLOSE_VERTEX_RADIUS, SNAP_RADIUS, MEAS_COLOR } from './config.js';
+import { S, canvas, ctx, w2s, pxVecToM }                          from './state.js';
+import { CLOSE_VERTEX_RADIUS, SNAP_RADIUS, MEAS_COLOR, ANGLE_COLOR, SHADING_COLOR } from './config.js';
 import { labelPoint, clamp, fmtArea, fmtLength }          from './geo.js';
 import { colorForCurrentAreaType }                        from './sidebar.js';
 
@@ -21,10 +21,15 @@ export function render() {
   ctx.setTransform(S.zoom, 0, 0, S.zoom, S.panX, S.panY);
   ctx.drawImage(S.image, 0, 0);
   S.polygons.forEach(drawPolygon);
+  drawWindowCenterMarkers();
   S.measurements.forEach(drawMeasurement);
+  S.angles.forEach(drawAngle);
+  S.annotations.forEach(drawAnnotation);
   drawCalibLine();
   drawCurrentPolygon();
   drawMeasureLine();
+  drawAngleLine();
+  drawShadingLine();
   ctx.restore();
 
   drawEdgeLengthTooltip(); // screen-space overlay
@@ -109,6 +114,82 @@ function measLine(pt1, pt2, lbl) {
   rrect(mx - tw / 2 - 5 / S.zoom, my - th / 2, tw + 10 / S.zoom, th, 3 / S.zoom);
   ctx.fill();
   ctx.fillStyle = MEAS_COLOR; ctx.fillText(lbl, mx, my);
+}
+
+// ── Angle measurements ────────────────────────────────────────────────────────
+/** Angle in degrees between two arms meeting at vertex. */
+function angleBetween(vertex, pt1, pt2) {
+  const ax = pt1.x - vertex.x, ay = pt1.y - vertex.y;
+  const bx = pt2.x - vertex.x, by = pt2.y - vertex.y;
+  const dot   = ax * bx + ay * by;
+  const cross = ax * by - ay * bx;
+  return Math.atan2(Math.abs(cross), dot) * 180 / Math.PI;
+}
+
+function fmtAngle(deg) { return deg.toFixed(1) + '°'; }
+
+function drawAngle({ vertex, pt1, pt2 }) {
+  angleShape(vertex, pt1, pt2);
+}
+
+function drawAngleLine() {
+  if (S.mode !== 'angle' || !S.mouse) return;
+  const mouse = { x: S.mouse.wx, y: S.mouse.wy };
+
+  if (!S.anglePt1) return; // waiting for vertex — nothing to draw yet
+
+  if (!S.anglePt2) {
+    // Vertex set, dragging arm 1 — draw one dashed arm
+    angleArm(S.anglePt1, mouse);
+    dot(S.anglePt1, ANGLE_COLOR, 4 / S.zoom);
+  } else {
+    // Both vertex and arm 1 set — draw full preview with live arm 2
+    angleShape(S.anglePt1, S.anglePt2, mouse);
+  }
+}
+
+/** Draw complete angle: two arms + arc + label. */
+function angleShape(vertex, pt1, pt2) {
+  const deg = angleBetween(vertex, pt1, pt2);
+
+  angleArm(vertex, pt1);
+  angleArm(vertex, pt2);
+  dot(vertex, ANGLE_COLOR, 4 / S.zoom);
+  dot(pt1, ANGLE_COLOR, 3 / S.zoom);
+  dot(pt2, ANGLE_COLOR, 3 / S.zoom);
+
+  // Arc at vertex
+  const ax = pt1.x - vertex.x, ay = pt1.y - vertex.y;
+  const bx = pt2.x - vertex.x, by = pt2.y - vertex.y;
+  const cross = ax * by - ay * bx;
+  const r = Math.min(28 / S.zoom, Math.hypot(ax, ay) * 0.35, Math.hypot(bx, by) * 0.35);
+  if (r > 1 / S.zoom) {
+    ctx.beginPath();
+    ctx.arc(vertex.x, vertex.y, r, Math.atan2(ay, ax), Math.atan2(by, bx), cross < 0);
+    ctx.strokeStyle = ANGLE_COLOR; ctx.lineWidth = 1.5 / S.zoom; ctx.setLineDash([]); ctx.stroke();
+  }
+
+  // Label near arc midpoint
+  const midA = (Math.atan2(ay, ax) + Math.atan2(by, bx)) / 2 + (cross < 0 ? Math.PI : 0);
+  const lr = r + 14 / S.zoom;
+  const lx = vertex.x + Math.cos(midA) * lr;
+  const ly = vertex.y + Math.sin(midA) * lr;
+  const lbl = fmtAngle(deg);
+  const fsz = clamp(12 / S.zoom, 9, 28);
+  ctx.font = `bold ${fsz}px system-ui, sans-serif`;
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  const tw = ctx.measureText(lbl).width, th = fsz * 1.5;
+  ctx.fillStyle = 'rgba(0,0,0,0.75)';
+  rrect(lx - tw / 2 - 5 / S.zoom, ly - th / 2, tw + 10 / S.zoom, th, 3 / S.zoom);
+  ctx.fill();
+  ctx.fillStyle = ANGLE_COLOR; ctx.fillText(lbl, lx, ly);
+}
+
+function angleArm(from, to) {
+  ctx.strokeStyle = ANGLE_COLOR; ctx.lineWidth = 1.5 / S.zoom;
+  ctx.setLineDash([6 / S.zoom, 4 / S.zoom]);
+  ctx.beginPath(); ctx.moveTo(from.x, from.y); ctx.lineTo(to.x, to.y);
+  ctx.stroke(); ctx.setLineDash([]);
 }
 
 // ── Edge length tooltip (screen-space) ────────────────────────────────────────
@@ -198,6 +279,94 @@ function drawCurrentPolygon() {
       ctx.fillStyle = color; ctx.fillText(lbl, mx, my);
     }
   }
+}
+
+// ── Annotations ───────────────────────────────────────────────────────────────
+function drawAnnotation(ann) {
+  const text = ann.text || '';
+  if (!text.trim()) return;
+  const lines  = text.split('\n');
+  const fsz    = ann.fontSize || 16;
+  const lineH  = fsz * 1.45;
+  const pad    = 8 / S.zoom;
+  ctx.font = `${fsz}px system-ui, sans-serif`;
+  ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+  const maxW = Math.max(...lines.map(l => ctx.measureText(l).width));
+  const boxW = maxW + pad * 2;
+  const boxH = lineH * lines.length + pad * 1.5;
+  // White background
+  ctx.fillStyle = '#fff';
+  rrect(ann.x, ann.y, boxW, boxH, 5 / S.zoom);
+  ctx.fill();
+  // Black border
+  ctx.strokeStyle = '#000'; ctx.lineWidth = 1.5 / S.zoom; ctx.setLineDash([]);
+  ctx.stroke();
+  // Dark text
+  ctx.fillStyle = '#111';
+  lines.forEach((line, i) => ctx.fillText(line, ann.x + pad, ann.y + pad * 0.75 + i * lineH));
+}
+
+// ── Window shading markers ────────────────────────────────────────────────────
+function drawWindowCenterMarkers() {
+  S.polygons.forEach(poly => {
+    if ((poly.areaType || '').toLowerCase() !== 'fenster') return;
+    if (poly.points.length < 3) return;
+    const c = labelPoint(poly.points);
+    const r = 9 / S.zoom;
+    // Amber circle
+    ctx.beginPath(); ctx.arc(c.x, c.y, r, 0, Math.PI * 2);
+    ctx.fillStyle = SHADING_COLOR + 'cc'; ctx.fill();
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5 / S.zoom; ctx.setLineDash([]); ctx.stroke();
+    // Cross
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5 / S.zoom;
+    ctx.beginPath(); ctx.moveTo(c.x - r * 0.6, c.y); ctx.lineTo(c.x + r * 0.6, c.y); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(c.x, c.y - r * 0.6); ctx.lineTo(c.x, c.y + r * 0.6); ctx.stroke();
+    // Show stored shading measurements near the marker
+    const fsz = clamp(10 / S.zoom, 8, 20);
+    ctx.font = `bold ${fsz}px system-ui, sans-serif`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    const lineH = fsz * 1.4;
+    let offsetY = r + lineH;
+    if (Number.isFinite(poly.overhangDist)) {
+      const lbl = `Ü: ${fmtLength(poly.overhangDist)}`;
+      const tw = ctx.measureText(lbl).width;
+      ctx.fillStyle = 'rgba(0,0,0,0.7)';
+      rrect(c.x - tw / 2 - 4 / S.zoom, c.y + offsetY - lineH / 2, tw + 8 / S.zoom, lineH, 3 / S.zoom);
+      ctx.fill();
+      ctx.fillStyle = SHADING_COLOR; ctx.fillText(lbl, c.x, c.y + offsetY);
+      offsetY += lineH + 2 / S.zoom;
+    }
+    if (Number.isFinite(poly.sideDist)) {
+      const lbl = `S: ${fmtLength(poly.sideDist)}`;
+      const tw = ctx.measureText(lbl).width;
+      ctx.fillStyle = 'rgba(0,0,0,0.7)';
+      rrect(c.x - tw / 2 - 4 / S.zoom, c.y + offsetY - lineH / 2, tw + 8 / S.zoom, lineH, 3 / S.zoom);
+      ctx.fill();
+      ctx.fillStyle = SHADING_COLOR; ctx.fillText(lbl, c.x, c.y + offsetY);
+    }
+  });
+}
+
+function drawShadingLine() {
+  if (S.mode !== 'shading_measure' || !S.shadingPt1 || !S.mouse) return;
+  const pt2 = { x: S.mouse.wx, y: S.mouse.wy };
+  const dx = pt2.x - S.shadingPt1.x, dy = pt2.y - S.shadingPt1.y;
+  const realLen = pxVecToM(dx, dy);
+  const lbl = realLen !== null ? fmtLength(realLen) : Math.hypot(dx, dy).toFixed(1) + ' px';
+  ctx.strokeStyle = SHADING_COLOR; ctx.lineWidth = 2 / S.zoom;
+  ctx.setLineDash([6 / S.zoom, 4 / S.zoom]);
+  ctx.beginPath(); ctx.moveTo(S.shadingPt1.x, S.shadingPt1.y); ctx.lineTo(pt2.x, pt2.y);
+  ctx.stroke(); ctx.setLineDash([]);
+  dot(pt2, SHADING_COLOR, 4 / S.zoom);
+  const mx = (S.shadingPt1.x + pt2.x) / 2, my = (S.shadingPt1.y + pt2.y) / 2;
+  const fsz = clamp(12 / S.zoom, 9, 28);
+  ctx.font = `bold ${fsz}px system-ui, sans-serif`;
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  const tw = ctx.measureText(lbl).width, th = fsz * 1.5;
+  ctx.fillStyle = 'rgba(0,0,0,0.7)';
+  rrect(mx - tw / 2 - 5 / S.zoom, my - th / 2, tw + 10 / S.zoom, th, 3 / S.zoom);
+  ctx.fill();
+  ctx.fillStyle = SHADING_COLOR; ctx.fillText(lbl, mx, my);
 }
 
 // ── Canvas primitives ─────────────────────────────────────────────────────────

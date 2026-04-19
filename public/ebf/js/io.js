@@ -97,7 +97,17 @@ export async function loadImageFromDataUrl(dataUrl) {
 
 // ── Export / Import ───────────────────────────────────────────────────────────
 export function exportData() {
-  const payload = { version: 1, scale: S.scale, nextId: S.nextId, nextMeasId: S.nextMeasId, polygons: S.polygons, measurements: S.measurements };
+  // v=2: export ALL plans so polygons on non-active plans are preserved on re-import.
+  // Images are stripped (too large); they are kept in localStorage/memory.
+  const plans = S.plans.map(plan => {
+    const { imageDataUrl, ...rest } = plan;
+    return {
+      ...rest,
+      polygons:     plan.id === S.activePlanId ? S.polygons     : (plan.polygons     ?? []),
+      measurements: plan.id === S.activePlanId ? S.measurements : (plan.measurements ?? []),
+    };
+  });
+  const payload = { version: 2, activePlanId: S.activePlanId, plans };
   const url = URL.createObjectURL(new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' }));
   Object.assign(document.createElement('a'), { href: url, download: 'flaechen-berechnung.json' }).click();
   URL.revokeObjectURL(url);
@@ -140,13 +150,54 @@ export function exportXML() {
 export async function importData(file) {
   try {
     const data = JSON.parse(await file.text());
-    if (data.version !== 1) { alert('Format de fichier incompatible.'); return false; }
-    S.scale        = data.scale        ?? null;
-    S.polygons     = normalizePolygonLabels(data.polygons ?? []);
-    S.measurements = data.measurements ?? [];
-    S.nextId       = data.nextId       ?? S.nextId;
-    S.nextMeasId   = data.nextMeasId   ?? S.nextMeasId;
-    return true;
+
+    if (data.version === 2 && Array.isArray(data.plans)) {
+      // v=2: restore ALL plans' polygon/measurement data.
+      // Match by index — plan IDs change every session (generated from Date.now()),
+      // so ID-based matching silently fails after a page reload.
+      data.plans.forEach((imported, idx) => {
+        const existing = S.plans[idx];
+        if (!existing) return;
+        existing.polygons     = imported.polygons     ?? existing.polygons     ?? [];
+        existing.measurements = imported.measurements ?? existing.measurements ?? [];
+        existing.scale        = imported.scale        ?? existing.scale;
+        existing.scaleX       = imported.scaleX       ?? existing.scaleX;
+        existing.scaleY       = imported.scaleY       ?? existing.scaleY;
+        existing.scaleDirX    = imported.scaleDirX    ?? existing.scaleDirX;
+        existing.scaleDirY    = imported.scaleDirY    ?? existing.scaleDirY;
+        existing.nextId       = imported.nextId       ?? existing.nextId;
+        existing.nextMeasId   = imported.nextMeasId   ?? existing.nextMeasId;
+      });
+      // Restore live state for the active plan (by index: exported active plan → current active plan)
+      const exportedActiveIdx = data.plans.findIndex(p => p.id === data.activePlanId);
+      const activeIdx = exportedActiveIdx >= 0 ? exportedActiveIdx : 0;
+      const activePlan = S.plans[activeIdx];
+      if (activePlan) {
+        S.polygons     = [...(activePlan.polygons     ?? [])];
+        S.measurements = [...(activePlan.measurements ?? [])];
+        S.scale        = activePlan.scale     ?? null;
+        S.scaleX       = activePlan.scaleX    ?? null;
+        S.scaleY       = activePlan.scaleY    ?? null;
+        S.scaleDirX    = activePlan.scaleDirX ?? null;
+        S.scaleDirY    = activePlan.scaleDirY ?? null;
+        S.nextId       = activePlan.nextId    ?? S.nextId;
+        S.nextMeasId   = activePlan.nextMeasId ?? S.nextMeasId;
+      }
+      return true;
+    }
+
+    if (data.version === 1) {
+      // v=1 backward compat: single-plan export, only restore active plan
+      S.scale        = data.scale        ?? null;
+      S.polygons     = data.polygons     ?? [];
+      S.measurements = data.measurements ?? [];
+      S.nextId       = data.nextId       ?? S.nextId;
+      S.nextMeasId   = data.nextMeasId   ?? S.nextMeasId;
+      return true;
+    }
+
+    alert('Unbekanntes Dateiformat (version ' + data.version + ').');
+    return false;
   } catch (err) {
     alert('Import fehlgeschlagen: ' + err.message);
     return false;
@@ -156,7 +207,7 @@ export async function importData(file) {
 // ── Print ─────────────────────────────────────────────────────────────────────
 
 /** Draw one plan's image + polygons + measurements onto an offscreen canvas and return dataURL. */
-function renderPlanCanvas(imageEl, imageW, imageH, polygons, measurements, scale) {
+function renderPlanCanvas(imageEl, imageW, imageH, polygons, measurements, annotations, scale) {
   const MAX = 1800;
   const sc  = Math.min(MAX / imageW, MAX / imageH, 1);
   const w   = Math.round(imageW * sc);
@@ -227,6 +278,29 @@ function renderPlanCanvas(imageEl, imageW, imageH, polygons, measurements, scale
     c.fillStyle = '#fbbf24'; c.fillText(lbl, mx, my);
   });
 
+  // Annotations
+  (annotations || []).forEach(ann => {
+    if (!ann.text?.trim()) return;
+    const [ax, ay] = px(ann);
+    const lines = ann.text.split('\n');
+    const fsz   = (ann.fontSize || 16) * sc;
+    const lineH = fsz * 1.45;
+    const pad   = 8;
+    c.font = `${fsz}px system-ui`; c.textAlign = 'left'; c.textBaseline = 'top';
+    const maxW = Math.max(...lines.map(l => c.measureText(l).width));
+    const boxW = maxW + pad * 2, boxH = lines.length * lineH + pad * 1.5;
+    const r = 5;
+    c.beginPath();
+    c.moveTo(ax+r, ay); c.lineTo(ax+boxW-r, ay); c.quadraticCurveTo(ax+boxW, ay, ax+boxW, ay+r);
+    c.lineTo(ax+boxW, ay+boxH-r); c.quadraticCurveTo(ax+boxW, ay+boxH, ax+boxW-r, ay+boxH);
+    c.lineTo(ax+r, ay+boxH); c.quadraticCurveTo(ax, ay+boxH, ax, ay+boxH-r);
+    c.lineTo(ax, ay+r); c.quadraticCurveTo(ax, ay, ax+r, ay); c.closePath();
+    c.fillStyle = '#fff'; c.fill();
+    c.strokeStyle = '#000'; c.lineWidth = 1.5; c.stroke();
+    c.fillStyle = '#111';
+    lines.forEach((line, i) => c.fillText(line, ax + pad, ay + pad * 0.75 + i * lineH));
+  });
+
   return off.toDataURL('image/png');
 }
 
@@ -247,8 +321,9 @@ async function generateMultiPlanPDF(selectedIds) {
   for (const plan of S.plans) {
     if (!selectedIds.has(plan.id)) continue;
     const isActive = plan.id === S.activePlanId;
-    const polygons = isActive ? S.polygons : (plan.polygons || []);
+    const polygons     = isActive ? S.polygons     : (plan.polygons     || []);
     const measurements = isActive ? S.measurements : (plan.measurements || []);
+    const annotations  = isActive ? S.annotations  : (plan.annotations  || []);
     const scale = isActive ? S.scale : (plan.scale ?? null);
     const imageDataUrl = isActive ? S.imageDataUrl : plan.imageDataUrl;
     const imageW = isActive ? S.imageW : plan.imageW;
@@ -259,7 +334,7 @@ async function generateMultiPlanPDF(selectedIds) {
     } catch (_) {
       imageEl = null;
     }
-    planEntries.push({ plan, polygons, measurements, scale, imageDataUrl, imageW, imageH, imageEl });
+    planEntries.push({ plan, polygons, measurements, annotations, scale, imageDataUrl, imageW, imageH, imageEl });
   }
 
   if (planEntries.length === 0) return;
@@ -270,7 +345,7 @@ async function generateMultiPlanPDF(selectedIds) {
     let imgTag = '';
     if (entry.imageEl && entry.imageW && entry.imageH) {
       try {
-        const dataUrl = renderPlanCanvas(entry.imageEl, entry.imageW, entry.imageH, entry.polygons, entry.measurements, entry.scale);
+        const dataUrl = renderPlanCanvas(entry.imageEl, entry.imageW, entry.imageH, entry.polygons, entry.measurements, entry.annotations, entry.scale);
         imgTag = `<img src="${dataUrl}" alt="${esc(entry.plan.label)}">`;
       } catch (_) {
         imgTag = `<p style="color:#c00">Bild konnte nicht gerendert werden.</p>`;
