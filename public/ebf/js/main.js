@@ -2,7 +2,7 @@
 
 import { S, initDom, canvas, s2w, w2s, setMode, px2m2, $, emitPolygonSyncEvent, emitPlansSyncEvent, EBF_LOAD_PLANS_EVENT } from './state.js';
 import { PDFJS_WORKER, SNAP_RADIUS }                      from './config.js';
-import { shoelace, findNearVertex, findNearEdge, dist, labelPoint } from './geo.js';
+import { shoelace, findNearVertex, findNearEdge, dist, labelPoint, findPolygonAt, findNearMeasurement } from './geo.js';
 import { render }                                         from './render.js';
 import { updateSidebar, nextPolygonLabel, setSwitchPlanHandler, setCurrentAreaTypeLabel, colorForCurrentAreaType, getCurrentAreaTypeLabel, pasteFromClipboard } from './sidebar.js';
 import { loadPDF, loadPDFPages, loadImg, exportData, exportExcel, exportXML, importData, printView, loadImageFromDataUrl } from './io.js';
@@ -784,7 +784,7 @@ function onMouseDown(e) {
     render(); return;
   }
 
-  // Idle: drag vertex, label, or pan
+  // Idle: drag vertex → label → measurement → polygon fill → pan
   const nv = findNearVertex(sx, sy);
   if (nv) { S.dragVertex = nv; S.mode = 'drag_vertex'; canvas.style.cursor = 'move'; return; }
   const li = findNearLabel(sx, sy);
@@ -792,6 +792,20 @@ function onMouseDown(e) {
     const poly = S.polygons[li];
     S.dragLabel = { polyIdx: li, startSX: sx, startSY: sy, origDX: poly.labelOffset?.dx || 0, origDY: poly.labelOffset?.dy || 0 };
     S.mode = 'drag_label'; canvas.style.cursor = 'move'; return;
+  }
+  const nm = findNearMeasurement(sx, sy);
+  if (nm !== null) {
+    const m = S.measurements[nm];
+    S.dragMeas = { measIdx: nm, startWX: wp.x, startWY: wp.y, origPt1: { ...m.pt1 }, origPt2: { ...m.pt2 } };
+    S.mode = 'drag_meas'; canvas.style.cursor = 'move'; return;
+  }
+  const pi = findPolygonAt(sx, sy);
+  if (pi !== null) {
+    const poly = S.polygons[pi];
+    S.dragPoly = { polyIdx: pi, startWX: wp.x, startWY: wp.y,
+      origPoints: poly.points.map(p => ({ ...p })),
+      origLabelOffset: poly.labelOffset ? { ...poly.labelOffset } : { dx: 0, dy: 0 } };
+    S.mode = 'drag_poly'; canvas.style.cursor = 'move'; return;
   }
   S.panning = true; S.lastMouse = { x: e.clientX, y: e.clientY };
   canvas.style.cursor = 'grabbing';
@@ -815,6 +829,22 @@ function onMouseMove(e) {
     poly.labelOffset = { dx: dl.origDX + (sx - dl.startSX) / S.zoom, dy: dl.origDY + (sy - dl.startSY) / S.zoom };
     render(); return;
   }
+  if (S.mode === 'drag_poly' && S.dragPoly !== null) {
+    const dp = S.dragPoly;
+    const ddx = wp.x - dp.startWX, ddy = wp.y - dp.startWY;
+    const poly = S.polygons[dp.polyIdx];
+    poly.points = dp.origPoints.map(p => ({ x: p.x + ddx, y: p.y + ddy }));
+    poly.labelOffset = { dx: dp.origLabelOffset.dx, dy: dp.origLabelOffset.dy };
+    render(); return;
+  }
+  if (S.mode === 'drag_meas' && S.dragMeas !== null) {
+    const dm = S.dragMeas;
+    const ddx = wp.x - dm.startWX, ddy = wp.y - dm.startWY;
+    const m = S.measurements[dm.measIdx];
+    m.pt1 = { x: dm.origPt1.x + ddx, y: dm.origPt1.y + ddy };
+    m.pt2 = { x: dm.origPt2.x + ddx, y: dm.origPt2.y + ddy };
+    render(); return;
+  }
 
   if (S.panning) {
     S.panX += e.clientX - S.lastMouse.x;
@@ -824,7 +854,9 @@ function onMouseMove(e) {
   }
 
   if (S.mode === 'idle' && !S.panning) {
-    canvas.style.cursor = (findNearVertex(sx, sy) || findNearLabel(sx, sy) !== null) ? 'move' : 'grab';
+    const hovering = findNearVertex(sx, sy) || findNearLabel(sx, sy) !== null
+      || findNearMeasurement(sx, sy) !== null || findPolygonAt(sx, sy) !== null;
+    canvas.style.cursor = hovering ? 'move' : 'grab';
     S.hoverEdge = findNearEdge(sx, sy);
   } else {
     S.hoverEdge = null;
@@ -845,6 +877,18 @@ function onMouseUp() {
     S.dragLabel = null; setMode('idle'); canvas.style.cursor = 'grab';
     saveCurrentPlanState();
     emitPlansSyncEvent();
+    return;
+  }
+  if (S.mode === 'drag_poly') {
+    S.dragPoly = null; setMode('idle'); canvas.style.cursor = 'grab';
+    emitPolygonSyncEvent();
+    saveCurrentPlanState();
+    emitPlansSyncEvent();
+    return;
+  }
+  if (S.mode === 'drag_meas') {
+    S.dragMeas = null; setMode('idle'); canvas.style.cursor = 'grab';
+    saveCurrentPlanState();
     return;
   }
   if (S.panning) { S.panning = false; canvas.style.cursor = S.mode === 'idle' ? 'grab' : 'crosshair'; }

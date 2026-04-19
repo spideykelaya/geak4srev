@@ -1,6 +1,6 @@
 // Mutable app state — single source of truth
 export const S = {
-  mode: 'idle', // idle | calibrate_1 | calibrate_2 | calibrate_confirm | draw | measure | angle | drag_vertex | drag_label
+  mode: 'idle', // idle | calibrate_1 | calibrate_2 | calibrate_confirm | draw | measure | angle | drag_vertex | drag_label | drag_poly | drag_meas
   scale: null,         // meters per world-pixel (uniform, kept for backward compat)
   scaleX: null,        // meters per pixel along scaleDirX
   scaleY: null,        // meters per pixel along scaleDirY
@@ -22,6 +22,8 @@ export const S = {
   mouse: null,         // {sx, sy, wx, wy}
   nextId: 1, nextMeasId: 1, nextAngleId: 1,
   dragVertex: null,    // {polyIdx, vtxIdx}
+  dragPoly:   null,    // {polyIdx, startWX, startWY, origPoints, origLabelOffset}
+  dragMeas:   null,    // {measIdx, startWX, startWY, origPt1, origPt2}
   hoverEdge: null,     // {wmx, wmy, len}
   // ── Plans ────────────────────────────────────────────────────────────────
   plans: [],           // [{id, label, driveFileId, imageDataUrl, imageW, imageH, scale, scaleX, scaleY, nextId, nextMeasId, polygons, measurements}]

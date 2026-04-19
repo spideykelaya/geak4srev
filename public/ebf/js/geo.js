@@ -1,4 +1,4 @@
-import { S, w2s }                   from './state.js';
+import { S, w2s, s2w }              from './state.js';
 import { SNAP_RADIUS, EDGE_HIT_RADIUS } from './config.js';
 
 // ── Pure geometry ─────────────────────────────────────────────────────────────
@@ -50,6 +50,39 @@ export function labelPoint(pts) {
 }
 
 // ── Hit detection ─────────────────────────────────────────────────────────────
+
+/** Ray-casting point-in-polygon test (world coords). */
+export function pointInPolygon(px, py, pts) {
+  let inside = false;
+  for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) {
+    const xi = pts[i].x, yi = pts[i].y, xj = pts[j].x, yj = pts[j].y;
+    if ((yi > py) !== (yj > py) && px < (xj - xi) * (py - yi) / (yj - yi) + xi)
+      inside = !inside;
+  }
+  return inside;
+}
+
+/** Returns the topmost polygon index whose fill contains screen point (sx,sy), or null. */
+export function findPolygonAt(sx, sy) {
+  const wp = s2w(sx, sy);
+  for (let i = S.polygons.length - 1; i >= 0; i--) {
+    if (S.polygons[i].points.length >= 3 && pointInPolygon(wp.x, wp.y, S.polygons[i].points))
+      return i;
+  }
+  return null;
+}
+
+/** Returns measurement index whose line is within EDGE_HIT_RADIUS of screen point, or null. */
+export function findNearMeasurement(sx, sy) {
+  for (let i = S.measurements.length - 1; i >= 0; i--) {
+    const m = S.measurements[i];
+    const a = { x: m.pt1.x * S.zoom + S.panX, y: m.pt1.y * S.zoom + S.panY };
+    const b = { x: m.pt2.x * S.zoom + S.panX, y: m.pt2.y * S.zoom + S.panY };
+    if (distToSegScreen(sx, sy, a.x, a.y, b.x, b.y) <= EDGE_HIT_RADIUS) return i;
+  }
+  return null;
+}
+
 export function findNearVertex(sx, sy) {
   for (let pi = 0; pi < S.polygons.length; pi++) {
     const pts = S.polygons[pi].points;
