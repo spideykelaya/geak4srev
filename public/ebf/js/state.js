@@ -114,14 +114,24 @@ export function emitPolygonSyncEvent() {
   // Send labels exactly as they are in the canvas — no renumbering.
   const polygons = allRaw;
 
+  console.log('[EBF] emitPolygonSyncEvent:', polygons.length, 'polygons:', polygons.map(p => `${p.label}(${p.areaType})`));
   window.dispatchEvent(new CustomEvent(EBF_POLYGONS_SYNC_EVENT, { detail: polygons }));
 }
 
-/** Emit full plans list (without image data URLs) so the Scala layer can persist it. */
+/** Emit full plans list (without image data URLs) so the Scala layer can persist it.
+ *  Uses live S.polygons/S.measurements for the active plan so renames and last-drawn
+ *  polygons are always captured even before saveCurrentPlanState() is called. */
 export function emitPlansSyncEvent() {
   if (typeof window === 'undefined' || typeof window.dispatchEvent !== 'function') return;
   const payload = {
-    plans: S.plans.map(({ imageDataUrl, ...rest }) => rest), // strip large image data
+    plans: S.plans.map(plan => {
+      const { imageDataUrl, ...rest } = plan;
+      return {
+        ...rest,
+        polygons:     plan.id === S.activePlanId ? S.polygons     : (plan.polygons     ?? []),
+        measurements: plan.id === S.activePlanId ? S.measurements : (plan.measurements ?? []),
+      };
+    }),
     activePlanId: S.activePlanId,
   };
   window.dispatchEvent(new CustomEvent(EBF_PLANS_SYNC_EVENT, { detail: payload }));

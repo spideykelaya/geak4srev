@@ -20,6 +20,7 @@ object EBFCalculatorView:
   private val planUploadEvent    = "geak:ebf-plan-upload"
   private val loadPlansEvent     = "geak:ebf-load-plans"
   private val polygonRenamedEvent = "geak:ebf-polygon-renamed"
+  private val polygonResetEvent   = "geak:ebf-polygon-reset"
 
   private def decodePolygons(event: dom.Event): Seq[(String, String, Double)] =
     val payload = event.asInstanceOf[dom.CustomEvent].detail.asInstanceOf[js.Array[js.Dynamic]]
@@ -46,6 +47,7 @@ object EBFCalculatorView:
     var plansSyncListener:    Option[js.Function1[dom.Event, Unit]]   = None
     var planUploadListener:   Option[js.Function1[dom.Event, Unit]]   = None
     var polygonRenamedListener: Option[js.Function1[dom.Event, Unit]] = None
+    var polygonResetListener:   Option[js.Function1[dom.Event, Unit]] = None
 
     div(
       className := "ebf-calculator-host",
@@ -54,7 +56,9 @@ object EBFCalculatorView:
         // ── polygon sync → AreaState ──
         val polyListener: js.Function1[dom.Event, Unit] = (event: dom.Event) =>
           val polygons = decodePolygons(event)
+          dom.console.log(s"[AreaState] polygon-sync received ${polygons.length}: ${polygons.map((l,t,a) => s"$l($t)=%.2f".format(a)).mkString(", ")}")
           AreaState.syncPolygons(polygons)
+          dom.console.log(s"[AreaState] after sync, entries: ${AreaState.areaCalculations.now().map(_.calculations.flatMap(c => c.entries.map(e => s"${c.componentType.polygonLabel}/${e.kuerzel}")).mkString(", ")).getOrElse("None")}")
           AppState.saveAreaCalculations()
         dom.window.addEventListener(polygonSyncEvent, polyListener)
         polygonSyncListener = Some(polyListener)
@@ -88,6 +92,12 @@ object EBFCalculatorView:
             AppState.saveAreaCalculations()
         dom.window.addEventListener(polygonRenamedEvent, renamedListener)
         polygonRenamedListener = Some(renamedListener)
+
+        // ── import reset → clear stale area entries before fresh sync ──
+        val resetListener: js.Function1[dom.Event, Unit] = (_: dom.Event) =>
+          AreaState.initializeEmpty()
+        dom.window.addEventListener(polygonResetEvent, resetListener)
+        polygonResetListener = Some(resetListener)
 
         // ── plan upload → Google Drive ──
         val uploadListener: js.Function1[dom.Event, Unit] = (event: dom.Event) =>
@@ -138,12 +148,13 @@ object EBFCalculatorView:
         plansSyncListener.foreach(l     => dom.window.removeEventListener(plansSyncEvent, l))
         planUploadListener.foreach(l    => dom.window.removeEventListener(planUploadEvent, l))
         polygonRenamedListener.foreach(l => dom.window.removeEventListener(polygonRenamedEvent, l))
+        polygonResetListener.foreach(l   => dom.window.removeEventListener(polygonResetEvent,   l))
         polygonSyncListener = None; plansSyncListener = None; planUploadListener = None
-        polygonRenamedListener = None
+        polygonRenamedListener = None; polygonResetListener = None
         unmountHandle.foreach(_())
         unmountHandle = None
       },
-      htmlTag("link")(rel := "stylesheet", href := "/ebf/styles.css?v=18"),
+      htmlTag("link")(rel := "stylesheet", href := "/ebf/styles.css?v=28"),
       div(
         className := "app",
         styleAttr := "height: 100%;",

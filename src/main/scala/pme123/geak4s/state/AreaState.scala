@@ -71,22 +71,31 @@ object AreaState:
       .map((label, areaType, area) => (label.trim, areaType.trim, if area.isNaN || area < 0 then 0.0 else area))
       .filter(_._1.nonEmpty)
 
-    // Route each polygon to a ComponentType using areaType if present, else fall back to label inference
+    // Route each polygon to a ComponentType using areaType if present, else fall back to label inference.
+    // Polygons that don't match any known type default to EBF so they are never silently dropped.
     val byType: Map[ComponentType, Seq[(String, Double)]] =
       normalized
         .groupBy { case (label, areaType, _) =>
-          if areaType.nonEmpty then ComponentType.fromPolygonLabel(areaType)
-          else ComponentType.fromPolygonLabel(label)
+          val resolved =
+            if areaType.nonEmpty then ComponentType.fromPolygonLabel(areaType)
+            else ComponentType.fromPolygonLabel(label)
+          resolved.getOrElse(ComponentType.EBF)
         }
-        .collect { case (Some(ct), entries) => ct -> entries.map((label, _, area) => (label, area)) }
+        .map { case (ct, entries) => ct -> entries.map((label, _, area) => (label, area)) }
+
+    // Clear any ComponentType that had entries before but has no polygons now
+    val presentTypes = byType.keySet
+    areaCalculations.now().foreach { area =>
+      area.calculations
+        .filter(c => c.entries.nonEmpty && !presentTypes.contains(c.componentType))
+        .foreach(c => updateAreaCalculation(c.componentType, List.empty))
+    }
 
     byType.foreach { case (compType, typePolygons) =>
       val existingEntries = areaCalculations.now()
         .flatMap(_.get(compType))
         .map(_.entries)
         .getOrElse(List.empty)
-
-      val syncedLabels = typePolygons.map(_._1).toSet
 
       val syncedEntries = typePolygons.map { case (rawLabel, polygonArea) =>
         existingEntries.find(_.kuerzel == rawLabel) match
@@ -108,12 +117,7 @@ object AreaState:
             )
       }.toList
 
-      // Preserve existing entries whose label is NOT in the current polygon sync
-      // (e.g. manually added rows, or entries from a previous plan that was not synced)
-      val unmatched = existingEntries.filterNot(e => syncedLabels.contains(e.kuerzel))
-      val renumbered = syncedEntries ++ unmatched
-
-      updateAreaCalculation(compType, renumbered)
+      updateAreaCalculation(compType, syncedEntries)
     }
 
   /** Rename a kuerzel across all component types (triggered when EBF polygon is renamed) */

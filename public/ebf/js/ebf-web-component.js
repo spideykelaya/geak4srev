@@ -21,7 +21,7 @@ function ensurePdfJsLoaded() {
 
 async function mountEbfCalculator(root) {
   await ensurePdfJsLoaded();
-  const module = await import('/ebf/js/main.js?v=22');
+  const module = await import('/ebf/js/main.js?v=28');
   return module.mountEbf(root || document);
 }
 
@@ -63,7 +63,7 @@ const TEMPLATE = `
 
     .app { height: 100% !important; }
   </style>
-  <link rel="stylesheet" href="/ebf/styles.css?v=22">
+  <link rel="stylesheet" href="/ebf/styles.css?v=28">
 
   <div class="app">
     <aside class="sidebar">

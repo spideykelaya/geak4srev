@@ -97,7 +97,17 @@ export async function loadImageFromDataUrl(dataUrl) {
 
 // ── Export / Import ───────────────────────────────────────────────────────────
 export function exportData() {
-  const payload = { version: 1, scale: S.scale, nextId: S.nextId, nextMeasId: S.nextMeasId, polygons: S.polygons, measurements: S.measurements };
+  // v=2: export ALL plans so polygons on non-active plans are preserved on re-import.
+  // Images are stripped (too large); they are kept in localStorage/memory.
+  const plans = S.plans.map(plan => {
+    const { imageDataUrl, ...rest } = plan;
+    return {
+      ...rest,
+      polygons:     plan.id === S.activePlanId ? S.polygons     : (plan.polygons     ?? []),
+      measurements: plan.id === S.activePlanId ? S.measurements : (plan.measurements ?? []),
+    };
+  });
+  const payload = { version: 2, activePlanId: S.activePlanId, plans };
   const url = URL.createObjectURL(new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' }));
   Object.assign(document.createElement('a'), { href: url, download: 'flaechen-berechnung.json' }).click();
   URL.revokeObjectURL(url);
@@ -140,13 +150,54 @@ export function exportXML() {
 export async function importData(file) {
   try {
     const data = JSON.parse(await file.text());
-    if (data.version !== 1) { alert('Format de fichier incompatible.'); return false; }
-    S.scale        = data.scale        ?? null;
-    S.polygons     = normalizePolygonLabels(data.polygons ?? []);
-    S.measurements = data.measurements ?? [];
-    S.nextId       = data.nextId       ?? S.nextId;
-    S.nextMeasId   = data.nextMeasId   ?? S.nextMeasId;
-    return true;
+
+    if (data.version === 2 && Array.isArray(data.plans)) {
+      // v=2: restore ALL plans' polygon/measurement data.
+      // Match by index — plan IDs change every session (generated from Date.now()),
+      // so ID-based matching silently fails after a page reload.
+      data.plans.forEach((imported, idx) => {
+        const existing = S.plans[idx];
+        if (!existing) return;
+        existing.polygons     = imported.polygons     ?? existing.polygons     ?? [];
+        existing.measurements = imported.measurements ?? existing.measurements ?? [];
+        existing.scale        = imported.scale        ?? existing.scale;
+        existing.scaleX       = imported.scaleX       ?? existing.scaleX;
+        existing.scaleY       = imported.scaleY       ?? existing.scaleY;
+        existing.scaleDirX    = imported.scaleDirX    ?? existing.scaleDirX;
+        existing.scaleDirY    = imported.scaleDirY    ?? existing.scaleDirY;
+        existing.nextId       = imported.nextId       ?? existing.nextId;
+        existing.nextMeasId   = imported.nextMeasId   ?? existing.nextMeasId;
+      });
+      // Restore live state for the active plan (by index: exported active plan → current active plan)
+      const exportedActiveIdx = data.plans.findIndex(p => p.id === data.activePlanId);
+      const activeIdx = exportedActiveIdx >= 0 ? exportedActiveIdx : 0;
+      const activePlan = S.plans[activeIdx];
+      if (activePlan) {
+        S.polygons     = [...(activePlan.polygons     ?? [])];
+        S.measurements = [...(activePlan.measurements ?? [])];
+        S.scale        = activePlan.scale     ?? null;
+        S.scaleX       = activePlan.scaleX    ?? null;
+        S.scaleY       = activePlan.scaleY    ?? null;
+        S.scaleDirX    = activePlan.scaleDirX ?? null;
+        S.scaleDirY    = activePlan.scaleDirY ?? null;
+        S.nextId       = activePlan.nextId    ?? S.nextId;
+        S.nextMeasId   = activePlan.nextMeasId ?? S.nextMeasId;
+      }
+      return true;
+    }
+
+    if (data.version === 1) {
+      // v=1 backward compat: single-plan export, only restore active plan
+      S.scale        = data.scale        ?? null;
+      S.polygons     = data.polygons     ?? [];
+      S.measurements = data.measurements ?? [];
+      S.nextId       = data.nextId       ?? S.nextId;
+      S.nextMeasId   = data.nextMeasId   ?? S.nextMeasId;
+      return true;
+    }
+
+    alert('Unbekanntes Dateiformat (version ' + data.version + ').');
+    return false;
   } catch (err) {
     alert('Import fehlgeschlagen: ' + err.message);
     return false;

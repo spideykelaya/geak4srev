@@ -67,6 +67,8 @@ function bindUI(ownerDocument) {
     applyScaleStatus();
     show('scale-section'); show('area-type-section'); show('draw-section');
     updateSidebar(); render();
+    // Reset area calculations before sync so old labels don't cause duplicates
+    window.dispatchEvent(new CustomEvent('geak:ebf-polygon-reset', { bubbles: false }));
     emitPolygonSyncEvent();
     saveCurrentPlanState();
     emitPlansSyncEvent();
