@@ -1,5 +1,5 @@
 import { S, $, emitPolygonSyncEvent, emitPlansSyncEvent, pxVecToM } from './state.js';
-import { MEAS_COLOR }              from './config.js';
+import { MEAS_COLOR, ANGLE_COLOR }  from './config.js';
 import { fmtArea, fmtLength } from './geo.js';
 import { render }                  from './render.js';
 
@@ -89,6 +89,7 @@ export function updateSidebar() {
   updatePlanList();
   updatePolygonList();
   updateMeasurementList();
+  updateAngleList();
 }
 
 // ── Plans ─────────────────────────────────────────────────────────────────────
@@ -320,6 +321,45 @@ function updateMeasurementList() {
     del.className = 'btn-delete'; del.textContent = '\u00d7';
     del.onclick = () => {
       S.measurements = S.measurements.filter(m => m.id !== meas.id);
+      updateSidebar(); render();
+    };
+
+    li.append(icon, lbl, val, del);
+    listEl.appendChild(li);
+  });
+}
+
+// ── Angles ────────────────────────────────────────────────────────────────────
+function updateAngleList() {
+  const section = $('angles-section');
+  const listEl  = $('angle-list');
+  if (!section || !listEl) return;
+
+  if (!S.angles.length) { section.style.display = 'none'; return; }
+  section.style.display = 'block';
+  listEl.innerHTML = '';
+
+  S.angles.forEach(ang => {
+    const li = document.createElement('li');
+    li.className = 'polygon-item';
+
+    const icon = document.createElement('span');
+    icon.className = 'color-dot'; icon.style.background = ANGLE_COLOR;
+
+    const lbl = document.createElement('span');
+    lbl.className = 'polygon-label'; lbl.textContent = 'Winkel ' + ang.id;
+
+    const ax = ang.pt1.x - ang.vertex.x, ay = ang.pt1.y - ang.vertex.y;
+    const bx = ang.pt2.x - ang.vertex.x, by = ang.pt2.y - ang.vertex.y;
+    const deg = Math.atan2(Math.abs(ax * by - ay * bx), ax * bx + ay * by) * 180 / Math.PI;
+    const val = document.createElement('span');
+    val.className = 'polygon-area';
+    val.textContent = deg.toFixed(1) + '°';
+
+    const del = document.createElement('button');
+    del.className = 'btn-delete'; del.textContent = '\u00d7';
+    del.onclick = () => {
+      S.angles = S.angles.filter(a => a.id !== ang.id);
       updateSidebar(); render();
     };
 

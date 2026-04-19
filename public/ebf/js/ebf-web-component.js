@@ -21,7 +21,7 @@ function ensurePdfJsLoaded() {
 
 async function mountEbfCalculator(root) {
   await ensurePdfJsLoaded();
-  const module = await import('/ebf/js/main.js?v=11');
+  const module = await import('/ebf/js/main.js?v=12');
   return module.mountEbf(root || document);
 }
 
@@ -63,7 +63,7 @@ const TEMPLATE = `
 
     .app { height: 100% !important; }
   </style>
-  <link rel="stylesheet" href="/ebf/styles.css?v=11">
+  <link rel="stylesheet" href="/ebf/styles.css?v=12">
 
   <div class="app">
     <aside class="sidebar">
@@ -128,11 +128,10 @@ const TEMPLATE = `
         </div>
 
         <div class="section" id="draw-section" style="display:none">
-          <div class="section-label">Zeichnen</div>
-          <button class="btn btn-success btn-draw-main" id="draw-btn">Neues Polygon</button>
-          <div class="tools-divider"></div>
           <div class="section-label">Werkzeuge</div>
+          <button class="btn btn-success btn-draw-main" id="draw-btn">Neues Polygon</button>
           <button class="btn btn-measure" id="measure-btn">Distanz messen</button>
+          <button class="btn btn-angle" id="angle-btn">Winkel messen</button>
           <button class="btn btn-danger" id="clear-btn">Alles loeschen</button>
           <div class="tools-divider"></div>
           <div class="section-label">Export</div>
@@ -157,6 +156,11 @@ const TEMPLATE = `
         <div class="section" id="measurements-section" style="display:none">
           <div class="section-label">Messungen</div>
           <ul id="measurement-list"></ul>
+        </div>
+
+        <div class="section" id="angles-section" style="display:none">
+          <div class="section-label">Winkel</div>
+          <ul id="angle-list"></ul>
         </div>
       </div>
 

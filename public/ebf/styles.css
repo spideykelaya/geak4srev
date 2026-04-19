@@ -155,6 +155,13 @@ h1 {
 }
 .btn-measure:hover { background: rgba(251,191,36,0.14); }
 
+.btn-angle {
+  background: rgba(34,211,238,0.08);
+  border-color: rgba(34,211,238,0.18);
+  color: #22d3ee;
+}
+.btn-angle:hover { background: rgba(34,211,238,0.14); }
+
 .btn-danger-solid {
   background: rgba(248,113,113,0.12);
   border-color: rgba(248,113,113,0.3);

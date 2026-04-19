@@ -121,6 +121,7 @@ function bindUI(ownerDocument) {
   $('cancel-scale').addEventListener('click', cancelCalibration);
   $('draw-btn').addEventListener('click', startDrawing);
   $('measure-btn').addEventListener('click', startMeasuring);
+  $('angle-btn').addEventListener('click', startAngling);
   $('clear-btn').addEventListener('click', clearAll);
   $('export-btn').addEventListener('click', exportData);
   $('export-excel-btn').addEventListener('click', exportExcel);
@@ -207,9 +208,9 @@ async function onFileChange(e) {
   S.activePlanId = firstPlanId;
   $('file-name').textContent = firstPlanLabel;
 
-  S.polygons = []; S.measurements = []; S.current = [];
+  S.polygons = []; S.measurements = []; S.angles = []; S.current = [];
   S.scale = null; S.scaleX = null; S.scaleY = null; S.scaleDirX = null; S.scaleDirY = null;
-  S.nextId = 1; S.nextMeasId = 1;
+  S.nextId = 1; S.nextMeasId = 1; S.nextAngleId = 1;
 
   const firstPlan = S.plans.find(p => p.id === firstPlanId);
   updatePaperRowVisibility(firstPlan?.isPdf ?? false);
@@ -243,6 +244,7 @@ function saveCurrentPlanState() {
   if (!plan) return;
   plan.polygons     = S.polygons.map(p => ({ ...p }));
   plan.measurements = S.measurements.map(m => ({ ...m }));
+  plan.angles       = S.angles.map(a => ({ ...a }));
   plan.scale        = S.scale;
   plan.scaleX       = S.scaleX;
   plan.scaleY       = S.scaleY;
@@ -250,6 +252,7 @@ function saveCurrentPlanState() {
   plan.scaleDirY    = S.scaleDirY;
   plan.nextId       = S.nextId;
   plan.nextMeasId   = S.nextMeasId;
+  plan.nextAngleId  = S.nextAngleId;
   plan.imageW       = S.imageW;
   plan.imageH       = S.imageH;
   if (S.imageDataUrl) plan.imageDataUrl = S.imageDataUrl;
@@ -297,6 +300,7 @@ async function switchToPlan(planId, { suppressPolygonSync = false } = {}) {
   S.activePlanId  = planId;
   S.polygons      = plan.polygons.map(p => ({ ...p }));
   S.measurements  = plan.measurements.map(m => ({ ...m }));
+  S.angles        = (plan.angles || []).map(a => ({ ...a }));
   S.scale         = plan.scale     ?? null;
   S.scaleX        = plan.scaleX    ?? plan.scale ?? null;
   S.scaleY        = plan.scaleY    ?? plan.scale ?? null;
@@ -304,6 +308,7 @@ async function switchToPlan(planId, { suppressPolygonSync = false } = {}) {
   S.scaleDirY     = plan.scaleDirY ?? null;
   S.nextId        = plan.nextId ?? 1;
   S.nextMeasId    = plan.nextMeasId ?? 1;
+  S.nextAngleId   = plan.nextAngleId ?? 1;
   S.current       = [];
 
   $('file-name').textContent = plan.label;
@@ -693,14 +698,20 @@ function startMeasuring() {
   setInstructions('Klicken Sie auf den ersten Messpunkt');
 }
 
+function startAngling() {
+  if (!S.image) return;
+  S.anglePt1 = null; S.anglePt2 = null; setMode('angle');
+  setInstructions('Klicken Sie auf den Scheitelpunkt (Winkelspitze)');
+}
+
 function clearAll() {
-  if (!S.polygons.length && !S.current.length && !S.measurements.length) return;
+  if (!S.polygons.length && !S.current.length && !S.measurements.length && !S.angles.length) return;
   $('clear-confirm-modal').style.display = 'flex';
 }
 
 function clearAllConfirmed() {
   $('clear-confirm-modal').style.display = 'none';
-  S.polygons = []; S.measurements = []; S.current = [];
+  S.polygons = []; S.measurements = []; S.angles = []; S.current = [];
   setMode('idle'); setInstructions('');
   updateSidebar(); render();
   emitPolygonSyncEvent();
@@ -711,6 +722,7 @@ function clearAllConfirmed() {
 function cancelCurrent() {
   if (S.mode === 'draw')                   { S.current = []; setMode('idle'); setInstructions(''); render(); }
   else if (S.mode === 'measure')           { S.measPt1 = null; setMode('idle'); setInstructions(''); render(); }
+  else if (S.mode === 'angle')             { S.anglePt1 = null; S.anglePt2 = null; setMode('idle'); setInstructions(''); render(); }
   else if (S.mode.startsWith('calibrate')) cancelCalibration();
 }
 
@@ -755,6 +767,18 @@ function onMouseDown(e) {
     } else {
       S.measurements.push({ id: S.nextMeasId++, pt1: S.measPt1, pt2: wp });
       S.measPt1 = null; setMode('idle'); setInstructions(''); updateSidebar();
+    }
+    render(); return;
+  }
+  if (S.mode === 'angle') {
+    if (!S.anglePt1) {
+      S.anglePt1 = wp; setInstructions('Klicken Sie auf den ersten Punkt (Arm 1)');
+    } else if (!S.anglePt2) {
+      S.anglePt2 = wp; setInstructions('Klicken Sie auf den zweiten Punkt (Arm 2)');
+    } else {
+      S.angles.push({ id: S.nextAngleId++, vertex: S.anglePt1, pt1: S.anglePt2, pt2: wp });
+      S.anglePt1 = null; S.anglePt2 = null; setMode('idle'); setInstructions(''); updateSidebar();
+      saveCurrentPlanState();
     }
     render(); return;
   }

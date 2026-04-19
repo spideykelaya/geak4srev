@@ -1,6 +1,6 @@
 // Mutable app state — single source of truth
 export const S = {
-  mode: 'idle', // idle | calibrate_1 | calibrate_2 | calibrate_confirm | draw | measure | drag_vertex | drag_label
+  mode: 'idle', // idle | calibrate_1 | calibrate_2 | calibrate_confirm | draw | measure | angle | drag_vertex | drag_label
   scale: null,         // meters per world-pixel (uniform, kept for backward compat)
   scaleX: null,        // meters per pixel along scaleDirX
   scaleY: null,        // meters per pixel along scaleDirY
@@ -9,15 +9,18 @@ export const S = {
   calibDirection: 'uniform', // 'uniform' | 'x' | 'y'
   polygons: [],        // [{id, label, points, color, pixelArea, area}] label is the external sync identifier
   measurements: [],    // [{id, pt1, pt2}]
+  angles: [],          // [{id, vertex, pt1, pt2}]  vertex=Scheitelpunkt, pt1/pt2=Arme
   current: [],         // in-progress polygon world-coords
   calibPt1: null, calibPt2: null,
   measPt1: null,
+  anglePt1: null,      // Scheitelpunkt
+  anglePt2: null,      // Ende Arm 1
   image: null, imageW: 0, imageH: 0,
   imageDataUrl: null,  // data URL of the current plan image (for plan persistence)
   zoom: 1, panX: 0, panY: 0,
   panning: false, lastMouse: null,
   mouse: null,         // {sx, sy, wx, wy}
-  nextId: 1, nextMeasId: 1,
+  nextId: 1, nextMeasId: 1, nextAngleId: 1,
   dragVertex: null,    // {polyIdx, vtxIdx}
   hoverEdge: null,     // {wmx, wmy, len}
   // ── Plans ────────────────────────────────────────────────────────────────
@@ -80,7 +83,7 @@ export function px2m2(px) {
 
 export function setMode(m) {
   S.mode = m;
-  canvas.style.cursor = (m === 'draw' || m === 'measure' || m.startsWith('calibrate'))
+  canvas.style.cursor = (m === 'draw' || m === 'measure' || m === 'angle' || m.startsWith('calibrate'))
     ? 'crosshair' : 'grab';
 }
 

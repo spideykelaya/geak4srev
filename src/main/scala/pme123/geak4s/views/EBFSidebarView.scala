@@ -27,7 +27,8 @@ object EBFSidebarView:
         areaTypeSection(),
         drawSection(),
         polygonsSection(),
-        measurementsSection()
+        measurementsSection(),
+        anglesSection()
       ),
       div(
         className := "sidebar-footer",
@@ -159,11 +160,10 @@ object EBFSidebarView:
       className := "section",
       idAttr := "draw-section",
       display := "none",
-      div(className := "section-label", "Zeichnen"),
-      button(className := "btn btn-success btn-draw-main", idAttr := "draw-btn", "Neues Polygon"),
-      div(className := "tools-divider"),
       div(className := "section-label", "Werkzeuge"),
+      button(className := "btn btn-success btn-draw-main", idAttr := "draw-btn", "Neues Polygon"),
       button(className := "btn btn-measure", idAttr := "measure-btn", "Distanz messen"),
+      button(className := "btn btn-angle", idAttr := "angle-btn", "Winkel messen"),
       button(className := "btn btn-danger", idAttr := "clear-btn", "Alles loeschen"),
       div(className := "tools-divider"),
       div(className := "section-label", "Export"),
@@ -198,6 +198,15 @@ object EBFSidebarView:
       display := "none",
       div(className := "section-label", "Messungen"),
       ul(idAttr := "measurement-list")
+    )
+
+  private def anglesSection(): HtmlElement =
+    div(
+      className := "section",
+      idAttr := "angles-section",
+      display := "none",
+      div(className := "section-label", "Winkel"),
+      ul(idAttr := "angle-list")
     )
 
 end EBFSidebarView

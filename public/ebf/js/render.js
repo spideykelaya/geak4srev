@@ -1,5 +1,5 @@
-import { S, canvas, ctx, w2s, pxVecToM }                 from './state.js';
-import { CLOSE_VERTEX_RADIUS, SNAP_RADIUS, MEAS_COLOR } from './config.js';
+import { S, canvas, ctx, w2s, pxVecToM }                          from './state.js';
+import { CLOSE_VERTEX_RADIUS, SNAP_RADIUS, MEAS_COLOR, ANGLE_COLOR } from './config.js';
 import { labelPoint, clamp, fmtArea, fmtLength }          from './geo.js';
 import { colorForCurrentAreaType }                        from './sidebar.js';
 
@@ -22,9 +22,11 @@ export function render() {
   ctx.drawImage(S.image, 0, 0);
   S.polygons.forEach(drawPolygon);
   S.measurements.forEach(drawMeasurement);
+  S.angles.forEach(drawAngle);
   drawCalibLine();
   drawCurrentPolygon();
   drawMeasureLine();
+  drawAngleLine();
   ctx.restore();
 
   drawEdgeLengthTooltip(); // screen-space overlay
@@ -109,6 +111,82 @@ function measLine(pt1, pt2, lbl) {
   rrect(mx - tw / 2 - 5 / S.zoom, my - th / 2, tw + 10 / S.zoom, th, 3 / S.zoom);
   ctx.fill();
   ctx.fillStyle = MEAS_COLOR; ctx.fillText(lbl, mx, my);
+}
+
+// ── Angle measurements ────────────────────────────────────────────────────────
+/** Angle in degrees between two arms meeting at vertex. */
+function angleBetween(vertex, pt1, pt2) {
+  const ax = pt1.x - vertex.x, ay = pt1.y - vertex.y;
+  const bx = pt2.x - vertex.x, by = pt2.y - vertex.y;
+  const dot   = ax * bx + ay * by;
+  const cross = ax * by - ay * bx;
+  return Math.atan2(Math.abs(cross), dot) * 180 / Math.PI;
+}
+
+function fmtAngle(deg) { return deg.toFixed(1) + '°'; }
+
+function drawAngle({ vertex, pt1, pt2 }) {
+  angleShape(vertex, pt1, pt2);
+}
+
+function drawAngleLine() {
+  if (S.mode !== 'angle' || !S.mouse) return;
+  const mouse = { x: S.mouse.wx, y: S.mouse.wy };
+
+  if (!S.anglePt1) return; // waiting for vertex — nothing to draw yet
+
+  if (!S.anglePt2) {
+    // Vertex set, dragging arm 1 — draw one dashed arm
+    angleArm(S.anglePt1, mouse);
+    dot(S.anglePt1, ANGLE_COLOR, 4 / S.zoom);
+  } else {
+    // Both vertex and arm 1 set — draw full preview with live arm 2
+    angleShape(S.anglePt1, S.anglePt2, mouse);
+  }
+}
+
+/** Draw complete angle: two arms + arc + label. */
+function angleShape(vertex, pt1, pt2) {
+  const deg = angleBetween(vertex, pt1, pt2);
+
+  angleArm(vertex, pt1);
+  angleArm(vertex, pt2);
+  dot(vertex, ANGLE_COLOR, 4 / S.zoom);
+  dot(pt1, ANGLE_COLOR, 3 / S.zoom);
+  dot(pt2, ANGLE_COLOR, 3 / S.zoom);
+
+  // Arc at vertex
+  const ax = pt1.x - vertex.x, ay = pt1.y - vertex.y;
+  const bx = pt2.x - vertex.x, by = pt2.y - vertex.y;
+  const cross = ax * by - ay * bx;
+  const r = Math.min(28 / S.zoom, Math.hypot(ax, ay) * 0.35, Math.hypot(bx, by) * 0.35);
+  if (r > 1 / S.zoom) {
+    ctx.beginPath();
+    ctx.arc(vertex.x, vertex.y, r, Math.atan2(ay, ax), Math.atan2(by, bx), cross < 0);
+    ctx.strokeStyle = ANGLE_COLOR; ctx.lineWidth = 1.5 / S.zoom; ctx.setLineDash([]); ctx.stroke();
+  }
+
+  // Label near arc midpoint
+  const midA = (Math.atan2(ay, ax) + Math.atan2(by, bx)) / 2 + (cross < 0 ? Math.PI : 0);
+  const lr = r + 14 / S.zoom;
+  const lx = vertex.x + Math.cos(midA) * lr;
+  const ly = vertex.y + Math.sin(midA) * lr;
+  const lbl = fmtAngle(deg);
+  const fsz = clamp(12 / S.zoom, 9, 28);
+  ctx.font = `bold ${fsz}px system-ui, sans-serif`;
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  const tw = ctx.measureText(lbl).width, th = fsz * 1.5;
+  ctx.fillStyle = 'rgba(0,0,0,0.75)';
+  rrect(lx - tw / 2 - 5 / S.zoom, ly - th / 2, tw + 10 / S.zoom, th, 3 / S.zoom);
+  ctx.fill();
+  ctx.fillStyle = ANGLE_COLOR; ctx.fillText(lbl, lx, ly);
+}
+
+function angleArm(from, to) {
+  ctx.strokeStyle = ANGLE_COLOR; ctx.lineWidth = 1.5 / S.zoom;
+  ctx.setLineDash([6 / S.zoom, 4 / S.zoom]);
+  ctx.beginPath(); ctx.moveTo(from.x, from.y); ctx.lineTo(to.x, to.y);
+  ctx.stroke(); ctx.setLineDash([]);
 }
 
 // ── Edge length tooltip (screen-space) ────────────────────────────────────────
