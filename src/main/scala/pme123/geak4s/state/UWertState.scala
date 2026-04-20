@@ -14,18 +14,27 @@ object UWertState:
   /** All U-Wert calculations for the current project */
   val calculations: Var[List[UWertCalculation]] = Var(List.empty)
 
+  /** All window calculations for the current project */
+  val windowCalculations: Var[List[WindowCalculation]] = Var(List.empty)
+
   /** Counter for generating unique IDs */
   private var idCounter = 0
+  private var windowIdCounter = 0
 
   /** Initialize state from project */
   def loadFromProject(project: GeakProject): Unit =
     calculations.set(project.uwertCalculations)
-    // Reset counter to avoid ID conflicts
+    windowCalculations.set(project.windowCalculations)
     idCounter = project.uwertCalculations.length
+    windowIdCounter = project.windowCalculations.length
 
   /** Get current calculations to save to project */
   def getCalculations: List[UWertCalculation] =
     calculations.now()
+
+  /** Get current window calculations to save to project */
+  def getWindowCalculations: List[WindowCalculation] =
+    windowCalculations.now()
 
   /** Add a new empty calculation */
   def addCalculation(): String =
@@ -35,9 +44,17 @@ object UWertState:
     calculations.update(_ :+ newCalc)
     id
 
-  /** Remove a calculation by ID */
+  /** Remove a calculation by ID (also removes linked WindowCalculation for Fenster type) */
   def removeCalculation(id: String): Unit =
+    val isWindow = calculations.now().find(_.id == id).exists(_.componentLabel == "Fenster")
+    if isWindow then windowCalculations.update(_.filterNot(_.id == id))
     calculations.update(_.filterNot(_.id == id))
+
+  /** Select Fenster as component type — creates a linked WindowCalculation with the same ID */
+  def selectWindow(id: String): Unit =
+    updateCalculation(id, _.copy(componentLabel = "Fenster", componentType = ComponentType.Window))
+    if windowCalculations.now().find(_.id == id).isEmpty then
+      windowCalculations.update(_ :+ WindowCalculation.empty(id))
 
   /** Update a calculation */
   def updateCalculation(id: String, update: UWertCalculation => UWertCalculation): Unit =
@@ -185,13 +202,36 @@ object UWertState:
   def getCalculation(id: String): Signal[Option[UWertCalculation]] =
     calculations.signal.map(_.find(_.id == id))
 
+  /** Add a new empty window calculation */
+  def addWindowCalculation(): String =
+    windowIdCounter += 1
+    val id = s"window-calc-$windowIdCounter"
+    windowCalculations.update(_ :+ WindowCalculation.empty(id))
+    id
+
+  /** Remove a window calculation by ID */
+  def removeWindowCalculation(id: String): Unit =
+    windowCalculations.update(_.filterNot(_.id == id))
+
+  /** Update a window calculation */
+  def updateWindowCalculation(id: String, update: WindowCalculation => WindowCalculation): Unit =
+    windowCalculations.update(_.map(w => if w.id == id then update(w) else w))
+
+  /** Get a specific window calculation signal by ID */
+  def getWindowCalculation(id: String): Signal[Option[WindowCalculation]] =
+    windowCalculations.signal.map(_.find(_.id == id))
+
   /** Clear all calculations */
   def clear(): Unit =
     calculations.set(List.empty)
+    windowCalculations.set(List.empty)
 
   /** Save calculations to project */
   def saveToProject(project: GeakProject): GeakProject =
-    project.copy(uwertCalculations = calculations.now())
+    project.copy(
+      uwertCalculations  = calculations.now(),
+      windowCalculations = windowCalculations.now()
+    )
 
 end UWertState
 

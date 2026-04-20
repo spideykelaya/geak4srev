@@ -136,7 +136,32 @@ object JsonCodecs:
   given Decoder[UWertTableData] = deriveDecoder[UWertTableData]
 
   given Encoder[UWertCalculation] = deriveEncoder[UWertCalculation]
-  given Decoder[UWertCalculation] = deriveDecoder[UWertCalculation]
+  given Decoder[UWertCalculation] = Decoder.instance { c =>
+    for
+      id              <- c.get[String]("id")
+      label           <- c.getOrElse[String]("label")("")
+      componentLabel  <- c.getOrElse[String]("componentLabel")("")
+      componentType   <- c.getOrElse[ComponentType]("componentType")(ComponentType.ExteriorWall)
+      bWertName       <- c.getOrElse[Option[String]]("bWertName")(None)
+      istCalculation  <- c.getOrElse[UWertTableData]("istCalculation")(UWertTableData.empty)
+      sollCalculation <- c.getOrElse[UWertTableData]("sollCalculation")(UWertTableData.empty)
+    yield UWertCalculation(id, label, componentLabel, componentType, bWertName, istCalculation, sollCalculation)
+  }
+
+  given Encoder[WindowCalculation] = deriveEncoder[WindowCalculation]
+  given Decoder[WindowCalculation] = Decoder.instance { c =>
+    for
+      id             <- c.get[String]("id")
+      label          <- c.getOrElse[String]("label")("")
+      uValue         <- c.getOrElse[Double]("uValue")(0.0)
+      gValue         <- c.getOrElse[Double]("gValue")(0.0)
+      glassRatio     <- c.getOrElse[Double]("glassRatio")(0.0)
+      overhang       <- c.getOrElse[Double]("overhang")(0.0)
+      overhangDist   <- c.getOrElse[Double]("overhangDist")(0.0)
+      sideShading    <- c.getOrElse[Double]("sideShading")(0.0)
+      sideShadingDist <- c.getOrElse[Double]("sideShadingDist")(0.0)
+    yield WindowCalculation(id, label, uValue, gValue, glassRatio, overhang, overhangDist, sideShading, sideShadingDist)
+  }
 
   // Area calculations
   given Encoder[AreaEntry] = deriveEncoder[AreaEntry]
@@ -164,7 +189,11 @@ object JsonCodecs:
       overhangDist    <- c.getOrElse[Double]("overhangDist")(0.0)
       sideShading     <- c.getOrElse[Double]("sideShading")(0.0)
       sideShadingDist <- c.getOrElse[Double]("sideShadingDist")(0.0)
-    yield AreaEntry(kuerzel, orientation, description, length, width, area, quantity, totalArea, areaNew, quantityNew, totalAreaNew, descriptionNew, isManual, overhang, overhangDist, sideShading, sideShadingDist)
+      uwertId         <- c.getOrElse[Option[String]]("uwertId")(None)
+      uValue          <- c.getOrElse[Option[Double]]("uValue")(None)
+      gValue          <- c.getOrElse[Option[Double]]("gValue")(None)
+      glassRatio      <- c.getOrElse[Option[Double]]("glassRatio")(None)
+    yield AreaEntry(kuerzel, orientation, description, length, width, area, quantity, totalArea, areaNew, quantityNew, totalAreaNew, descriptionNew, isManual, overhang, overhangDist, sideShading, sideShadingDist, uwertId, uValue, gValue, glassRatio)
   }
 
   given Encoder[AreaCalculation] = deriveEncoder[AreaCalculation]
@@ -303,7 +332,36 @@ object JsonCodecs:
 
   // Main project
   given Encoder[GeakProject] = deriveEncoder[GeakProject]
-  given Decoder[GeakProject] = deriveDecoder[GeakProject]
+  given Decoder[GeakProject] = Decoder.instance { c =>
+    for
+      geakId               <- c.getOrElse[Option[Int]]("geakId")(None)
+      project              <- c.get[Project]("project")
+      buildingUsages       <- c.get[List[BuildingUsage]]("buildingUsages")
+      roofsCeilings        <- c.get[List[RoofCeiling]]("roofsCeilings")
+      walls                <- c.get[List[Wall]]("walls")
+      windowsDoors         <- c.get[List[WindowDoor]]("windowsDoors")
+      floors               <- c.get[List[Floor]]("floors")
+      thermalBridges       <- c.get[List[ThermalBridge]]("thermalBridges")
+      heatProducers        <- c.get[List[HeatProducer]]("heatProducers")
+      heatStorages         <- c.get[List[HeatStorage]]("heatStorages")
+      heatingDistributions <- c.get[List[HeatingDistribution]]("heatingDistributions")
+      hotWaterDistributions <- c.get[List[HotWaterDistribution]]("hotWaterDistributions")
+      ventilations         <- c.get[List[Ventilation]]("ventilations")
+      electricityProducers <- c.get[List[ElectricityProducer]]("electricityProducers")
+      uwertCalculations    <- c.getOrElse[List[UWertCalculation]]("uwertCalculations")(List.empty)
+      windowCalculations   <- c.getOrElse[List[WindowCalculation]]("windowCalculations")(List.empty)
+      areaCalculations     <- c.getOrElse[Option[BuildingEnvelopeArea]]("areaCalculations")(None)
+      gisData              <- c.getOrElse[Option[gis.MaddResponse]]("gisData")(None)
+      ebfPlans             <- c.getOrElse[Option[EbfPlans]]("ebfPlans")(None)
+      energyConsumption    <- c.getOrElse[Option[EnergyConsumptionData]]("energyConsumption")(None)
+      wordFormData         <- c.getOrElse[Option[WordFormData]]("wordFormData")(None)
+      gisXmlContent        <- c.getOrElse[Option[String]]("gisXmlContent")(None)
+    yield GeakProject(geakId, project, buildingUsages, roofsCeilings, walls, windowsDoors,
+      floors, thermalBridges, heatProducers, heatStorages, heatingDistributions,
+      hotWaterDistributions, ventilations, electricityProducers, uwertCalculations,
+      windowCalculations, areaCalculations, gisData, ebfPlans, energyConsumption,
+      wordFormData, gisXmlContent)
+  }
 
 end JsonCodecs
 

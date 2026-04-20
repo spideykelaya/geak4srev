@@ -6,6 +6,7 @@ import com.raquo.laminar.api.L.{*, given}
 import org.scalajs.dom.{HTMLInputElement, KeyboardEvent}
 import pme123.geak4s.domain.area.*
 import pme123.geak4s.domain.uwert.ComponentType
+import pme123.geak4s.state.UWertState
 
 /** Reusable area calculation table component Displays area entries for a specific category (EBF,
   * Dach, Wand, etc.)
@@ -85,6 +86,15 @@ object AreaCalculationTable:
             th(border := "1px solid #e0e0e0", padding := "0.5rem", "Anzahl Neu [Stk.]"),
             th(border := "1px solid #e0e0e0", padding := "0.5rem", "Fläche Total Neu [m²]"),
             th(border := "1px solid #e0e0e0", padding := "0.5rem", "Beschrieb Neu"),
+            Option.when(componentType != ComponentType.EBF)(
+              th(border := "1px solid #e0e0e0", padding := "0.5rem", backgroundColor := "#e8f4f8", "U-Wert [W/m²K]")
+            ),
+            Option.when(componentType == ComponentType.Window)(
+              th(border := "1px solid #e0e0e0", padding := "0.5rem", backgroundColor := "#e8f4f8", "g-Wert [-]")
+            ),
+            Option.when(componentType == ComponentType.Window)(
+              th(border := "1px solid #e0e0e0", padding := "0.5rem", backgroundColor := "#e8f4f8", "Glasanteil [-]")
+            ),
             Option.when(componentType == ComponentType.Window)(
               th(border := "1px solid #e0e0e0", padding := "0.5rem", backgroundColor := "#fff8e1", "Überhang [m]")
             ),
@@ -169,8 +179,11 @@ object AreaCalculationTable:
               }
             ),
 
-            // Empty cells for Beschrieb Neu, optional Fenster shading cols, and Delete button
+            // Empty cells for Beschrieb Neu, u-wert cols, optional Fenster shading cols, and Delete button
             td(border    := "1px solid #e0e0e0", padding := "0.5rem"),
+            Option.when(componentType != ComponentType.EBF)(td(border := "1px solid #e0e0e0", padding := "0.5rem", backgroundColor := "#e8f4f8")),
+            Option.when(componentType == ComponentType.Window)(td(border := "1px solid #e0e0e0", padding := "0.5rem", backgroundColor := "#e8f4f8")),
+            Option.when(componentType == ComponentType.Window)(td(border := "1px solid #e0e0e0", padding := "0.5rem", backgroundColor := "#e8f4f8")),
             Option.when(componentType == ComponentType.Window)(td(border := "1px solid #e0e0e0", padding := "0.5rem", backgroundColor := "#fffde7")),
             Option.when(componentType == ComponentType.Window)(td(border := "1px solid #e0e0e0", padding := "0.5rem", backgroundColor := "#fffde7")),
             Option.when(componentType == ComponentType.Window)(td(border := "1px solid #e0e0e0", padding := "0.5rem", backgroundColor := "#fffde7")),
@@ -219,19 +232,11 @@ object AreaCalculationTable:
         )
       ),
 
-      // Beschrieb
+      // Beschrieb — dropdown wenn U-Wert-Berechnungen vorhanden
       td(
         border  := "1px solid #e0e0e0",
         padding := "0.25rem",
-        renderEditableCell(
-          displayEntry,
-          index,
-          _.description,
-          dataEntries,
-          (e, v) => e.copy(description = v),
-          componentType,
-          onSave
-        )
+        renderDescriptionCell(displayEntry, index, dataEntries, componentType, onSave)
       ),
 
       // Länge
@@ -393,6 +398,32 @@ object AreaCalculationTable:
         )
       ),
 
+      // U-Wert / g-Wert / Glasanteil (read-only, from linked calculation)
+      Option.when(componentType != ComponentType.EBF)(
+        td(
+          border := "1px solid #e0e0e0", padding := "0.25rem", backgroundColor := "#e8f4f8", textAlign := "right",
+          child.text <-- dataEntries.signal.map(es =>
+            if index < es.length then es(index).uValue.fold("–")(v => f"$v%.2f") else "–"
+          )
+        )
+      ),
+      Option.when(componentType == ComponentType.Window)(
+        td(
+          border := "1px solid #e0e0e0", padding := "0.25rem", backgroundColor := "#e8f4f8", textAlign := "right",
+          child.text <-- dataEntries.signal.map(es =>
+            if index < es.length then es(index).gValue.fold("–")(v => f"$v%.2f") else "–"
+          )
+        )
+      ),
+      Option.when(componentType == ComponentType.Window)(
+        td(
+          border := "1px solid #e0e0e0", padding := "0.25rem", backgroundColor := "#e8f4f8", textAlign := "right",
+          child.text <-- dataEntries.signal.map(es =>
+            if index < es.length then es(index).glassRatio.fold("–")(v => f"$v%.2f") else "–"
+          )
+        )
+      ),
+
       // Fenster shading columns
       Option.when(componentType == ComponentType.Window)(
         td(
@@ -444,6 +475,84 @@ object AreaCalculationTable:
         )
       )
     )
+
+  private def renderDescriptionCell(
+      displayEntry: AreaEntry,
+      index: Int,
+      dataEntries: Var[List[AreaEntry]],
+      componentType: ComponentType,
+      onSave: (ComponentType, List[AreaEntry]) => Unit
+  ): HtmlElement =
+    def plainText: HtmlElement =
+      renderEditableCell(displayEntry, index, _.description, dataEntries, (e, v) => e.copy(description = v), componentType, onSave)
+
+    componentType match
+      case ComponentType.EBF =>
+        plainText
+
+      case ComponentType.Window =>
+        div(
+          child <-- UWertState.windowCalculations.signal.map { windowCalcs =>
+            val named = windowCalcs.filter(_.label.nonEmpty)
+            if named.isEmpty then plainText
+            else
+              select(
+                width := "100%", padding := "0.25rem", border := "none",
+                value <-- dataEntries.signal.map(es => if index < es.length then es(index).description else ""),
+                onChange.mapToValue --> Observer[String] { label =>
+                  val matched = named.find(_.label == label)
+                  val curr = dataEntries.now()
+                  if index < curr.length then
+                    val updated = curr(index).copy(
+                      description = label,
+                      uwertId     = matched.map(_.id),
+                      uValue      = matched.map(_.uValue),
+                      gValue      = matched.map(_.gValue),
+                      glassRatio  = matched.map(_.glassRatio)
+                    )
+                    val newEntries = curr.updated(index, updated)
+                    dataEntries.set(newEntries)
+                    onSave(componentType, newEntries)
+                },
+                option(value := "", "– wählen –"),
+                named.map(wc => option(value := wc.label, wc.label))
+              )
+          }
+        )
+
+      case ct =>
+        div(
+          child <-- UWertState.calculations.signal.map { calcs =>
+            val matching = calcs.filter(c => c.componentType == ct && c.componentLabel.nonEmpty)
+            if matching.isEmpty then plainText
+            else
+              val opts = matching.zipWithIndex.map { (calc, idx) =>
+                val base  = if calc.label.nonEmpty then calc.label else calc.componentLabel
+                val label = if matching.length == 1 || calc.label.nonEmpty then base
+                            else s"$base (${idx + 1})"
+                (calc.id, label, calc.sollCalculation.uValue)
+              }
+              select(
+                width := "100%", padding := "0.25rem", border := "none",
+                value <-- dataEntries.signal.map(es => if index < es.length then es(index).description else ""),
+                onChange.mapToValue --> Observer[String] { label =>
+                  val matched = opts.find(_._2 == label)
+                  val curr = dataEntries.now()
+                  if index < curr.length then
+                    val updated = curr(index).copy(
+                      description = label,
+                      uwertId     = matched.map(_._1),
+                      uValue      = matched.map(_._3)
+                    )
+                    val newEntries = curr.updated(index, updated)
+                    dataEntries.set(newEntries)
+                    onSave(componentType, newEntries)
+                },
+                option(value := "", "– wählen –"),
+                opts.map { (_, label, _) => option(value := label, label) }
+              )
+          }
+        )
 
   private def renderEditableCell(
       displayEntry: AreaEntry,

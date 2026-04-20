@@ -19,10 +19,15 @@ case class AreaEntry(
     descriptionNew: String,    // Beschrieb Neu
     isManual: Boolean = false,  // true = manually added, not from polygon sync
     // Fenster shading (only used for ComponentType.Window)
-    overhang: Double = 0.0,         // Überhang [m] (manually entered)
-    overhangDist: Double = 0.0,     // Abstand Überhang [m] (from canvas measurement)
-    sideShading: Double = 0.0,      // Seitenblende [m] (manually entered)
-    sideShadingDist: Double = 0.0   // Abstand Seitenblende [m] (from canvas measurement)
+    overhang: Double = 0.0,
+    overhangDist: Double = 0.0,
+    sideShading: Double = 0.0,
+    sideShadingDist: Double = 0.0,
+    // Linked U-Wert calculation
+    uwertId: Option[String] = None,
+    uValue: Option[Double] = None,
+    gValue: Option[Double] = None,      // only for Window
+    glassRatio: Option[Double] = None   // only for Window
 ):
   /** Calculate total area from individual values */
   def calculateTotalArea: Double = area * quantity
