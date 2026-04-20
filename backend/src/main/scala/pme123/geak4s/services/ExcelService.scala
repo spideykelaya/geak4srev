@@ -121,7 +121,9 @@ object ExcelService:
     fillRow: (Sheet, Int, ujson.Value) => Unit
   ): Unit =
     val sh = wb.getSheet(sheetName)
-    if sh == null then return
+    if sh == null || items.isEmpty then return
+    val lastRow = sh.getLastRowNum
+    if lastRow >= dataStartRow then sh.shiftRows(dataStartRow, lastRow, items.length)
     items.zipWithIndex.foreach { (item, i) =>
       fillRow(sh, dataStartRow + i, item)
     }
@@ -302,6 +304,124 @@ object ExcelService:
       nc(sh, row, 7, nv(pr, "maintenanceCost"))
     }
 
+  // ── Area-based envelope fill (areaCalculations + uwertCalculations) ─────────
+
+  /** Compute U-value (1/R_total) and b-factor from uwertCalculations JSON for one ComponentType. */
+  private def uValueFor(uwerts: Seq[ujson.Value], ct: String): (Double, Double) =
+    uwerts.find(u => Try(u("componentType").str).getOrElse("") == ct) match
+      case None => (0.0, 1.0)
+      case Some(u) =>
+        val ist    = Try(u("istCalculation")).getOrElse(ujson.Obj())
+        val mats   = Try(ist("materials").arr.toSeq).getOrElse(Seq.empty)
+        val rTotal = mats.foldLeft(0.0) { (acc, m) =>
+          val d = Try(m("thickness").num).getOrElse(0.0)
+          val l = Try(m("lambda").num).getOrElse(0.0)
+          acc + (if l != 0 then d / l else 0.0)
+        }
+        val uVal = if rTotal != 0 then 1.0 / rTotal else 0.0
+        val bFac = Try(ist("bFactor").num).getOrElse(1.0)
+        (uVal, bFac)
+
+  /** Return non-empty area entries for a ComponentType from the areaCalculations JSON object. */
+  private def areaEntriesFor(areaCalcs: ujson.Value, ct: String): Seq[ujson.Value] =
+    Try(areaCalcs("calculations").arr.toSeq).getOrElse(Seq.empty)
+      .find(c => Try(c("componentType").str).getOrElse("") == ct)
+      .map(c => Try(c("entries").arr.toSeq).getOrElse(Seq.empty))
+      .getOrElse(Seq.empty)
+      .filter(e => nv(e, "area") > 0 || nv(e, "totalArea") > 0)
+
+  private def fillRoofRowFromArea(sh: Sheet, rowIdx: Int, e: ujson.Value, roofType: String, uVal: Double, bFac: Double): Unit =
+    sc(sh, rowIdx, 0, sv(e, "kuerzel").take(5))
+    sc(sh, rowIdx, 1, sv(e, "description"))
+    sc(sh, rowIdx, 2, roofType)
+    sc(sh, rowIdx, 3, sv(e, "orientation"))
+    nc(sh, rowIdx, 5, nv(e, "area"))
+    nc(sh, rowIdx, 6, uVal)
+    nc(sh, rowIdx, 7, bFac)
+    ni(sh, rowIdx, 8, math.max(1, Try(nv(e, "quantity").toInt).getOrElse(1)))
+
+  private def fillWallRowFromArea(sh: Sheet, rowIdx: Int, e: ujson.Value, wallType: String, uVal: Double, bFac: Double): Unit =
+    sc(sh, rowIdx, 0, sv(e, "kuerzel").take(5))
+    sc(sh, rowIdx, 1, sv(e, "description"))
+    sc(sh, rowIdx, 2, wallType)
+    sc(sh, rowIdx, 3, sv(e, "orientation"))
+    nc(sh, rowIdx, 5, nv(e, "area"))
+    nc(sh, rowIdx, 6, uVal)
+    nc(sh, rowIdx, 7, bFac)
+    ni(sh, rowIdx, 8, math.max(1, Try(nv(e, "quantity").toInt).getOrElse(1)))
+
+  private def fillWindowRowFromArea(sh: Sheet, rowIdx: Int, e: ujson.Value, winType: String): Unit =
+    sc(sh, rowIdx, 0, sv(e, "kuerzel").take(5))
+    sc(sh, rowIdx, 1, sv(e, "description"))
+    sc(sh, rowIdx, 2, winType)
+    sc(sh, rowIdx, 3, sv(e, "orientation"))
+    nc(sh, rowIdx, 5, nv(e, "area"))
+    ni(sh, rowIdx, 11, math.max(1, Try(nv(e, "quantity").toInt).getOrElse(1)))
+
+  private def fillFloorRowFromArea(sh: Sheet, rowIdx: Int, e: ujson.Value, floorType: String, uVal: Double, bFac: Double): Unit =
+    sc(sh, rowIdx, 0, sv(e, "kuerzel").take(5))
+    sc(sh, rowIdx, 1, sv(e, "description"))
+    sc(sh, rowIdx, 2, floorType)
+    nc(sh, rowIdx, 4, nv(e, "area"))
+    nc(sh, rowIdx, 5, uVal)
+    nc(sh, rowIdx, 6, bFac)
+    ni(sh, rowIdx, 7, math.max(1, Try(nv(e, "quantity").toInt).getOrElse(1)))
+
+  private def insertAndFillFromArea[A](
+    sh: Sheet, insertAt: Int, rows: Seq[A],
+    fill: (Int, A) => Unit
+  ): Unit =
+    if rows.isEmpty then return
+    val lastRow = sh.getLastRowNum
+    if lastRow >= insertAt then sh.shiftRows(insertAt, lastRow, rows.length)
+    rows.zipWithIndex.foreach { (item, i) => fill(insertAt + i, item) }
+
+  private def fillRoofsFromArea(wb: Workbook, areaCalcs: ujson.Value, uwerts: Seq[ujson.Value]): Unit =
+    val sh = wb.getSheet("Dächer und Decken")
+    if sh == null then return
+    val (pU, pB) = uValueFor(uwerts, "PitchedRoof")
+    val (fU, fB) = uValueFor(uwerts, "FlatRoof")
+    val (aU, aB) = uValueFor(uwerts, "AtticFloor")
+    val rows =
+      areaEntriesFor(areaCalcs, "PitchedRoof").map((_, "Schrägdach, unbeheizt", pU, pB)) ++
+      areaEntriesFor(areaCalcs, "FlatRoof").map((_, "Flachdach/Terrasse", fU, fB)) ++
+      areaEntriesFor(areaCalcs, "AtticFloor").map((_, "Decke gegen unbeheizt", aU, aB))
+    insertAndFillFromArea(sh, 10, rows, (rowIdx, t) => fillRoofRowFromArea(sh, rowIdx, t._1, t._2, t._3, t._4))
+
+  private def fillWallsFromArea(wb: Workbook, areaCalcs: ujson.Value, uwerts: Seq[ujson.Value]): Unit =
+    val sh = wb.getSheet("Wände")
+    if sh == null then return
+    val (eU, eB)   = uValueFor(uwerts, "ExteriorWall")
+    val (geU, geB) = uValueFor(uwerts, "BasementWallToEarth")
+    val (guU, guB) = uValueFor(uwerts, "BasementWallToUnheated")
+    val (gaU, gaB) = uValueFor(uwerts, "BasementWallToOutside")
+    val rows =
+      areaEntriesFor(areaCalcs, "ExteriorWall").map((_, "Aussenwand", eU, eB)) ++
+      areaEntriesFor(areaCalcs, "BasementWallToEarth").map((_, "Wand gegen Erdreich", geU, geB)) ++
+      areaEntriesFor(areaCalcs, "BasementWallToUnheated").map((_, "Wand gegen unbeheizt", guU, guB)) ++
+      areaEntriesFor(areaCalcs, "BasementWallToOutside").map((_, "Kellerwand gegen Aussen", gaU, gaB))
+    insertAndFillFromArea(sh, 10, rows, (rowIdx, t) => fillWallRowFromArea(sh, rowIdx, t._1, t._2, t._3, t._4))
+
+  private def fillWindowsFromArea(wb: Workbook, areaCalcs: ujson.Value): Unit =
+    val sh = wb.getSheet("Fenster und Türen")
+    if sh == null then return
+    val rows =
+      areaEntriesFor(areaCalcs, "Window").map((_, "Fenster")) ++
+      areaEntriesFor(areaCalcs, "Door").map((_, "Tür"))
+    insertAndFillFromArea(sh, 9, rows, (rowIdx, t) => fillWindowRowFromArea(sh, rowIdx, t._1, t._2))
+
+  private def fillFloorsFromArea(wb: Workbook, areaCalcs: ujson.Value, uwerts: Seq[ujson.Value]): Unit =
+    val sh = wb.getSheet("Böden")
+    if sh == null then return
+    val (bfU, bfB) = uValueFor(uwerts, "BasementFloor")
+    val (bcU, bcB) = uValueFor(uwerts, "BasementCeiling")
+    val (foU, foB) = uValueFor(uwerts, "FloorToOutside")
+    val rows =
+      areaEntriesFor(areaCalcs, "BasementFloor").map((_, "Boden gegen Erdreich", bfU, bfB)) ++
+      areaEntriesFor(areaCalcs, "BasementCeiling").map((_, "Boden gegen unbeheizt", bcU, bcB)) ++
+      areaEntriesFor(areaCalcs, "FloorToOutside").map((_, "Boden gegen aussen", foU, foB))
+    insertAndFillFromArea(sh, 10, rows, (rowIdx, t) => fillFloorRowFromArea(sh, rowIdx, t._1, t._2, t._3, t._4))
+
   // ── Public entry point ────────────────────────────────────────────────────
 
   def generateExcel(projectJson: String): Array[Byte] =
@@ -316,10 +436,20 @@ object ExcelService:
     fillProjekt(wb, p)
     fillGebaeudenutzungen(wb, p)
 
-    fillEnvelopeSheet(wb, "Dächer und Decken",   av(p, "roofsCeilings"),    10, fillRoofRow)
-    fillEnvelopeSheet(wb, "Wände",               av(p, "walls"),             10, fillWallRow)
-    fillEnvelopeSheet(wb, "Fenster und Türen",   av(p, "windowsDoors"),       9, fillWindowRow)
-    fillEnvelopeSheet(wb, "Böden",               av(p, "floors"),            10, fillFloorRow)
+    // Use drawn area calculations + U-Wert calculations when available; else fall back to manual lists.
+    val areaCalcsOpt = Try(p("areaCalculations")).filter(_ != ujson.Null).toOption
+    val uwerts       = av(p, "uwertCalculations")
+    areaCalcsOpt match
+      case Some(areaCalcs) =>
+        fillRoofsFromArea(wb, areaCalcs, uwerts)
+        fillWallsFromArea(wb, areaCalcs, uwerts)
+        fillWindowsFromArea(wb, areaCalcs)
+        fillFloorsFromArea(wb, areaCalcs, uwerts)
+      case None =>
+        fillEnvelopeSheet(wb, "Dächer und Decken", av(p, "roofsCeilings"),  10, fillRoofRow)
+        fillEnvelopeSheet(wb, "Wände",             av(p, "walls"),           10, fillWallRow)
+        fillEnvelopeSheet(wb, "Fenster und Türen", av(p, "windowsDoors"),     9, fillWindowRow)
+        fillEnvelopeSheet(wb, "Böden",             av(p, "floors"),          10, fillFloorRow)
     fillEnvelopeSheet(wb, "Wärmebrücken",        av(p, "thermalBridges"),     7, fillBridgeRow)
 
     fillWaermeerzeuger(wb, p)
