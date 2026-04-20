@@ -23,7 +23,7 @@ object UWertCalculationTable:
       className := "calculation-table-group",
       marginBottom := "3rem",
       padding := "1.5rem",
-      backgroundColor <-- calcSignal.map(_.map(c => c.componentType.color).getOrElse("#f5f5f5")),
+      backgroundColor <-- calcSignal.map(_.filter(_.componentLabel.nonEmpty).map(_.componentType.color).getOrElse("white")),
       borderRadius := "8px",
       border := "1px solid #ddd",
 
@@ -394,12 +394,15 @@ object UWertCalculationTable:
 
     def updateMaterials(nr: Int, updater: MaterialLayer => MaterialLayer): Unit =
       if tableType == "IST" then
+        // IST edit → also mirror the change to the same SOLL row
         UWertState.updateCalculation(calculationId, calc =>
-          calc.copy(istCalculation = calc.istCalculation.copy(
-            materials = calc.istCalculation.materials.map { m =>
-              if m.nr == nr then updater(m) else m
-            }
-          ))
+          val updatedIst = calc.istCalculation.copy(
+            materials = calc.istCalculation.materials.map(m => if m.nr == nr then updater(m) else m)
+          )
+          val updatedSoll = calc.sollCalculation.copy(
+            materials = calc.sollCalculation.materials.map(m => if m.nr == nr then updater(m) else m)
+          )
+          calc.copy(istCalculation = updatedIst, sollCalculation = updatedSoll)
         )
       else
         UWertState.updateCalculation(calculationId, calc =>

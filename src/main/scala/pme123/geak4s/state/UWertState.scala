@@ -71,11 +71,12 @@ object UWertState:
       )
     )
 
-  /** Update IST table materials */
+  /** Update IST table materials and sync to SOLL */
   def updateIstMaterials(id: String, materials: List[MaterialLayer]): Unit =
     updateCalculation(id, calc =>
       calc.copy(
-        istCalculation = calc.istCalculation.copy(materials = materials)
+        istCalculation = calc.istCalculation.copy(materials = materials),
+        sollCalculation = calc.sollCalculation.copy(materials = materials)
       )
     )
 
@@ -103,20 +104,20 @@ object UWertState:
       )
     )
 
-  /** Add a new material layer to IST table */
+  /** Add a new material layer to IST table and sync the new layer to SOLL */
   def addIstMaterialLayer(id: String): Unit =
     updateCalculation(id, calc =>
       val currentMaterials = calc.istCalculation.materials
-      // Find the next available number (between 2 and 8)
       val usedNumbers = currentMaterials.map(_.nr).toSet
       val nextNr = (2 to 8).find(!usedNumbers.contains(_)).getOrElse(2)
-
-      // Insert the new layer before the last row (row 9)
       val newLayer = MaterialLayer.empty(nextNr)
       val updatedMaterials = (currentMaterials.filterNot(_.nr == 9) :+ newLayer :+ currentMaterials.find(_.nr == 9).get).sortBy(_.nr)
-
+      // Add the same empty layer to SOLL
+      val sollMaterials = calc.sollCalculation.materials
+      val updatedSoll = (sollMaterials.filterNot(_.nr == 9) :+ newLayer :+ sollMaterials.find(_.nr == 9).get).sortBy(_.nr)
       calc.copy(
-        istCalculation = calc.istCalculation.copy(materials = updatedMaterials)
+        istCalculation = calc.istCalculation.copy(materials = updatedMaterials),
+        sollCalculation = calc.sollCalculation.copy(materials = updatedSoll)
       )
     )
 
@@ -157,12 +158,15 @@ object UWertState:
         else calc.copy(sollCalculation = calc.sollCalculation.copy(materials = swapped))
     )
 
-  /** Remove a material layer from IST table */
+  /** Remove a material layer from IST table and sync removal to SOLL */
   def removeIstMaterialLayer(id: String, layerNr: Int): Unit =
     updateCalculation(id, calc =>
       calc.copy(
         istCalculation = calc.istCalculation.copy(
           materials = calc.istCalculation.materials.filterNot(m => m.nr == layerNr && m.isEditable)
+        ),
+        sollCalculation = calc.sollCalculation.copy(
+          materials = calc.sollCalculation.materials.filterNot(m => m.nr == layerNr && m.isEditable)
         )
       )
     )
