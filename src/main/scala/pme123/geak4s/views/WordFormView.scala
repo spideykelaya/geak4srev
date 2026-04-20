@@ -108,8 +108,16 @@ object WordFormView:
     AppState.getCurrentProject.foreach { p =>
       p.wordFormData match
         case Some(saved) =>
-          // Full form state was previously persisted – restore it exactly.
-          formVar.set(saved)
+          // Full form state was previously persisted – restore it, but override energy fields
+          // with any freshly computed values that syncToWordForm wrote to formVar from Step 3.
+          val cur = formVar.now()
+          formVar.set(saved.copy(
+            energieverbrauch = if cur.energieverbrauch.nonEmpty then cur.energieverbrauch else saved.energieverbrauch,
+            energiekennzahl  = if cur.energiekennzahl.nonEmpty  then cur.energiekennzahl  else saved.energiekennzahl,
+            fossil           = if cur.fossil.nonEmpty           then cur.fossil           else saved.fossil,
+            wp               = if cur.wp.nonEmpty               then cur.wp               else saved.wp,
+            sondentiefe      = if cur.sondentiefe.nonEmpty      then cur.sondentiefe      else saved.sondentiefe
+          ))
         case None =>
           // First visit or legacy project without wordFormData: derive fields from project.
           val cur = formVar.now()
