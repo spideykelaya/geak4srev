@@ -476,7 +476,7 @@ object UWertCalculationTable:
                 width := "100%", padding := "0.25rem", border := "1px solid #ccc", borderRadius := "4px",
                 option(value := "", "Dämmung..."),
                 daemmungMaterials.map(m => option(value := m.name, s"${m.name} (λ = ${m.thermalConductivity})")),
-                option(value := "__custom__", "– Eigene Eingabe –")
+                option(value := "__custom__", "*eigene Eingabe")
               ),
               select(
                 onChange.mapToValue --> Observer[String] { v =>
@@ -489,7 +489,7 @@ object UWertCalculationTable:
                 width := "100%", padding := "0.25rem", border := "1px solid #ccc", borderRadius := "4px",
                 option(value := "", "Baumaterial..."),
                 baumaterialMaterials.map(m => option(value := m.name, s"${m.name} (λ = ${m.thermalConductivity})")),
-                option(value := "__custom__", "– Eigene Eingabe –")
+                option(value := "__custom__", "*eigene Eingabe")
               )
             )
         }
