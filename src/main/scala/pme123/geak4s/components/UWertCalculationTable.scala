@@ -5,6 +5,7 @@ import be.doeraene.webcomponents.ui5.configkeys.*
 import com.raquo.laminar.api.L.{*, given}
 import pme123.geak4s.domain.uwert.*
 import pme123.geak4s.state.{UWertState, AppState}
+import pme123.geak4s.components.WindowCalculationCard
 
 /**
  * Reusable U-Wert calculation table component
@@ -23,28 +24,18 @@ object UWertCalculationTable:
       className := "calculation-table-group",
       marginBottom := "3rem",
       padding := "1.5rem",
-      backgroundColor <-- calcSignal.map(_.map(c => c.componentType.color).getOrElse("#f5f5f5")),
+      backgroundColor <-- calcSignal.map(_.filter(_.componentLabel.nonEmpty).map(_.componentType.color).getOrElse("white")),
       borderRadius := "8px",
       border := "1px solid #ddd",
 
-      // Header with component label (only shown when component is selected)
-      child <-- calcSignal.map {
-        case Some(c) if c.componentLabel.nonEmpty =>
-          div(
-            marginBottom := "1.5rem",
-            Title(
-              _.level := TitleLevel.H3,
-              c.componentLabel
-            )
-          )
-        case _ => emptyNode
-      },
 
       // Component selector
       renderComponentSelector(calculationId, calcSignal),
 
       // Tables - only shown when a component is selected
       child <-- calcSignal.map {
+        case Some(calc) if calc.componentLabel == "Fenster" =>
+          WindowCalculationCard(calculationId, showDelete = false)
         case Some(calc) if calc.componentLabel.nonEmpty =>
           buildingComponents.find(_.label == calc.componentLabel) match
             case Some(component) =>
@@ -113,130 +104,137 @@ object UWertCalculationTable:
       borderRadius := "4px",
       marginBottom := "1.5rem",
       display := "flex",
-      gap := "2rem",
-      alignItems := "flex-end",
+      flexDirection := "column",
+      gap := "1rem",
 
-      // Bauteil selector
+      // Row 1: Bauteil selector
       div(
-        flex := "1",
-
         Label(
           display := "block",
           marginBottom := "0.5rem",
           fontWeight := "600",
           "Beschrieb Bauteil"
         ),
-
         Select(
           _.value <-- calcSignal.map(_.map(_.componentLabel).getOrElse("")),
           _.events.onChange.mapToValue --> Observer[String] { label =>
-            if label.nonEmpty then
+            if label == "Fenster" then
+              UWertState.selectWindow(calculationId)
+              AppState.saveUWertCalculations()
+            else if label.nonEmpty then
               buildingComponents.find(_.label == label).foreach { component =>
                 UWertState.updateComponent(calculationId, component, None)
                 AppState.saveUWertCalculations()
               }
           },
-
-          Select.option(
-            _.value := "",
-            "-- Bauteil auswählen --"
-          ),
-
+          Select.option(_.value := "", "-- Bauteil auswählen --"),
           buildingComponents.map { component =>
-            Select.option(
-              _.value := component.label,
-              component.label
-            )
-          }
+            Select.option(_.value := component.label, component.label)
+          },
+          Select.option(_.value := "Fenster", "Fenster")
         )
       ),
 
-      // BWert selector - only shown when component is selected and b-Wert != always 1
+      // Row 2: Bezeichnung (links) + b-Wert (rechts) — flex-end richtet Inputs aus
       child <-- calcSignal.map {
-        case Some(calc) if calc.componentLabel.nonEmpty =>
-          buildingComponents.find(_.label == calc.componentLabel) match
-            case Some(component)
-              if component.compType == ComponentType.PitchedRoof ||
-                 component.compType == ComponentType.FlatRoof =>
-              // Dach gegen Aussenluft: b-Wert ist immer 1, kein Selector
-              emptyNode
-            case Some(component) =>
-              div(
-                flex := "1",
+        case Some(calc) if calc.componentLabel.nonEmpty && calc.componentLabel != "Fenster" =>
+          val hasBWert = buildingComponents.find(_.label == calc.componentLabel).exists { c =>
+            c.compType != ComponentType.PitchedRoof && c.compType != ComponentType.FlatRoof
+          }
+          div(
+            display := "flex",
+            gap := "2rem",
+            alignItems := "flex-start",
 
-                Label(
-                  display := "block",
-                  marginBottom := "0.5rem",
-                  fontWeight := "600",
-                  "b-Wert"
-                ),
+            // Bezeichnung
+            div(
+              flex := "1",
+              Label(
+                display := "block",
+                marginBottom := "0.5rem",
+                fontWeight := "600",
+                "Bezeichnung"
+              ),
+              Input(
+                placeholder := "Bezeichnung",
+                value       <-- calcSignal.map(_.fold("")(_.label)),
+                _.events.onChange.mapToValue --> { v =>
+                  UWertState.updateCalculation(calculationId, _.copy(label = v))
+                  AppState.saveUWertCalculations()
+                }
+              )
+            ),
 
+            // b-Wert
+            Option.when(hasBWert)(
+              buildingComponents.find(_.label == calc.componentLabel).map { component =>
                 div(
-                  display := "flex",
-                  gap := "0.5rem",
-                  alignItems := "center",
-
-                  Select(
-                    _.value <-- calcSignal.map(_.flatMap(_.bWertName).getOrElse("")),
-                    _.events.onChange.mapToValue --> Observer[String] { bWertName =>
-                      if bWertName.nonEmpty then
-                        BWert.values.find(_.name == bWertName).foreach { bWert =>
-                          UWertState.updateBFactor(calculationId, bWert.bValue)
-                          UWertState.updateCalculation(calculationId, _.copy(bWertName = Some(bWertName)))
-                          AppState.saveUWertCalculations()
-                        }
-                    },
-
-                    Select.option(_.value := "", "-- b-Wert auswählen --"),
-
-                    BWert.getByComponentType(component.compType).map { bWert =>
-                      Select.option(
-                        _.value := bWert.name,
-                        s"${bWert.name} (${bWert.bValue})"
-                      )
-                    }
+                  flex := "1",
+                  Label(
+                    display := "block",
+                    marginBottom := "0.5rem",
+                    fontWeight := "600",
+                    "b-Wert"
                   ),
-
-                  span("oder", fontStyle := "italic", color := "#888", whiteSpace := "nowrap"),
-
-                  input(
-                    typ := "text",
-                    placeholder := "0.00",
-                    width := "5rem",
-                    padding := "0.25rem 0.4rem",
-                    border := "1px solid #ccc",
-                    borderRadius := "4px",
-                    value <-- calcSignal.map { calcOpt =>
-                      calcOpt.flatMap(_.bWertName) match
-                        case Some(_) => "" // Dropdown gewählt → Freifeld leer
-                        case None    => calcOpt.map(_.istCalculation.bFactor)
-                                          .filter(_ != 1.0).map(_.toString).getOrElse("")
-                    },
-                    onBlur.mapToValue --> Observer[String] { v =>
-                      v.replace(',', '.').toDoubleOption.foreach { d =>
-                        val clamped = math.max(0.0, math.min(1.0, d))
-                        UWertState.updateBFactor(calculationId, clamped)
-                        UWertState.updateCalculation(calculationId, _.copy(bWertName = None))
-                        AppState.saveUWertCalculations()
+                  div(
+                    display := "flex",
+                    gap := "0.5rem",
+                    alignItems := "center",
+                    Select(
+                      _.value <-- calcSignal.map(_.flatMap(_.bWertName).getOrElse("")),
+                      _.events.onChange.mapToValue --> Observer[String] { bWertName =>
+                        if bWertName.nonEmpty then
+                          BWert.values.find(_.name == bWertName).foreach { bWert =>
+                            UWertState.updateBFactor(calculationId, bWert.bValue)
+                            UWertState.updateCalculation(calculationId, _.copy(bWertName = Some(bWertName)))
+                            AppState.saveUWertCalculations()
+                          }
+                      },
+                      Select.option(_.value := "", "-- b-Wert auswählen --"),
+                      BWert.getByComponentType(component.compType).map { bWert =>
+                        Select.option(_.value := bWert.name, s"${bWert.name} (${bWert.bValue})")
                       }
-                    },
-                    onKeyDown --> Observer[org.scalajs.dom.KeyboardEvent] { e =>
-                      if e.key == "Enter" then
-                        val inputEl = e.target.asInstanceOf[org.scalajs.dom.HTMLInputElement]
-                        inputEl.value.replace(',', '.').toDoubleOption.foreach { d =>
+                    ),
+                    span("oder", fontStyle := "italic", color := "#888", whiteSpace := "nowrap"),
+                    input(
+                      typ := "text",
+                      placeholder := "0.00",
+                      width := "5rem",
+                      padding := "0.25rem 0.4rem",
+                      border := "1px solid #ccc",
+                      borderRadius := "4px",
+                      value <-- calcSignal.map { calcOpt =>
+                        calcOpt.flatMap(_.bWertName) match
+                          case Some(_) => ""
+                          case None    => calcOpt.map(_.istCalculation.bFactor)
+                                            .filter(_ != 1.0).map(_.toString).getOrElse("")
+                      },
+                      onBlur.mapToValue --> Observer[String] { v =>
+                        v.replace(',', '.').toDoubleOption.foreach { d =>
                           val clamped = math.max(0.0, math.min(1.0, d))
                           UWertState.updateBFactor(calculationId, clamped)
                           UWertState.updateCalculation(calculationId, _.copy(bWertName = None))
                           AppState.saveUWertCalculations()
                         }
-                        inputEl.blur()
-                    }
+                      },
+                      onKeyDown --> Observer[org.scalajs.dom.KeyboardEvent] { e =>
+                        if e.key == "Enter" then
+                          val inputEl = e.target.asInstanceOf[org.scalajs.dom.HTMLInputElement]
+                          inputEl.value.replace(',', '.').toDoubleOption.foreach { d =>
+                            val clamped = math.max(0.0, math.min(1.0, d))
+                            UWertState.updateBFactor(calculationId, clamped)
+                            UWertState.updateCalculation(calculationId, _.copy(bWertName = None))
+                            AppState.saveUWertCalculations()
+                          }
+                          inputEl.blur()
+                      }
+                    )
                   )
                 )
-              )
-            case None => emptyNode
-        case _ =>
-          emptyNode
+              }
+            )
+          )
+        case _ => emptyNode
       }
     )
 
@@ -394,12 +392,15 @@ object UWertCalculationTable:
 
     def updateMaterials(nr: Int, updater: MaterialLayer => MaterialLayer): Unit =
       if tableType == "IST" then
+        // IST edit → also mirror the change to the same SOLL row
         UWertState.updateCalculation(calculationId, calc =>
-          calc.copy(istCalculation = calc.istCalculation.copy(
-            materials = calc.istCalculation.materials.map { m =>
-              if m.nr == nr then updater(m) else m
-            }
-          ))
+          val updatedIst = calc.istCalculation.copy(
+            materials = calc.istCalculation.materials.map(m => if m.nr == nr then updater(m) else m)
+          )
+          val updatedSoll = calc.sollCalculation.copy(
+            materials = calc.sollCalculation.materials.map(m => if m.nr == nr then updater(m) else m)
+          )
+          calc.copy(istCalculation = updatedIst, sollCalculation = updatedSoll)
         )
       else
         UWertState.updateCalculation(calculationId, calc =>

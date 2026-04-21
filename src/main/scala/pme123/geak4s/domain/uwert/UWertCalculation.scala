@@ -5,18 +5,19 @@ package pme123.geak4s.domain.uwert
  * Stores both IST (current) and SOLL (target) calculations for a building component
  */
 case class UWertCalculation(
-  id: String,                                    // Unique identifier for this calculation
+  id: String,
+  label: String = "",                            // User-defined name (e.g. "Aussenwand renoviert")
   componentLabel: String,                        // Selected building component label
-  componentType: ComponentType,                  // Type of building component
-  bWertName: Option[String],                     // Selected b-Wert name
-  istCalculation: UWertTableData,                // IST (current state) calculation
-  sollCalculation: UWertTableData                // SOLL (target state) calculation
+  componentType: ComponentType,
+  bWertName: Option[String],
+  istCalculation: UWertTableData,
+  sollCalculation: UWertTableData
 )
 
 object UWertCalculation:
-  /** Create a new empty calculation */
   def empty(id: String): UWertCalculation = UWertCalculation(
     id = id,
+    label = "",
     componentLabel = "",
     componentType = ComponentType.ExteriorWall,
     bWertName = None,

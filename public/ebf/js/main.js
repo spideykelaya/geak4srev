@@ -106,6 +106,23 @@ function bindUI(ownerDocument) {
     }
   });
 
+  // Update polygon color after U-Wert assignment from Scala
+  window.addEventListener('geak:update-polygon-color', e => {
+    const { label, color } = e.detail;
+    let changed = false;
+    S.plans.forEach(plan => {
+      const polys = plan.id === S.activePlanId ? S.polygons : plan.polygons;
+      polys.forEach(p => {
+        if (p.label === label) { p.color = color; changed = true; }
+      });
+    });
+    if (changed) {
+      render();
+      saveCurrentPlanState();
+      emitPlansSyncEvent();
+    }
+  });
+
   // Area type selection from Scala sidebar
   window.addEventListener('geak:ebf-area-type-selected', e => {
     setCurrentAreaTypeLabel(e.detail);

@@ -130,6 +130,34 @@ object AreaState:
       updateAreaCalculation(compType, syncedEntries ++ manualEntries)
     }
 
+  /** Link a U-Wert calculation to a polygon entry by kuerzel */
+  def linkUWert(
+      kuerzel: String,
+      uwertId: String,
+      description: String,
+      uValue: Option[Double],
+      gValue: Option[Double],
+      glassRatio: Option[Double]
+  ): Unit =
+    areaCalculations.update { maybeArea =>
+      maybeArea.map { area =>
+        val updated = area.calculations.map { calc =>
+          calc.copy(entries = calc.entries.map { entry =>
+            if entry.kuerzel == kuerzel then
+              entry.copy(
+                description = description,
+                uwertId     = Some(uwertId),
+                uValue      = uValue,
+                gValue      = gValue,
+                glassRatio  = glassRatio
+              )
+            else entry
+          })
+        }
+        area.copy(calculations = updated)
+      }
+    }
+
   /** Rename a kuerzel across all component types (triggered when EBF polygon is renamed) */
   def renameDescription(oldLabel: String, newLabel: String): Unit =
     areaCalculations.update { maybeArea =>

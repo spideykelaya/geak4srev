@@ -5,7 +5,7 @@ import pme123.geak4s.domain.building.*
 import pme123.geak4s.domain.envelope.*
 import pme123.geak4s.domain.hvac.*
 import pme123.geak4s.domain.energy.*
-import pme123.geak4s.domain.uwert.UWertCalculation
+import pme123.geak4s.domain.uwert.{UWertCalculation, WindowCalculation}
 import pme123.geak4s.domain.area.BuildingEnvelopeArea
 import pme123.geak4s.domain.ebf.EbfPlans
 import pme123.geak4s.domain.energy.EnergyConsumptionData
@@ -50,6 +50,7 @@ package object domain:
       ventilations: List[Ventilation],
       electricityProducers: List[ElectricityProducer],
       uwertCalculations: List[UWertCalculation] = List.empty,
+      windowCalculations: List[WindowCalculation] = List.empty,
       areaCalculations: Option[BuildingEnvelopeArea] = None,
       gisData: Option[gis.MaddResponse] = None,
       ebfPlans: Option[EbfPlans] = None,
@@ -81,6 +82,7 @@ package object domain:
         ElectricityProducer.examplePVPlanned
       ),
       uwertCalculations = List.empty,
+      windowCalculations = List.empty,
       areaCalculations = None,
       gisData = None,
       geakId = None
@@ -116,6 +118,7 @@ package object domain:
         ventilations = List.empty,
         electricityProducers = List.empty,
         uwertCalculations = List.empty,
+        windowCalculations = List.empty,
         areaCalculations = None,
         gisData = None,
         geakId = None

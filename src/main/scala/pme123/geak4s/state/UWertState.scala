@@ -14,18 +14,27 @@ object UWertState:
   /** All U-Wert calculations for the current project */
   val calculations: Var[List[UWertCalculation]] = Var(List.empty)
 
+  /** All window calculations for the current project */
+  val windowCalculations: Var[List[WindowCalculation]] = Var(List.empty)
+
   /** Counter for generating unique IDs */
   private var idCounter = 0
+  private var windowIdCounter = 0
 
   /** Initialize state from project */
   def loadFromProject(project: GeakProject): Unit =
     calculations.set(project.uwertCalculations)
-    // Reset counter to avoid ID conflicts
+    windowCalculations.set(project.windowCalculations)
     idCounter = project.uwertCalculations.length
+    windowIdCounter = project.windowCalculations.length
 
   /** Get current calculations to save to project */
   def getCalculations: List[UWertCalculation] =
     calculations.now()
+
+  /** Get current window calculations to save to project */
+  def getWindowCalculations: List[WindowCalculation] =
+    windowCalculations.now()
 
   /** Add a new empty calculation */
   def addCalculation(): String =
@@ -35,9 +44,17 @@ object UWertState:
     calculations.update(_ :+ newCalc)
     id
 
-  /** Remove a calculation by ID */
+  /** Remove a calculation by ID (also removes linked WindowCalculation for Fenster type) */
   def removeCalculation(id: String): Unit =
+    val isWindow = calculations.now().find(_.id == id).exists(_.componentLabel == "Fenster")
+    if isWindow then windowCalculations.update(_.filterNot(_.id == id))
     calculations.update(_.filterNot(_.id == id))
+
+  /** Select Fenster as component type — creates a linked WindowCalculation with the same ID */
+  def selectWindow(id: String): Unit =
+    updateCalculation(id, _.copy(componentLabel = "Fenster", componentType = ComponentType.Window))
+    if windowCalculations.now().find(_.id == id).isEmpty then
+      windowCalculations.update(_ :+ WindowCalculation.empty(id))
 
   /** Update a calculation */
   def updateCalculation(id: String, update: UWertCalculation => UWertCalculation): Unit =
@@ -71,11 +88,12 @@ object UWertState:
       )
     )
 
-  /** Update IST table materials */
+  /** Update IST table materials and sync to SOLL */
   def updateIstMaterials(id: String, materials: List[MaterialLayer]): Unit =
     updateCalculation(id, calc =>
       calc.copy(
-        istCalculation = calc.istCalculation.copy(materials = materials)
+        istCalculation = calc.istCalculation.copy(materials = materials),
+        sollCalculation = calc.sollCalculation.copy(materials = materials)
       )
     )
 
@@ -103,20 +121,20 @@ object UWertState:
       )
     )
 
-  /** Add a new material layer to IST table */
+  /** Add a new material layer to IST table and sync the new layer to SOLL */
   def addIstMaterialLayer(id: String): Unit =
     updateCalculation(id, calc =>
       val currentMaterials = calc.istCalculation.materials
-      // Find the next available number (between 2 and 8)
       val usedNumbers = currentMaterials.map(_.nr).toSet
       val nextNr = (2 to 8).find(!usedNumbers.contains(_)).getOrElse(2)
-
-      // Insert the new layer before the last row (row 9)
       val newLayer = MaterialLayer.empty(nextNr)
       val updatedMaterials = (currentMaterials.filterNot(_.nr == 9) :+ newLayer :+ currentMaterials.find(_.nr == 9).get).sortBy(_.nr)
-
+      // Add the same empty layer to SOLL
+      val sollMaterials = calc.sollCalculation.materials
+      val updatedSoll = (sollMaterials.filterNot(_.nr == 9) :+ newLayer :+ sollMaterials.find(_.nr == 9).get).sortBy(_.nr)
       calc.copy(
-        istCalculation = calc.istCalculation.copy(materials = updatedMaterials)
+        istCalculation = calc.istCalculation.copy(materials = updatedMaterials),
+        sollCalculation = calc.sollCalculation.copy(materials = updatedSoll)
       )
     )
 
@@ -157,12 +175,15 @@ object UWertState:
         else calc.copy(sollCalculation = calc.sollCalculation.copy(materials = swapped))
     )
 
-  /** Remove a material layer from IST table */
+  /** Remove a material layer from IST table and sync removal to SOLL */
   def removeIstMaterialLayer(id: String, layerNr: Int): Unit =
     updateCalculation(id, calc =>
       calc.copy(
         istCalculation = calc.istCalculation.copy(
           materials = calc.istCalculation.materials.filterNot(m => m.nr == layerNr && m.isEditable)
+        ),
+        sollCalculation = calc.sollCalculation.copy(
+          materials = calc.sollCalculation.materials.filterNot(m => m.nr == layerNr && m.isEditable)
         )
       )
     )
@@ -181,13 +202,36 @@ object UWertState:
   def getCalculation(id: String): Signal[Option[UWertCalculation]] =
     calculations.signal.map(_.find(_.id == id))
 
+  /** Add a new empty window calculation */
+  def addWindowCalculation(): String =
+    windowIdCounter += 1
+    val id = s"window-calc-$windowIdCounter"
+    windowCalculations.update(_ :+ WindowCalculation.empty(id))
+    id
+
+  /** Remove a window calculation by ID */
+  def removeWindowCalculation(id: String): Unit =
+    windowCalculations.update(_.filterNot(_.id == id))
+
+  /** Update a window calculation */
+  def updateWindowCalculation(id: String, update: WindowCalculation => WindowCalculation): Unit =
+    windowCalculations.update(_.map(w => if w.id == id then update(w) else w))
+
+  /** Get a specific window calculation signal by ID */
+  def getWindowCalculation(id: String): Signal[Option[WindowCalculation]] =
+    windowCalculations.signal.map(_.find(_.id == id))
+
   /** Clear all calculations */
   def clear(): Unit =
     calculations.set(List.empty)
+    windowCalculations.set(List.empty)
 
   /** Save calculations to project */
   def saveToProject(project: GeakProject): GeakProject =
-    project.copy(uwertCalculations = calculations.now())
+    project.copy(
+      uwertCalculations  = calculations.now(),
+      windowCalculations = windowCalculations.now()
+    )
 
 end UWertState
 

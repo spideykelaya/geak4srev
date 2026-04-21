@@ -4,23 +4,40 @@ import com.raquo.laminar.api.L.{*, given}
 import org.scalajs.dom
 import scala.scalajs.js
 import scala.scalajs.js.JSConverters.*
-import pme123.geak4s.state.{AreaState, AppState, EbfState}
+import pme123.geak4s.state.{AreaState, AppState, EbfState, UWertState}
 import pme123.geak4s.domain.JsonCodecs.given
 import pme123.geak4s.domain.ebf.EbfPlans
+import pme123.geak4s.domain.uwert.ComponentType
 import pme123.geak4s.services.GoogleDriveService
 import pme123.geak4s.config.GoogleDriveConfig
+import pme123.geak4s.utils.ColorUtils
 import io.circe.parser.*
 import io.circe.syntax.*
 import scala.scalajs.concurrent.JSExecutionContext.Implicits.queue
 
 object EBFCalculatorView:
 
-  private val polygonSyncEvent   = "geak:ebf-polygons-sync"
-  private val plansSyncEvent     = "geak:ebf-plans-sync"
-  private val planUploadEvent    = "geak:ebf-plan-upload"
-  private val loadPlansEvent     = "geak:ebf-load-plans"
+  private val polygonSyncEvent    = "geak:ebf-polygons-sync"
+  private val plansSyncEvent      = "geak:ebf-plans-sync"
+  private val planUploadEvent     = "geak:ebf-plan-upload"
+  private val loadPlansEvent      = "geak:ebf-load-plans"
   private val polygonRenamedEvent = "geak:ebf-polygon-renamed"
   private val polygonResetEvent   = "geak:ebf-polygon-reset"
+  private val updateColorEvent    = "geak:update-polygon-color"
+
+  private case class UWertOption(
+    id: String,
+    displayLabel: String,
+    uValue: Double,
+    gValue: Option[Double],
+    glassRatio: Option[Double],
+    adjustedColor: String
+  )
+
+  private case class PendingAssignment(
+    polygonLabel: String,
+    options: Seq[UWertOption]
+  )
 
   private def decodePolygons(event: dom.Event): Seq[(String, String, Double, Option[Double], Option[Double])] =
     val payload = event.asInstanceOf[dom.CustomEvent].detail.asInstanceOf[js.Array[js.Dynamic]]
@@ -49,13 +66,49 @@ object EBFCalculatorView:
         Some((label, areaType, area, overhangDist, sideDist))
     }
 
+  private def buildPendingAssignment(polygonLabel: String, compType: ComponentType): Option[PendingAssignment] =
+    val baseColor = compType.polygonColor
+    val options: Seq[UWertOption] =
+      if compType == ComponentType.Window || compType == ComponentType.Door then
+        val calcs     = UWertState.windowCalculations.now().filter(_.label.nonEmpty)
+        val allUVals  = calcs.map(_.uValue)
+        calcs.map { wc =>
+          UWertOption(
+            id           = wc.id,
+            displayLabel = wc.label,
+            uValue       = wc.uValue,
+            gValue       = Some(wc.gValue),
+            glassRatio   = Some(wc.glassRatio),
+            adjustedColor = ColorUtils.computeUWertColor(baseColor, wc.uValue, allUVals)
+          )
+        }
+      else
+        val calcs    = UWertState.calculations.now()
+          .filter(c => c.componentType == compType && c.label.nonEmpty)
+        val allUVals = calcs.map(_.istCalculation.uValue)
+        calcs.map { calc =>
+          UWertOption(
+            id           = calc.id,
+            displayLabel = calc.label,
+            uValue       = calc.istCalculation.uValue,
+            gValue       = None,
+            glassRatio   = None,
+            adjustedColor = ColorUtils.computeUWertColor(baseColor, calc.istCalculation.uValue, allUVals)
+          )
+        }
+    if options.size >= 2 then Some(PendingAssignment(polygonLabel, options)) else None
+
   def apply(): HtmlElement =
-    var unmountHandle:        Option[js.Function0[Unit]]             = None
-    var polygonSyncListener:  Option[js.Function1[dom.Event, Unit]]  = None
-    var plansSyncListener:    Option[js.Function1[dom.Event, Unit]]   = None
-    var planUploadListener:   Option[js.Function1[dom.Event, Unit]]   = None
+    var unmountHandle:          Option[js.Function0[Unit]]            = None
+    var polygonSyncListener:    Option[js.Function1[dom.Event, Unit]] = None
+    var plansSyncListener:      Option[js.Function1[dom.Event, Unit]] = None
+    var planUploadListener:     Option[js.Function1[dom.Event, Unit]] = None
     var polygonRenamedListener: Option[js.Function1[dom.Event, Unit]] = None
     var polygonResetListener:   Option[js.Function1[dom.Event, Unit]] = None
+
+    val pendingAssignments: Var[List[PendingAssignment]] = Var(List.empty)
+    var seenPolygonLabels: Set[String] = Set.empty
+    var isFirstSync: Boolean = true
 
     div(
       className := "ebf-calculator-host",
@@ -63,11 +116,31 @@ object EBFCalculatorView:
       onMountCallback { ctx =>
         // ── polygon sync → AreaState ──
         val polyListener: js.Function1[dom.Event, Unit] = (event: dom.Event) =>
-          val polygons = decodePolygons(event)
+          val polygons      = decodePolygons(event)
+          val currentLabels = polygons.map(_._1).toSet
           dom.console.log(s"[AreaState] polygon-sync received ${polygons.length}: ${polygons.map((l,t,a,_,_) => s"$l($t)=%.2f".format(a)).mkString(", ")}")
           AreaState.syncPolygons(polygons)
           dom.console.log(s"[AreaState] after sync, entries: ${AreaState.areaCalculations.now().map(_.calculations.flatMap(c => c.entries.map(e => s"${c.componentType.polygonLabel}/${e.kuerzel}")).mkString(", ")).getOrElse("None")}")
           AppState.saveAreaCalculations()
+
+          if isFirstSync then
+            seenPolygonLabels = currentLabels
+            isFirstSync = false
+          else
+            val newLabels  = currentLabels -- seenPolygonLabels
+            val newPending = newLabels.toSeq.sorted.flatMap { label =>
+              polygons.find(_._1 == label).flatMap { case (_, areaType, _, _, _) =>
+                val compType = ComponentType.fromPolygonLabel(areaType)
+                  .orElse(ComponentType.fromPolygonLabel(label))
+                  .getOrElse(ComponentType.EBF)
+                if compType == ComponentType.EBF then None
+                else buildPendingAssignment(label, compType)
+              }
+            }
+            if newPending.nonEmpty then
+              pendingAssignments.update(_ ++ newPending)
+            seenPolygonLabels = currentLabels
+
         dom.window.addEventListener(polygonSyncEvent, polyListener)
         polygonSyncListener = Some(polyListener)
 
@@ -77,7 +150,6 @@ object EBFCalculatorView:
           val jsonStr = js.JSON.stringify(detail.asInstanceOf[js.Any])
           decode[EbfPlans](jsonStr) match
             case Right(plans) =>
-              // Preserve any imageDataUrl already in EbfState (JS strips it from sync events).
               val existing = EbfState.getEbfPlans.plans.map(p => p.id -> p.imageDataUrl).toMap
               val merged   = plans.copy(plans = plans.plans.map { p =>
                 if p.imageDataUrl.isDefined then p
@@ -103,6 +175,8 @@ object EBFCalculatorView:
 
         // ── import reset → clear stale area entries before fresh sync ──
         val resetListener: js.Function1[dom.Event, Unit] = (_: dom.Event) =>
+          seenPolygonLabels = Set.empty
+          isFirstSync = true
           AreaState.initializeEmpty()
         dom.window.addEventListener(polygonResetEvent, resetListener)
         polygonResetListener = Some(resetListener)
@@ -136,8 +210,6 @@ object EBFCalculatorView:
             .asInstanceOf[js.Promise[js.Function0[Unit]]]
             .`then`[Unit] { (unmount: js.Function0[Unit]) =>
               unmountHandle = Some(unmount)
-              // Always fire geak:ebf-load-plans so the JS canvas resets or restores state.
-              // Empty plans clears old plans from a previous project; non-empty plans restore them.
               val saved      = EbfState.getEbfPlans
               val plansJson  = saved.asJson.noSpaces
               val plansJsObj = js.JSON.parse(plansJson)
@@ -152,11 +224,11 @@ object EBFCalculatorView:
             }
       },
       onUnmountCallback { _ =>
-        polygonSyncListener.foreach(l   => dom.window.removeEventListener(polygonSyncEvent, l))
-        plansSyncListener.foreach(l     => dom.window.removeEventListener(plansSyncEvent, l))
-        planUploadListener.foreach(l    => dom.window.removeEventListener(planUploadEvent, l))
+        polygonSyncListener.foreach(l    => dom.window.removeEventListener(polygonSyncEvent, l))
+        plansSyncListener.foreach(l      => dom.window.removeEventListener(plansSyncEvent, l))
+        planUploadListener.foreach(l     => dom.window.removeEventListener(planUploadEvent, l))
         polygonRenamedListener.foreach(l => dom.window.removeEventListener(polygonRenamedEvent, l))
-        polygonResetListener.foreach(l   => dom.window.removeEventListener(polygonResetEvent,   l))
+        polygonResetListener.foreach(l   => dom.window.removeEventListener(polygonResetEvent, l))
         polygonSyncListener = None; plansSyncListener = None; planUploadListener = None
         polygonRenamedListener = None; polygonResetListener = None
         unmountHandle.foreach(_())
@@ -171,7 +243,50 @@ object EBFCalculatorView:
       ),
       calibrationIntroModal(),
       clearConfirmModal(),
-      scaleDialog()
+      scaleDialog(),
+      child <-- pendingAssignments.signal.map {
+        case Nil => emptyNode
+        case PendingAssignment(polygonLabel, options) :: _ =>
+          div(
+            styleAttr := "position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 9999; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.55);",
+            div(
+              styleAttr := "background: #1a1a28; border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 24px; min-width: 320px; max-width: 480px; box-shadow: 0 8px 32px rgba(0,0,0,0.6); font-family: system-ui,sans-serif; color: #f0f0f8;",
+              h3(
+                styleAttr := "margin: 0 0 6px; font-size: 16px; font-weight: 600;",
+                s"U-Wert für Polygon «$polygonLabel» wählen"
+              ),
+              p(
+                styleAttr := "margin: 0 0 16px; font-size: 13px; color: #8888aa;",
+                "Welcher U-Wert gilt für diese Fläche?"
+              ),
+              div(
+                (Seq[Modifier[HtmlElement]](
+                  styleAttr := "display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px;"
+                ) ++ options.map { opt =>
+                  button(
+                    styleAttr := s"padding: 10px 14px; font-size: 13px; font-weight: 600; background: ${opt.adjustedColor}; color: #111; border: none; border-radius: 8px; cursor: pointer; text-align: left;",
+                    s"${opt.displayLabel}  (${f"${opt.uValue}%.2f"} W/m²K)",
+                    onClick --> { _ =>
+                      AreaState.linkUWert(polygonLabel, opt.id, opt.displayLabel, Some(opt.uValue), opt.gValue, opt.glassRatio)
+                      AppState.saveAreaCalculations()
+                      val detail = js.Dynamic.literal(label = polygonLabel, color = opt.adjustedColor)
+                      val init   = js.Dynamic.literal(detail = detail, bubbles = false, cancelable = false)
+                      dom.window.dispatchEvent(
+                        new dom.CustomEvent(updateColorEvent, init.asInstanceOf[dom.CustomEventInit])
+                      )
+                      pendingAssignments.update(_.tail)
+                    }
+                  ): Modifier[HtmlElement]
+                })*
+              ),
+              button(
+                styleAttr := "padding: 8px 14px; font-size: 12px; font-weight: 600; background: transparent; color: #666; border: 1px solid rgba(255,255,255,0.15); border-radius: 8px; cursor: pointer;",
+                "Überspringen",
+                onClick --> { _ => pendingAssignments.update(_.tail) }
+              )
+            )
+          )
+      }
     )
 
   private def calibrationIntroModal(): HtmlElement =
