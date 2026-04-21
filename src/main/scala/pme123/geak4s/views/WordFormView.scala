@@ -75,7 +75,10 @@ object WordFormView:
         case Some(v)                              => List(BuildingUsage("Einfamilienhaus", None, v, None, None))
         case None                                 => p.buildingUsages,
       project = p.project.copy(
-        projectName = if form.projektnummer.nonEmpty then form.projektnummer else p.project.projectName,
+        projectName = {
+          val parts = List(form.projektnummer, form.adresse.replace(",", "")).filter(_.nonEmpty)
+          if parts.nonEmpty then parts.mkString(" ") else p.project.projectName
+        },
         client = p.project.client.copy(
           name1  = Some(form.auftraggeberin).filter(_.nonEmpty).orElse(p.project.client.name1),
           email  = Some(form.mail).filter(_.nonEmpty).orElse(p.project.client.email),
@@ -283,7 +286,10 @@ object WordFormView:
         val objectUrl = dom.URL.createObjectURL(blob)
         val link = dom.document.createElement("a").asInstanceOf[dom.html.Anchor]
         link.href = objectUrl
-        link.download = "Begehungsprotokoll.docx"
+        val form = formVar.now()
+        val nameParts = List(form.projektnummer, form.adresse.replace(",", "")).filter(_.nonEmpty)
+        val baseName  = if nameParts.nonEmpty then s"Begehung_${nameParts.mkString(" ")}" else "Begehungsprotokoll"
+        link.download = s"$baseName.docx"
         dom.document.body.appendChild(link)
         link.click()
         dom.document.body.removeChild(link)
