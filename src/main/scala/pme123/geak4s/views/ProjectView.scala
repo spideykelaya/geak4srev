@@ -403,7 +403,13 @@ case class ProjectView(geakProject: GeakProject):
                 _.icon   := IconName.`add`,
                 _.events.onClick.mapTo(()) --> Observer[Unit] { _ =>
                   upProj(p => p.copy(buildingUsages = p.buildingUsages :+
-                    BuildingUsage(usageType = "", area = 0.0)))
+                    BuildingUsage(
+                      usageType         = "", area = 0.0,
+                      apartments1Room   = Some(0), apartments2Room   = Some(0),
+                      apartments3Room   = Some(0), apartments4Room   = Some(0),
+                      apartments5Room   = Some(0), apartments6Room   = Some(0),
+                      apartmentsOver6Room = Some(0)
+                    )))
                 },
                 "Nutzung hinzufügen"
               )

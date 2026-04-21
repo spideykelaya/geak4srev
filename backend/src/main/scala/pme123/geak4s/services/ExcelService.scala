@@ -38,6 +38,9 @@ object ExcelService:
   private def ni(sheet: Sheet, row: Int, col: Int, value: Int): Unit =
     if value != 0 then getCell(sheet, row, col).setCellValue(value.toDouble)
 
+  private def niZ(sheet: Sheet, row: Int, col: Int, value: Int): Unit =
+    getCell(sheet, row, col).setCellValue(value.toDouble)
+
   // ── Sheet fillers ─────────────────────────────────────────────────────────
 
   private def fillProjekt(wb: Workbook, p: ujson.Value): Unit =
@@ -106,13 +109,33 @@ object ExcelService:
     val sh     = wb.getSheet("Gebäudenutzungen")
     if sh == null then return
     val usages = av(p, "buildingUsages").take(3)
+    // Labels in col A for the bottom section (written once, shared across all Nutzungen)
+    sc(sh, 21, 0, "Anzahl Personen")
+    sc(sh, 22, 0, "1-Zimmer Wohnungen")
+    sc(sh, 23, 0, "2-Zimmer Wohnungen")
+    sc(sh, 24, 0, "3-Zimmer Wohnungen")
+    sc(sh, 25, 0, "4-Zimmer Wohnungen")
+    sc(sh, 27, 0, "5-Zimmer Wohnungen")
+    sc(sh, 28, 0, "6-Zimmer Wohnungen")
+    sc(sh, 29, 0, ">6-Zimmer Wohnungen")
+
     usages.zipWithIndex.foreach { (u, i) =>
-      val col = 1 + i  // B=1, C=2, D=3
+      val col    = 1 + i      // top section: B=1, C=2, D=3 for Nutzung 1/2/3
+      val valCol = 1 + i * 2  // bottom section: B=1, D=3, F=5 for Nutzung 1/2/3
       sc(sh, 4, col, sv(u, "usageType"))
       sc(sh, 5, col, sv(u, "usageSubType"))
       nc(sh, 6, col, nv(u, "area"))
       nc(sh, 7, col, nv(u, "areaPercentage"))
       sc(sh, 8, col, sv(u, "constructionYear"))
+      // Bottom section (rows 22-30, 0-indexed 21-29): residents + apartment counts
+      niZ(sh, 21, valCol, Try(u("numberOfResidents").num.toInt).getOrElse(0))
+      niZ(sh, 22, valCol, Try(u("apartments1Room").num.toInt).getOrElse(0))
+      niZ(sh, 23, valCol, Try(u("apartments2Room").num.toInt).getOrElse(0))
+      niZ(sh, 24, valCol, Try(u("apartments3Room").num.toInt).getOrElse(0))
+      niZ(sh, 25, valCol, Try(u("apartments4Room").num.toInt).getOrElse(0))
+      niZ(sh, 27, valCol, Try(u("apartments5Room").num.toInt).getOrElse(0))
+      niZ(sh, 28, valCol, Try(u("apartments6Room").num.toInt).getOrElse(0))
+      niZ(sh, 29, valCol, Try(u("apartmentsOver6Room").num.toInt).getOrElse(0))
     }
 
   private def fillEnvelopeSheet(
