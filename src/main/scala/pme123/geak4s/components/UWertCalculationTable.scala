@@ -135,7 +135,7 @@ object UWertCalculationTable:
         )
       ),
 
-      // Row 2: Bezeichnung (links, kein Label) + b-Wert (rechts, mit Label) — flex-end richtet Inputs aus
+      // Row 2: Bezeichnung (links) + b-Wert (rechts) — flex-end richtet Inputs aus
       child <-- calcSignal.map {
         case Some(calc) if calc.componentLabel.nonEmpty && calc.componentLabel != "Fenster" =>
           val hasBWert = buildingComponents.find(_.label == calc.componentLabel).exists { c =>
@@ -144,11 +144,17 @@ object UWertCalculationTable:
           div(
             display := "flex",
             gap := "2rem",
-            alignItems := "flex-end",
+            alignItems := "flex-start",
 
-            // Bezeichnung — kein Label, dadurch auf selber Höhe wie b-Wert Select
+            // Bezeichnung
             div(
               flex := "1",
+              Label(
+                display := "block",
+                marginBottom := "0.5rem",
+                fontWeight := "600",
+                "Bezeichnung"
+              ),
               Input(
                 placeholder := "Bezeichnung",
                 value       <-- calcSignal.map(_.fold("")(_.label)),
@@ -159,7 +165,7 @@ object UWertCalculationTable:
               )
             ),
 
-            // b-Wert — mit Label darüber
+            // b-Wert
             Option.when(hasBWert)(
               buildingComponents.find(_.label == calc.componentLabel).map { component =>
                 div(

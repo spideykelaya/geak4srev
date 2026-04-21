@@ -61,6 +61,21 @@ enum ComponentType:
     case FlatRoof               => "#ddd6fe" // legacy
     case ShutterBoxCover        => "#fff3e0" // legacy
 
+  /** Base polygon stroke color matching sidebar.js AREA_TYPE_COLORS */
+  def polygonColor: String = this match
+    case EBF                    => "#fb923c"
+    case PitchedRoof            => "#a78bfa"
+    case AtticFloor             => "#a78bfa"
+    case ExteriorWall           => "#fbbf24"
+    case BasementWallToEarth    => "#34d399"
+    case BasementWallToUnheated => "#60a5fa"
+    case Window                 => "#f472b6"
+    case Door                   => "#f472b6"
+    case BasementFloor          => "#34d399"
+    case BasementCeiling        => "#60a5fa"
+    case FloorToOutside         => "#fbbf24"
+    case _                      => "#8888aa"
+
 end ComponentType
 
 object ComponentType:

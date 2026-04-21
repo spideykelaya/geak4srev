@@ -32,7 +32,7 @@ object WindowCalculationCard:
             alignItems := "center",
             gap := "0.5rem",
             Input(
-              placeholder := "Bezeichnung Fenster",
+              placeholder := "Bezeichnung",
               value <-- calcSignal.map(_.fold("")(_.label)),
               onInput.mapToValue --> { v => save(_.copy(label = v)) }
             ),
