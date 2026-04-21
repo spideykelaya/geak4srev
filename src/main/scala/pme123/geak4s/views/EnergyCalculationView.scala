@@ -74,21 +74,45 @@ object EnergyCalculationView:
         .getOrElse(0.0)
     }
 
+  // Combined heat energy average: fuel entries take priority; if empty, use
+  // net electricity (raw average minus Haushaltsstrom/EV deduction when enabled).
+  private val avgHeatKwhSignal: Signal[Option[Double]] =
+    EnergyState.energyData.signal.map { d =>
+      val fuelVals = d.fuelEntries.flatMap(_.correctedKwh(d.calorificValue))
+      if fuelVals.nonEmpty then
+        Some(fuelVals.sum / fuelVals.length)
+      else
+        val elecVals = d.electricityEntries.flatMap(_.correctedKwh)
+        if elecVals.isEmpty then None
+        else
+          val avg = elecVals.sum / elecVals.length
+          val hs  = d.haushaltsstromSettings
+          Some(if hs.enabled then (avg - hs.totalDeductionKwh).max(0.0) else avg)
+    }
+
   // -------------------------------------------------------------------------
   // Sync computed values → WordForm (Step 4)
   // -------------------------------------------------------------------------
 
   private def syncToWordForm(d: EnergyConsumptionData, ebf: Double): Unit =
-    val vals = d.fuelEntries.flatMap(_.correctedKwh(d.calorificValue))
-    if vals.nonEmpty then
+    val fuelVals = d.fuelEntries.flatMap(_.correctedKwh(d.calorificValue))
+    val elecVals = d.electricityEntries.flatMap(_.correctedKwh)
+    val avgOpt: Option[Double] =
+      if fuelVals.nonEmpty then Some(fuelVals.sum / fuelVals.length)
+      else if elecVals.nonEmpty then
+        val raw = elecVals.sum / elecVals.length
+        val hs  = d.haushaltsstromSettings
+        Some(if hs.enabled then (raw - hs.totalDeductionKwh).max(0.0) else raw)
+      else None
+    if avgOpt.nonEmpty then
+      val avg       = avgOpt.get
       val s         = d.heatingPowerSettings
-      val avg       = vals.sum / vals.length
       val nwb       = avg * s.wirkungsgrad
       val hl        = math.round(nwb / s.volllaststunden * 10.0).toDouble / 10.0
       val hlr       = math.round(hl * (1 + s.reserve) * 10.0).toDouble / 10.0
       val z         = if hlr >= 15.0 then 0.2 else 0.0
       val hlNew     = math.round(hlr * (1 + z) * 10.0).toDouble / 10.0
-      val ekz       = if ebf > 0 then fmtNum(avg / ebf, 1) else ""
+      val ekz       = if ebf > 0 then fmtNum(avg / ebf, 0) else ""
       val ews       = d.ewsSettings
       val tiefeTotal    = hlNew * 1000.0 * ews.bezugAusErdreich / ews.spezifischeEntnahmeleistung
       val tiefeProSonde = tiefeTotal / ews.anzahlSonden
@@ -235,7 +259,147 @@ object EnergyCalculationView:
           },
           "Jahr hinzufügen"
         )
-      )
+      ),
+
+      // Haushaltsstrom deduction panel
+      {
+        val enabledSig = EnergyState.energyData.signal.map(_.haushaltsstromSettings.enabled)
+        val hsSig      = EnergyState.energyData.signal.map(_.haushaltsstromSettings)
+
+        def hsDeductionContent(): HtmlElement =
+          val hs = EnergyState.energyData.now().haushaltsstromSettings
+          div(
+            div(
+              display := "flex", gap := "1.5rem", flexWrap := "wrap", alignItems := "center",
+              marginBottom := "0.75rem",
+
+              // Building type
+              div(display := "flex", alignItems := "center", gap := "0.4rem",
+                label(color := "black", "Gebäudetyp:"),
+                select(
+                  color := "black", padding := "0.2rem",
+                  onChange.mapToValue --> Observer[String] { v =>
+                    EnergyState.energyData.update(d =>
+                      d.copy(haushaltsstromSettings = d.haushaltsstromSettings.copy(buildingType = v)))
+                    AppState.saveEnergyData()
+                  },
+                  option(value := "MFH", selected := (hs.buildingType == "MFH"), "MFH"),
+                  option(value := "EFH", selected := (hs.buildingType == "EFH"), "EFH")
+                )
+              ),
+
+              // Persons per unit
+              div(display := "flex", alignItems := "center", gap := "0.4rem",
+                label(color := "black", "Personen/Wohnung:"),
+                input(
+                  typ := "number", color := "black", width := "60px",
+                  minAttr := "1", maxAttr := "10",
+                  value := hs.numPersonsPerUnit.toString,
+                  onInput.mapToValue --> Observer[String] { v =>
+                    v.toIntOption.filter(_ >= 1).foreach { n =>
+                      EnergyState.energyData.update(d =>
+                        d.copy(haushaltsstromSettings = d.haushaltsstromSettings.copy(numPersonsPerUnit = n)))
+                    }
+                  },
+                  onBlur.mapTo(()) --> Observer[Unit] { _ => AppState.saveEnergyData() }
+                )
+              ),
+
+              // Number of units
+              div(display := "flex", alignItems := "center", gap := "0.4rem",
+                label(color := "black", "Wohnungen:"),
+                input(
+                  typ := "number", color := "black", width := "60px",
+                  minAttr := "1",
+                  value := hs.numUnits.toString,
+                  onInput.mapToValue --> Observer[String] { v =>
+                    v.toIntOption.filter(_ >= 1).foreach { n =>
+                      EnergyState.energyData.update(d =>
+                        d.copy(haushaltsstromSettings = d.haushaltsstromSettings.copy(numUnits = n)))
+                    }
+                  },
+                  onBlur.mapTo(()) --> Observer[Unit] { _ => AppState.saveEnergyData() }
+                )
+              ),
+
+              // Electric cars
+              div(display := "flex", alignItems := "center", gap := "0.4rem",
+                label(color := "black", "Elektroautos:"),
+                input(
+                  typ := "number", color := "black", width := "60px",
+                  minAttr := "0",
+                  value := hs.numElectricCars.toString,
+                  onInput.mapToValue --> Observer[String] { v =>
+                    v.toIntOption.filter(_ >= 0).foreach { n =>
+                      EnergyState.energyData.update(d =>
+                        d.copy(haushaltsstromSettings = d.haushaltsstromSettings.copy(numElectricCars = n)))
+                    }
+                  },
+                  onBlur.mapTo(()) --> Observer[Unit] { _ => AppState.saveEnergyData() }
+                )
+              )
+            ),
+
+            // Deduction summary table – reactive display only
+            child <-- hsSig.combineWith(avgCorrected).map { case (hs, avg) =>
+              val haushStr = fmtNum(hs.totalHaushaltsstromKwh, 0)
+              val evStr    = fmtNum(hs.totalElectricCarsKwh, 0)
+              val dedStr   = fmtNum(hs.totalDeductionKwh, 0)
+              val netOpt   = avg.map(_ - hs.totalDeductionKwh)
+              val netStr   = netOpt.map(fmtNum(_, 0)).getOrElse("–")
+
+              table(
+                borderCollapse := "collapse", width := "100%",
+                tr(
+                  td(labelCell, s"Haushaltsstrom (${hs.numPersonsPerUnit} P. × ${hs.numUnits} Whg.)"),
+                  td(resultCell, s"− $haushStr"),
+                  td(cellStyle, "kWh")
+                ),
+                tr(
+                  td(labelCell, s"Elektroauto (${hs.numElectricCars} × 2'000 kWh)"),
+                  td(resultCell, s"− $evStr"),
+                  td(cellStyle, "kWh")
+                ),
+                tr(
+                  td(labelCell, fontWeight := "bold", "Abzug total"),
+                  td(resultCell, fontWeight := "bold", s"− $dedStr"),
+                  td(cellStyle, "kWh")
+                ),
+                tr(
+                  td(labelCell, fontWeight := "bold", "Netto Heizenergie (Mittelwert)"),
+                  td(resultCell, fontWeight := "bold", netStr),
+                  td(cellStyle, "kWh")
+                )
+              )
+            }
+          )
+
+        div(
+          marginTop := "1.25rem",
+          border := "1px solid #cce0ff",
+          borderRadius := "6px",
+          padding := "1rem",
+          backgroundColor := "#f5f9ff",
+
+          div(
+            display := "flex", alignItems := "center", gap := "0.5rem",
+            marginBottom := "0.5rem",
+            input(
+              typ := "checkbox",
+              checked <-- enabledSig,
+              onChange.mapToChecked --> Observer[Boolean] { v =>
+                EnergyState.energyData.update(d =>
+                  d.copy(haushaltsstromSettings = d.haushaltsstromSettings.copy(enabled = v)))
+                AppState.saveEnergyData()
+              }
+            ),
+            label(color := "black", fontWeight := "bold",
+              "Haushaltsstrom & Elektroauto abziehen")
+          ),
+
+          child.maybe <-- enabledSig.map(if _ then Some(hsDeductionContent()) else None)
+        )
+      }
     )
 
   // -------------------------------------------------------------------------
@@ -504,21 +668,15 @@ object EnergyCalculationView:
   private def heatingPowerSection(): HtmlElement =
     val data = EnergyState.energyData
 
-    val avgFuelKwh: Signal[Option[Double]] =
-      data.signal.map { d =>
-        val vals = d.fuelEntries.flatMap(_.correctedKwh(d.calorificValue))
-        if vals.isEmpty then None else Some(vals.sum / vals.length)
-      }
-
     val settings: Signal[HeatingPowerSettings] = data.signal.map(_.heatingPowerSettings)
 
     val energiekennzahl: Signal[Option[Double]] =
-      avgFuelKwh.combineWith(ebfSignal).map { case (avg, ebf) =>
+      avgHeatKwhSignal.combineWith(ebfSignal).map { case (avg, ebf) =>
         if ebf > 0 then avg.map(_ / ebf) else None
       }
 
     val nutzwaermebedarf: Signal[Option[Double]] =
-      avgFuelKwh.combineWith(settings).map { case (avg, s) =>
+      avgHeatKwhSignal.combineWith(settings).map { case (avg, s) =>
         avg.map(_ * s.wirkungsgrad)
       }
 
@@ -661,8 +819,8 @@ object EnergyCalculationView:
           table(
             width := "100%", borderCollapse := "collapse", marginTop := "0.5rem",
             tbody(
-              resultRow("Mittelwert Energieverbrauch (HGT-bereinigt)", avgFuelKwh, "kWh", 0),
-              resultRow("Energiekennzahl",           energiekennzahl,       "kWh/m²"),
+              resultRow("Mittelwert Energieverbrauch (HGT-bereinigt)", avgHeatKwhSignal, "kWh", 0),
+              resultRow("Energiekennzahl",           energiekennzahl,       "kWh/m²", 0),
               resultRow("Nutzwärmebedarf",           nutzwaermebedarf,      "kWh", 0),
               resultRow("Heizleistung",              heizleistung,          "kW"),
               resultRow("spezifische Heizleistung",        spezHeizleistung,      "W/m²"),
@@ -684,17 +842,14 @@ object EnergyCalculationView:
     val settings: Signal[EwsSettings] = data.signal.map(_.ewsSettings)
 
     val heizleistungNeueAnlage: Signal[Option[Double]] =
-      data.signal.map { d =>
-        val vals = d.fuelEntries.flatMap(_.correctedKwh(d.calorificValue))
-        if vals.isEmpty then None
-        else
-          val avg   = vals.sum / vals.length
-          val s     = d.heatingPowerSettings
-          val nwb   = avg * s.wirkungsgrad
-          val hl    = math.round(nwb / s.volllaststunden * 10.0).toDouble / 10.0
-          val hlr   = math.round(hl * (1 + s.reserve) * 10.0).toDouble / 10.0
-          val z     = if hlr >= 15.0 then 0.2 else 0.0
-          Some(math.round(hlr * (1 + z) * 10.0).toDouble / 10.0)
+      avgHeatKwhSignal.combineWith(data.signal.map(_.heatingPowerSettings)).map { case (avgOpt, s) =>
+        avgOpt.map { avg =>
+          val nwb = avg * s.wirkungsgrad
+          val hl  = math.round(nwb / s.volllaststunden * 10.0).toDouble / 10.0
+          val hlr = math.round(hl * (1 + s.reserve) * 10.0).toDouble / 10.0
+          val z   = if hlr >= 15.0 then 0.2 else 0.0
+          math.round(hlr * (1 + z) * 10.0).toDouble / 10.0
+        }
       }
 
     val tiefeTotalSignal: Signal[Option[Double]] =

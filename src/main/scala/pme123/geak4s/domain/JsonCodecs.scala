@@ -327,8 +327,25 @@ object JsonCodecs:
   given Encoder[EwsSettings] = deriveEncoder[EwsSettings]
   given Decoder[EwsSettings] = deriveDecoder[EwsSettings]
 
+  given Encoder[HaushaltsstromSettings] = deriveEncoder[HaushaltsstromSettings]
+  given Decoder[HaushaltsstromSettings] = deriveDecoder[HaushaltsstromSettings]
+
   given Encoder[EnergyConsumptionData] = deriveEncoder[EnergyConsumptionData]
-  given Decoder[EnergyConsumptionData] = deriveDecoder[EnergyConsumptionData]
+  given Decoder[EnergyConsumptionData] = Decoder.instance { c =>
+    for
+      fuelType                <- c.getOrElse[FuelType]("fuelType")(FuelType.Gas)
+      calorificValue          <- c.getOrElse[Double]("calorificValue")(10.0)
+      electricityEntries      <- c.getOrElse[List[ElectricityEntry]]("electricityEntries")(List.empty)
+      fuelEntries             <- c.getOrElse[List[FuelEntry]]("fuelEntries")(List.empty)
+      waterEntries            <- c.getOrElse[List[WaterEntry]]("waterEntries")(List.empty)
+      heatingPowerSettings    <- c.getOrElse[HeatingPowerSettings]("heatingPowerSettings")(HeatingPowerSettings.default)
+      ewsSettings             <- c.getOrElse[EwsSettings]("ewsSettings")(EwsSettings.default)
+      haushaltsstromSettings  <- c.getOrElse[HaushaltsstromSettings]("haushaltsstromSettings")(HaushaltsstromSettings.default)
+    yield EnergyConsumptionData(
+      fuelType, calorificValue, electricityEntries, fuelEntries, waterEntries,
+      heatingPowerSettings, ewsSettings, haushaltsstromSettings
+    )
+  }
 
   // Main project
   given Encoder[GeakProject] = deriveEncoder[GeakProject]
