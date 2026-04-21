@@ -322,7 +322,7 @@ object ReportView:
 
   private def downloadProjectJson(project: GeakProject): Unit =
     val projectName = project.project.projectName.trim match
-      case n if n.nonEmpty => n.replace(" ", "-")
+      case n if n.nonEmpty => n
       case _               => "geak_projekt"
     val enriched = AppState.enrichProjectWithImages(project)
     val json     = enriched.asJson.noSpaces

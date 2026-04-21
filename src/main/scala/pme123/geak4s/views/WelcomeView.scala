@@ -7,6 +7,7 @@ import org.scalajs.dom
 import pme123.geak4s.state.AppState
 import pme123.geak4s.domain.GeakProject
 import pme123.geak4s.domain.JsonCodecs.given
+import pme123.geak4s.domain.project.WordFormData
 import io.circe.parser.decode
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.scalajs.js
@@ -37,11 +38,103 @@ object WelcomeView:
         jsonError.set(Some(s"Ungültige JSON-Datei: ${err.getMessage.take(120)}"))
 
   def apply(): HtmlElement =
-    val errorMessage = Var[Option[String]](None)
-    val isLoading = Var(false)
-    val jsonError = Var[Option[String]](None)
+    val errorMessage    = Var[Option[String]](None)
+    val isLoading       = Var(false)
+    val jsonError       = Var[Option[String]](None)
+    val showDialog      = Var(false)
+    val newProjNummer   = Var("")
+    val newProjAdresse  = Var("")
+
+    def confirmNewProject(): Unit =
+      val nummer  = newProjNummer.now().trim
+      val adresse = newProjAdresse.now().trim.replace(",", "")
+      showDialog.set(false)
+      AppState.createNewProject()
+      if nummer.nonEmpty || adresse.nonEmpty then
+        val projektbezeichnung = List(nummer, adresse).filter(_.nonEmpty).mkString(" ")
+        AppState.updateProject(p =>
+          p.copy(project = p.project.copy(projectName = projektbezeichnung)))
+        WordFormView.formVar.update(_.copy(projektnummer = nummer, adresse = adresse))
+        AppState.updateProject(p =>
+          p.copy(wordFormData = Some(WordFormView.formVar.now())))
+      if adresse.nonEmpty then
+        dom.window.navigator.clipboard.writeText(adresse)
 
     div(
+      // New-project dialog overlay
+      child.maybe <-- showDialog.signal.map {
+        case false => None
+        case true  => Some(
+          div(
+            position := "fixed", top := "0", left := "0",
+            width := "100%", height := "100%",
+            backgroundColor := "rgba(0,0,0,0.5)",
+            zIndex := "9999",
+            display := "flex", alignItems := "center", justifyContent := "center",
+            // Stop clicks on backdrop from bubbling through
+            onClick.stopPropagation --> Observer[dom.MouseEvent] { e =>
+              if e.target == e.currentTarget then showDialog.set(false)
+            },
+            div(
+              backgroundColor := "white", borderRadius := "8px",
+              padding := "2rem", minWidth := "360px", maxWidth := "480px",
+              boxShadow := "0 8px 32px rgba(0,0,0,0.18)",
+              display := "flex", flexDirection := "column", gap := "1.25rem",
+
+              h3(margin := "0", color := "black", "Neues Projekt erstellen"),
+
+              div(
+                display := "flex", flexDirection := "column", gap := "0.4rem",
+                label(color := "black", fontWeight := "600", "Projektnummer"),
+                input(
+                  typ := "text", padding := "0.5rem", fontSize := "1rem",
+                  border := "1px solid #ccc", borderRadius := "4px", color := "black",
+                  placeholder := "z.B. 260670",
+                  value := newProjNummer.now(),
+                  onInput.mapToValue --> newProjNummer,
+                  onKeyDown.filter(_.key == "Enter") --> Observer[dom.KeyboardEvent] { _ =>
+                    confirmNewProject()
+                  }
+                )
+              ),
+
+              div(
+                display := "flex", flexDirection := "column", gap := "0.4rem",
+                label(color := "black", fontWeight := "600", "Adresse"),
+                input(
+                  typ := "text", padding := "0.5rem", fontSize := "1rem",
+                  border := "1px solid #ccc", borderRadius := "4px", color := "black",
+                  placeholder := "z.B. Musterstrasse 1",
+                  value := newProjAdresse.now(),
+                  onInput.mapToValue --> newProjAdresse,
+                  onKeyDown.filter(_.key == "Enter") --> Observer[dom.KeyboardEvent] { _ =>
+                    confirmNewProject()
+                  }
+                )
+              ),
+
+              div(
+                display := "flex", gap := "0.75rem", justifyContent := "flex-end",
+                button(
+                  padding := "0.5rem 1.25rem", fontSize := "0.95rem",
+                  border := "1px solid #ccc", borderRadius := "4px",
+                  backgroundColor := "white", color := "black", cursor := "pointer",
+                  onClick --> Observer[dom.MouseEvent] { _ => showDialog.set(false) },
+                  "Abbrechen"
+                ),
+                button(
+                  padding := "0.5rem 1.25rem", fontSize := "0.95rem",
+                  border := "none", borderRadius := "4px",
+                  backgroundColor := "#0070f3", color := "white", cursor := "pointer",
+                  fontWeight := "600",
+                  onClick --> Observer[dom.MouseEvent] { _ => confirmNewProject() },
+                  "Erstellen"
+                )
+              )
+            )
+          )
+        )
+      },
       className := "welcome-view",
 
       // Hero section
@@ -108,7 +201,9 @@ object WelcomeView:
                 _.design := ButtonDesign.Default,
                 _.icon := IconName.`create`,
                 _.events.onClick.mapTo(()) --> Observer[Unit] { _ =>
-                  AppState.createNewProject()
+                  newProjNummer.set("")
+                  newProjAdresse.set("")
+                  showDialog.set(true)
                 },
                 "Create New Project"
               )
