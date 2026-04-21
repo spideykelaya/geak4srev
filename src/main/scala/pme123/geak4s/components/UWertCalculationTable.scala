@@ -282,9 +282,9 @@ object UWertCalculationTable:
 
         // Body - Material rows with dynamic rendering
         tbody(
-          children <-- materialsSignal.split(_.nr) { (nr, _, layerSignal) =>
+          children <-- materialsSignal.split(_.nr) { (nr, initialLayer, layerSignal) =>
             val indexSignal = materialsSignal.map(_.indexWhere(_.nr == nr))
-            renderMaterialRow(calculationId, tableType, layerSignal, indexSignal, component.compType)
+            renderMaterialRow(calculationId, tableType, initialLayer, layerSignal, indexSignal, component.compType)
           }
         ),
 
@@ -381,14 +381,22 @@ object UWertCalculationTable:
       )
     )
 
+  private def isInCatalog(description: String): Boolean =
+    BuildingComponentCatalog.components.exists(_.name == description)
+
   private def renderMaterialRow(
     calculationId: String,
     tableType: String,
+    initialLayer: MaterialLayer,
     layerSignal: Signal[MaterialLayer],
     indexSignal: Signal[Int],
     componentType: ComponentType
   ): HtmlElement =
     val (daemmungMaterials, baumaterialMaterials) = BuildingComponentCatalog.getByComponentTypeGrouped(componentType)
+    // Custom mode: true when row has a non-catalog description, or when user clicked "Eigene Eingabe"
+    val customMode: Var[Boolean] = Var(
+      initialLayer.isEditable && initialLayer.description.nonEmpty && !isInCatalog(initialLayer.description)
+    )
 
     def updateMaterials(nr: Int, updater: MaterialLayer => MaterialLayer): Unit =
       if tableType == "IST" then
@@ -422,48 +430,66 @@ object UWertCalculationTable:
         child.text <-- indexSignal.map(idx => (idx + 1).toString)
       ),
 
-      // Description - text when material selected, two dropdowns when empty
+      // Description - dropdowns when empty, plain text when catalog selected, inputs when custom
       td(
         border := "1px solid #e0e0e0",
         padding := "0.25rem",
         backgroundColor <-- layerSignal.map(l => if !l.isEditable then "#f5f5f5" else "white"),
-        child <-- layerSignal.map { layer =>
-          if !layer.isEditable || layer.description.nonEmpty then
-            // Non-editable fixed rows or editable rows with a material selected: show plain text
+        child <-- layerSignal.combineWith(customMode.signal).map { case (layer, isCustom) =>
+          if !layer.isEditable then
+            div(padding := "0.25rem", layer.description)
+          else if isCustom then
+            // Custom entry: editable text input for material name
+            input(
+              typ := "text",
+              width := "100%",
+              padding := "0.25rem",
+              border := "none",
+              placeholder := "Materialbezeichnung",
+              defaultValue := layer.description,
+              onBlur.mapToValue --> Observer[String] { v =>
+                updateMaterials(layer.nr, _.copy(description = v))
+              },
+              onKeyDown --> Observer[org.scalajs.dom.KeyboardEvent] { e =>
+                if e.key == "Enter" then
+                  val inputEl = e.target.asInstanceOf[org.scalajs.dom.HTMLInputElement]
+                  updateMaterials(layer.nr, _.copy(description = inputEl.value))
+                  inputEl.blur()
+              }
+            )
+          else if layer.description.nonEmpty then
             div(padding := "0.25rem", layer.description)
           else
-            // Editable row, no material selected yet: show two dropdowns
+            // No material selected: two catalog dropdowns + "Eigene Eingabe" entry
             div(
               display := "flex",
               flexDirection := "column",
               gap := "0.25rem",
               select(
-                onChange.mapToValue --> Observer[String] { materialName =>
-                  if materialName.nonEmpty then
-                    BuildingComponentCatalog.components.find(_.name == materialName).foreach { material =>
-                      updateMaterials(layer.nr, _.copy(description = material.name, lambda = material.thermalConductivity))
+                onChange.mapToValue --> Observer[String] { v =>
+                  if v == "__custom__" then customMode.set(true)
+                  else if v.nonEmpty then
+                    BuildingComponentCatalog.components.find(_.name == v).foreach { m =>
+                      updateMaterials(layer.nr, _.copy(description = m.name, lambda = m.thermalConductivity))
                     }
                 },
-                width := "100%",
-                padding := "0.25rem",
-                border := "1px solid #ccc",
-                borderRadius := "4px",
+                width := "100%", padding := "0.25rem", border := "1px solid #ccc", borderRadius := "4px",
                 option(value := "", "Dämmung..."),
-                daemmungMaterials.map(m => option(value := m.name, s"${m.name} (λ = ${m.thermalConductivity})"))
+                daemmungMaterials.map(m => option(value := m.name, s"${m.name} (λ = ${m.thermalConductivity})")),
+                option(value := "__custom__", "*eigene Eingabe")
               ),
               select(
-                onChange.mapToValue --> Observer[String] { materialName =>
-                  if materialName.nonEmpty then
-                    BuildingComponentCatalog.components.find(_.name == materialName).foreach { material =>
-                      updateMaterials(layer.nr, _.copy(description = material.name, lambda = material.thermalConductivity))
+                onChange.mapToValue --> Observer[String] { v =>
+                  if v == "__custom__" then customMode.set(true)
+                  else if v.nonEmpty then
+                    BuildingComponentCatalog.components.find(_.name == v).foreach { m =>
+                      updateMaterials(layer.nr, _.copy(description = m.name, lambda = m.thermalConductivity))
                     }
                 },
-                width := "100%",
-                padding := "0.25rem",
-                border := "1px solid #ccc",
-                borderRadius := "4px",
+                width := "100%", padding := "0.25rem", border := "1px solid #ccc", borderRadius := "4px",
                 option(value := "", "Baumaterial..."),
-                baumaterialMaterials.map(m => option(value := m.name, s"${m.name} (λ = ${m.thermalConductivity})"))
+                baumaterialMaterials.map(m => option(value := m.name, s"${m.name} (λ = ${m.thermalConductivity})")),
+                option(value := "__custom__", "*eigene Eingabe")
               )
             )
         }
@@ -498,21 +524,40 @@ object UWertCalculationTable:
         }
       ),
 
-      // Lambda (λ)
+      // Lambda (λ) — editable in custom mode, read-only otherwise
       td(
         border := "1px solid #e0e0e0",
         padding := "0.25rem",
         textAlign := "right",
         backgroundColor <-- layerSignal.map(l => if !l.isEditable then "#f5f5f5" else "white"),
-        child <-- layerSignal.map { layer =>
-          input(
-            typ := "text",
-            width := "100%",
-            padding := "0.25rem",
-            border := "none",
-            disabled := true,
-            value := (if layer.lambda == 0.0 then "" else layer.lambda.toString)
-          )
+        child <-- layerSignal.combineWith(customMode.signal).map { case (layer, isCustom) =>
+          if isCustom && layer.isEditable then
+            input(
+              typ := "text",
+              width := "100%",
+              padding := "0.25rem",
+              border := "none",
+              placeholder := "0.000",
+              defaultValue := (if layer.lambda == 0.0 then "" else layer.lambda.toString),
+              onBlur.mapToValue --> Observer[String] { v =>
+                updateMaterials(layer.nr, _.copy(lambda = v.replace(',', '.').toDoubleOption.getOrElse(0.0)))
+              },
+              onKeyDown --> Observer[org.scalajs.dom.KeyboardEvent] { e =>
+                if e.key == "Enter" then
+                  val inputEl = e.target.asInstanceOf[org.scalajs.dom.HTMLInputElement]
+                  updateMaterials(layer.nr, _.copy(lambda = inputEl.value.replace(',', '.').toDoubleOption.getOrElse(0.0)))
+                  inputEl.blur()
+              }
+            )
+          else
+            input(
+              typ := "text",
+              width := "100%",
+              padding := "0.25rem",
+              border := "none",
+              disabled := true,
+              value := (if layer.lambda == 0.0 then "" else layer.lambda.toString)
+            )
         }
       ),
 
