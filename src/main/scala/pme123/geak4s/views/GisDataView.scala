@@ -193,6 +193,9 @@ object GisDataView:
                                     warmwasser  = warmwasser,
                                     energieart  = energieart
                                   ))
+                                  // Persist updated form to project so step 4 shows correct
+                                  // data regardless of whether it was mounted during import.
+                                  AppState.updateProject(p => p.copy(wordFormData = Some(WordFormView.formVar.now())))
                                 }
                               case Failure(ex) =>
                                 uploadError.set(Some(s"Fehler beim Parsen der XML-Datei: ${ex.getMessage}"))

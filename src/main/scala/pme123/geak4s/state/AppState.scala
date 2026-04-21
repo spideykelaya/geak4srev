@@ -97,6 +97,7 @@ object AppState:
     AreaState.clear()
     EbfState.clear()
     EnergyState.clear()
+    pme123.geak4s.views.WordFormView.formVar.set(pme123.geak4s.domain.project.WordFormData())
     syncInitialized.set(false)
     val emptyProject = GeakProject.empty
     projectState.set(ProjectState.Loaded(emptyProject, "geak_newproject.xlsx"))
@@ -120,6 +121,11 @@ object AppState:
     EbfState.loadFromProject(project)
     // Initialize energy consumption state from project
     EnergyState.loadFromProject(project)
+    // Reset WordFormView to the persisted form state (or empty) so stale
+    // in-memory values from a previous session do not bleed into the new project.
+    pme123.geak4s.views.WordFormView.formVar.set(
+      project.wordFormData.getOrElse(pme123.geak4s.domain.project.WordFormData())
+    )
     // Mark sync as initialized for loaded projects (existing projects should auto-sync)
     syncInitialized.set(true)
     // Auto-connect to Google Drive for loaded projects

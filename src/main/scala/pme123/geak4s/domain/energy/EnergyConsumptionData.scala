@@ -101,6 +101,29 @@ case class HeatingPowerSettings(
 object HeatingPowerSettings:
   val default: HeatingPowerSettings = HeatingPowerSettings()
 
+/** Deduction settings for household electricity and electric cars. */
+case class HaushaltsstromSettings(
+    enabled: Boolean = false,
+    buildingType: String = "MFH",
+    numPersonsPerUnit: Int = 2,
+    numUnits: Int = 1,
+    numElectricCars: Int = 0
+):
+  def kwhPerUnit: Double =
+    if buildingType == "MFH" then
+      if numPersonsPerUnit <= 4 then 2190.0 + (numPersonsPerUnit - 2) * 458.5
+      else 2190.0 + 2 * 458.5 + (numPersonsPerUnit - 4) * 408.5
+    else
+      if numPersonsPerUnit <= 4 then 4048.0 + (numPersonsPerUnit - 4) * 593.5
+      else 4048.0 + (numPersonsPerUnit - 4) * 543.5
+
+  def totalHaushaltsstromKwh: Double = kwhPerUnit * numUnits
+  def totalElectricCarsKwh: Double   = numElectricCars * 2000.0
+  def totalDeductionKwh: Double      = totalHaushaltsstromKwh + totalElectricCarsKwh
+
+object HaushaltsstromSettings:
+  val default: HaushaltsstromSettings = HaushaltsstromSettings()
+
 /** Parameters for the Erdwärmesonden (EWS) calculation. */
 case class EwsSettings(
     spezifischeEntnahmeleistung: Double = 35.0, // W/m
@@ -122,7 +145,8 @@ case class EnergyConsumptionData(
     fuelEntries: List[FuelEntry] = List.empty,
     waterEntries: List[WaterEntry] = List.empty,
     heatingPowerSettings: HeatingPowerSettings = HeatingPowerSettings.default,
-    ewsSettings: EwsSettings = EwsSettings.default
+    ewsSettings: EwsSettings = EwsSettings.default,
+    haushaltsstromSettings: HaushaltsstromSettings = HaushaltsstromSettings.default
 )
 
 object EnergyConsumptionData:
