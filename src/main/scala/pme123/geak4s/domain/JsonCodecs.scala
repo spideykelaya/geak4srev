@@ -9,6 +9,7 @@ import pme123.geak4s.domain.hvac.*
 import pme123.geak4s.domain.energy.*
 import pme123.geak4s.domain.uwert.*
 import pme123.geak4s.domain.area.*
+import pme123.geak4s.domain.area.{LinearWaermebruecke, PunktWaermebruecke, WaermebrueckenData}
 import pme123.geak4s.domain.gis.*
 import pme123.geak4s.domain.ebf.*
 import pme123.geak4s.domain.energy.*
@@ -202,6 +203,40 @@ object JsonCodecs:
   given Encoder[BuildingEnvelopeArea] = deriveEncoder[BuildingEnvelopeArea]
   given Decoder[BuildingEnvelopeArea] = deriveDecoder[BuildingEnvelopeArea]
 
+  // Wärmebrücken
+  given Encoder[LinearWaermebruecke] = deriveEncoder[LinearWaermebruecke]
+  given Decoder[LinearWaermebruecke] = Decoder.instance { c =>
+    for
+      kuerzel     <- c.getOrElse[String]("kuerzel")("")
+      bezeichnung <- c.getOrElse[String]("bezeichnung")("")
+      typ         <- c.getOrElse[String]("typ")("")
+      laenge      <- c.getOrElse[Double]("laenge")(0.0)
+      psiWert     <- c.getOrElse[Double]("psiWert")(0.0)
+      bFaktor     <- c.getOrElse[Double]("bFaktor")(1.0)
+      anzahl      <- c.getOrElse[Int]("anzahl")(1)
+    yield LinearWaermebruecke(kuerzel, bezeichnung, typ, laenge, psiWert, bFaktor, anzahl)
+  }
+
+  given Encoder[PunktWaermebruecke] = deriveEncoder[PunktWaermebruecke]
+  given Decoder[PunktWaermebruecke] = Decoder.instance { c =>
+    for
+      kuerzel     <- c.getOrElse[String]("kuerzel")("")
+      bezeichnung <- c.getOrElse[String]("bezeichnung")("")
+      typ         <- c.getOrElse[String]("typ")("")
+      chiWert     <- c.getOrElse[Double]("chiWert")(0.0)
+      bFaktor     <- c.getOrElse[Double]("bFaktor")(1.0)
+      anzahl      <- c.getOrElse[Int]("anzahl")(1)
+    yield PunktWaermebruecke(kuerzel, bezeichnung, typ, chiWert, bFaktor, anzahl)
+  }
+
+  given Encoder[WaermebrueckenData] = deriveEncoder[WaermebrueckenData]
+  given Decoder[WaermebrueckenData] = Decoder.instance { c =>
+    for
+      linearEntries <- c.getOrElse[List[LinearWaermebruecke]]("linearEntries")(List.empty)
+      punktEntries  <- c.getOrElse[List[PunktWaermebruecke]]("punktEntries")(List.empty)
+    yield WaermebrueckenData(linearEntries, punktEntries)
+  }
+
   // GIS data
   given Encoder[Status] = deriveEncoder[Status]
   given Decoder[Status] = deriveDecoder[Status]
@@ -368,6 +403,7 @@ object JsonCodecs:
       uwertCalculations    <- c.getOrElse[List[UWertCalculation]]("uwertCalculations")(List.empty)
       windowCalculations   <- c.getOrElse[List[WindowCalculation]]("windowCalculations")(List.empty)
       areaCalculations     <- c.getOrElse[Option[BuildingEnvelopeArea]]("areaCalculations")(None)
+      waermebruecken       <- c.getOrElse[Option[WaermebrueckenData]]("waermebruecken")(None)
       gisData              <- c.getOrElse[Option[gis.MaddResponse]]("gisData")(None)
       ebfPlans             <- c.getOrElse[Option[EbfPlans]]("ebfPlans")(None)
       energyConsumption    <- c.getOrElse[Option[EnergyConsumptionData]]("energyConsumption")(None)
@@ -376,7 +412,7 @@ object JsonCodecs:
     yield GeakProject(geakId, project, buildingUsages, roofsCeilings, walls, windowsDoors,
       floors, thermalBridges, heatProducers, heatStorages, heatingDistributions,
       hotWaterDistributions, ventilations, electricityProducers, uwertCalculations,
-      windowCalculations, areaCalculations, gisData, ebfPlans, energyConsumption,
+      windowCalculations, areaCalculations, waermebruecken, gisData, ebfPlans, energyConsumption,
       wordFormData, gisXmlContent)
   }
 
