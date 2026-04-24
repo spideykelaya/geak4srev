@@ -101,5 +101,31 @@ object Main extends cask.MainRoutes {
     }
   }
 
+  @cask.post("/generate-berechnungstool")
+  def generateBerechnungstool(request: cask.Request) = {
+    try {
+      val bodyStr = new String(request.readAllBytes(), "UTF-8")
+      println(s"[generate-berechnungstool] received ${bodyStr.length} chars")
+      val bytes = BerechnungstoolService.generate(bodyStr)
+      println(s"[generate-berechnungstool] OK, ${bytes.length} bytes")
+      cask.Response(
+        bytes,
+        headers = Seq(
+          "Content-Type"        -> "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+          "Content-Disposition" -> "attachment; filename=\"Berechnungstool_260.xlsx\""
+        )
+      )
+    } catch {
+      case ex: Throwable =>
+        println(s"[generate-berechnungstool] ERROR: ${ex.getClass.getName}: ${ex.getMessage}")
+        ex.printStackTrace()
+        cask.Response(
+          s"Berechnungstool-Export fehlgeschlagen: ${ex.getClass.getSimpleName}: ${ex.getMessage}".getBytes("UTF-8"),
+          statusCode = 500,
+          headers = Seq("Content-Type" -> "text/plain; charset=UTF-8")
+        )
+    }
+  }
+
   initialize()
 }
