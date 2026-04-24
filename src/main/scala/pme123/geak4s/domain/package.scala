@@ -6,7 +6,7 @@ import pme123.geak4s.domain.envelope.*
 import pme123.geak4s.domain.hvac.*
 import pme123.geak4s.domain.energy.*
 import pme123.geak4s.domain.uwert.{UWertCalculation, WindowCalculation}
-import pme123.geak4s.domain.area.BuildingEnvelopeArea
+import pme123.geak4s.domain.area.{BuildingEnvelopeArea, WaermebrueckenData}
 import pme123.geak4s.domain.ebf.EbfPlans
 import pme123.geak4s.domain.energy.EnergyConsumptionData
 import scala.scalajs.js
@@ -52,6 +52,7 @@ package object domain:
       uwertCalculations: List[UWertCalculation] = List.empty,
       windowCalculations: List[WindowCalculation] = List.empty,
       areaCalculations: Option[BuildingEnvelopeArea] = None,
+      waermebruecken: Option[WaermebrueckenData] = None,
       gisData: Option[gis.MaddResponse] = None,
       ebfPlans: Option[EbfPlans] = None,
       energyConsumption: Option[EnergyConsumptionData] = None,
@@ -120,6 +121,7 @@ package object domain:
         uwertCalculations = List.empty,
         windowCalculations = List.empty,
         areaCalculations = None,
+        waermebruecken = None,
         gisData = None,
         geakId = None
       )

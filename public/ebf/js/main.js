@@ -65,7 +65,7 @@ function bindUI(ownerDocument) {
     const ok = await importData(f); e.target.value = '';
     if (!ok) return;
     applyScaleStatus();
-    show('scale-section'); show('area-type-section'); show('draw-section');
+    show('scale-section'); show('area-type-section'); show('draw-section'); show('wb-section');
     updateSidebar(); render();
     // Reset area calculations before sync so old labels don't cause duplicates
     window.dispatchEvent(new CustomEvent('geak:ebf-polygon-reset', { bubbles: false }));
@@ -142,6 +142,8 @@ function bindUI(ownerDocument) {
   $('draw-btn').addEventListener('click', startDrawing);
   $('measure-btn').addEventListener('click', startMeasuring);
   $('angle-btn').addEventListener('click', startAngling);
+  $('wb-linear-btn')?.addEventListener('click', startWbMeasure);
+  $('wb-point-btn')?.addEventListener('click', toggleWbPointMode);
   $('text-btn').addEventListener('click', startTextTool);
   $('paste-btn').addEventListener('click', pasteFromClipboard);
   $('clear-btn').addEventListener('click', clearAll);
@@ -231,6 +233,8 @@ async function onFileChange(e) {
   $('file-name').textContent = firstPlanLabel;
 
   S.polygons = []; S.measurements = []; S.angles = []; S.current = [];
+  S.wbLines = []; S.wbPersistentPoints = []; S.wbCurrentPts = []; S.wbSessionPoints = [];
+  S.nextWbLineId = 1; S.nextWbPointId = 1;
   S.scale = null; S.scaleX = null; S.scaleY = null; S.scaleDirX = null; S.scaleDirY = null;
   S.nextId = 1; S.nextMeasId = 1; S.nextAngleId = 1;
 
@@ -239,7 +243,7 @@ async function onFileChange(e) {
 
   resizeCanvas();
   fitToCanvas();
-  show('scale-section'); show('area-type-section'); show('draw-section');
+  show('scale-section'); show('area-type-section'); show('draw-section'); show('wb-section');
   updateSidebar(); render();
   emitPolygonSyncEvent();
   emitPlansSyncEvent();
@@ -264,21 +268,25 @@ function saveCurrentPlanState() {
   if (!S.activePlanId) return;
   const plan = S.plans.find(p => p.id === S.activePlanId);
   if (!plan) return;
-  plan.polygons     = S.polygons.map(p => ({ ...p }));
-  plan.measurements = S.measurements.map(m => ({ ...m }));
-  plan.angles       = S.angles.map(a => ({ ...a }));
-  plan.annotations  = S.annotations.map(a => ({ ...a }));
-  plan.nextAnnotationId = S.nextAnnotationId;
-  plan.scale        = S.scale;
-  plan.scaleX       = S.scaleX;
-  plan.scaleY       = S.scaleY;
-  plan.scaleDirX    = S.scaleDirX;
-  plan.scaleDirY    = S.scaleDirY;
-  plan.nextId       = S.nextId;
-  plan.nextMeasId   = S.nextMeasId;
-  plan.nextAngleId  = S.nextAngleId;
-  plan.imageW       = S.imageW;
-  plan.imageH       = S.imageH;
+  plan.polygons            = S.polygons.map(p => ({ ...p }));
+  plan.measurements        = S.measurements.map(m => ({ ...m }));
+  plan.angles              = S.angles.map(a => ({ ...a }));
+  plan.annotations         = S.annotations.map(a => ({ ...a }));
+  plan.nextAnnotationId    = S.nextAnnotationId;
+  plan.scale               = S.scale;
+  plan.scaleX              = S.scaleX;
+  plan.scaleY              = S.scaleY;
+  plan.scaleDirX           = S.scaleDirX;
+  plan.scaleDirY           = S.scaleDirY;
+  plan.nextId              = S.nextId;
+  plan.nextMeasId          = S.nextMeasId;
+  plan.nextAngleId         = S.nextAngleId;
+  plan.imageW              = S.imageW;
+  plan.imageH              = S.imageH;
+  plan.wbLines             = S.wbLines.map(l => ({ ...l, points: l.points.map(p => ({...p})) }));
+  plan.wbPersistentPoints  = S.wbPersistentPoints.map(p => ({ ...p }));
+  plan.nextWbLineId        = S.nextWbLineId;
+  plan.nextWbPointId       = S.nextWbPointId;
   if (S.imageDataUrl) plan.imageDataUrl = S.imageDataUrl;
 }
 
@@ -321,21 +329,27 @@ async function switchToPlan(planId, { suppressPolygonSync = false } = {}) {
   }
 
   // Restore plan data
-  S.activePlanId  = planId;
-  S.polygons      = plan.polygons.map(p => ({ ...p }));
-  S.measurements  = plan.measurements.map(m => ({ ...m }));
-  S.angles        = (plan.angles       || []).map(a => ({ ...a }));
-  S.annotations   = (plan.annotations  || []).map(a => ({ ...a }));
-  S.nextAnnotationId = plan.nextAnnotationId ?? 1;
-  S.scale         = plan.scale     ?? null;
-  S.scaleX        = plan.scaleX    ?? plan.scale ?? null;
-  S.scaleY        = plan.scaleY    ?? plan.scale ?? null;
-  S.scaleDirX     = plan.scaleDirX ?? null;
-  S.scaleDirY     = plan.scaleDirY ?? null;
-  S.nextId        = plan.nextId ?? 1;
-  S.nextMeasId    = plan.nextMeasId ?? 1;
-  S.nextAngleId   = plan.nextAngleId ?? 1;
-  S.current       = [];
+  S.activePlanId         = planId;
+  S.polygons             = plan.polygons.map(p => ({ ...p }));
+  S.measurements         = plan.measurements.map(m => ({ ...m }));
+  S.angles               = (plan.angles       || []).map(a => ({ ...a }));
+  S.annotations          = (plan.annotations  || []).map(a => ({ ...a }));
+  S.nextAnnotationId     = plan.nextAnnotationId ?? 1;
+  S.scale                = plan.scale     ?? null;
+  S.scaleX               = plan.scaleX    ?? plan.scale ?? null;
+  S.scaleY               = plan.scaleY    ?? plan.scale ?? null;
+  S.scaleDirX            = plan.scaleDirX ?? null;
+  S.scaleDirY            = plan.scaleDirY ?? null;
+  S.nextId               = plan.nextId ?? 1;
+  S.nextMeasId           = plan.nextMeasId ?? 1;
+  S.nextAngleId          = plan.nextAngleId ?? 1;
+  S.wbLines              = (plan.wbLines             || []).map(l => ({ ...l, points: (l.points||[]).map(p=>({...p})) }));
+  S.wbPersistentPoints   = (plan.wbPersistentPoints  || []).map(p => ({ ...p }));
+  S.nextWbLineId         = plan.nextWbLineId  ?? 1;
+  S.nextWbPointId        = plan.nextWbPointId ?? 1;
+  S.wbCurrentPts         = [];
+  S.wbSessionPoints      = [];
+  S.current              = [];
 
   $('file-name').textContent = plan.label;
   updatePaperRowVisibility(plan.isPdf ?? false);
@@ -356,6 +370,7 @@ async function switchToPlan(planId, { suppressPolygonSync = false } = {}) {
   show('scale-section');
   show('area-type-section');
   show('draw-section');
+  show('wb-section');
   updateSidebar();
   render();
   if (!suppressPolygonSync) emitPolygonSyncEvent();
@@ -822,6 +837,73 @@ function startMeasuring() {
   setInstructions('Klicken Sie auf den ersten Messpunkt');
 }
 
+// ── Wärmebrücken ──────────────────────────────────────────────────────────────
+function startWbMeasure() {
+  if (!S.image) return;
+  S.wbCurrentPts = []; setMode('wb_measure');
+  setInstructions('Lineare WB: Ersten Punkt klicken');
+}
+
+function finishWbLine() {
+  const pts = S.wbCurrentPts;
+  if (pts.length < 2) { S.wbCurrentPts = []; setMode('idle'); setInstructions(''); render(); return; }
+  let totalLength = 0;
+  for (let i = 1; i < pts.length; i++) {
+    const dx = pts[i].x - pts[i-1].x, dy = pts[i].y - pts[i-1].y;
+    const len = pxVecToM(dx, dy);
+    if (len !== null) totalLength += len;
+  }
+  S.wbLines.push({ id: S.nextWbLineId++, points: pts.map(p => ({...p})), totalLength });
+  S.wbCurrentPts = [];
+  setMode('idle'); setInstructions('');
+  render(); saveCurrentPlanState();
+  if (totalLength > 0) {
+    window.dispatchEvent(new CustomEvent('geak:wb-linear-done', {
+      detail: { length: totalLength }, bubbles: false
+    }));
+  }
+}
+
+function toggleWbPointMode() {
+  if (!S.image) return;
+  if (S.mode === 'wb_point') {
+    finishWbPointSession();
+  } else {
+    S.wbSessionPoints = [];
+    setMode('wb_point');
+    updateWbPointBtn(true);
+    setInstructions('Punktförmige WB: Punkte setzen – erneut klicken oder Esc zum Beenden');
+  }
+}
+
+function updateWbPointBtn(active) {
+  const btn = $('wb-point-btn');
+  if (!btn) return;
+  if (active) {
+    btn.style.outline = '2px solid #f472b6';
+    btn.textContent = 'WB-Punkte beenden';
+  } else {
+    btn.style.outline = '';
+    btn.textContent = 'Punktförmige Wärmebrücken';
+  }
+}
+
+function finishWbPointSession() {
+  const count = S.wbSessionPoints.length;
+  setMode('idle'); setInstructions('');
+  updateWbPointBtn(false);
+  S.wbSessionPoints.forEach(p => {
+    S.wbPersistentPoints.push({ id: S.nextWbPointId++, x: p.x, y: p.y });
+  });
+  S.wbSessionPoints = [];
+  render(); saveCurrentPlanState();
+  if (count > 0) {
+    window.dispatchEvent(new CustomEvent('geak:wb-points-done', {
+      detail: { count }, bubbles: false
+    }));
+  }
+}
+
 function startAngling() {
   if (!S.image) return;
   S.anglePt1 = null; S.anglePt2 = null; setMode('angle');
@@ -924,6 +1006,8 @@ function clearAll() {
 function clearAllConfirmed() {
   $('clear-confirm-modal').style.display = 'none';
   S.polygons = []; S.measurements = []; S.angles = []; S.annotations = []; S.current = [];
+  S.wbLines = []; S.wbPersistentPoints = []; S.wbCurrentPts = []; S.wbSessionPoints = [];
+  S.nextWbLineId = 1; S.nextWbPointId = 1;
   setMode('idle'); setInstructions('');
   updateSidebar(); render();
   emitPolygonSyncEvent();
@@ -937,6 +1021,8 @@ function cancelCurrent() {
   else if (S.mode === 'angle')             { S.anglePt1 = null; S.anglePt2 = null; setMode('idle'); setInstructions(''); render(); }
   else if (S.mode === 'text')              { setMode('idle'); setInstructions(''); }
   else if (S.mode === 'shading_measure') cancelShadingMeasure();
+  else if (S.mode === 'wb_measure')        { S.wbCurrentPts = []; setMode('idle'); setInstructions(''); render(); }
+  else if (S.mode === 'wb_point')          { finishWbPointSession(); }
   else if (S.mode.startsWith('calibrate')) cancelCalibration();
 }
 
@@ -1006,6 +1092,19 @@ function onMouseDown(e) {
   if (S.mode === 'shading_measure') {
     finishShadingMeasure(wp);
     return;
+  }
+  if (S.mode === 'wb_measure') {
+    if (S.wbCurrentPts.length >= 2) {
+      const fs = w2s(S.wbCurrentPts[0].x, S.wbCurrentPts[0].y);
+      if (Math.hypot(fs.x - sx, fs.y - sy) <= SNAP_RADIUS) { finishWbLine(); return; }
+    }
+    S.wbCurrentPts.push(wp);
+    if (S.wbCurrentPts.length === 1) setInstructions('Nächsten Punkt klicken – Doppelklick oder Startpunkt zum Beenden');
+    render(); return;
+  }
+  if (S.mode === 'wb_point') {
+    S.wbSessionPoints.push({ x: wp.x, y: wp.y });
+    render(); return;
   }
 
   // Idle: check shading center markers first (inside polygon, needs priority)
@@ -1143,6 +1242,7 @@ function onMouseUp() {
 
 function onDblClick(e) {
   if (S.mode === 'draw' && S.current.length >= 3) { S.current.pop(); finishPolygon(); return; }
+  if (S.mode === 'wb_measure' && S.wbCurrentPts.length >= 2) { S.wbCurrentPts.pop(); finishWbLine(); return; }
   if (S.mode === 'idle') {
     const r  = canvas.getBoundingClientRect();
     const sx = e.clientX - r.left, sy = e.clientY - r.top;

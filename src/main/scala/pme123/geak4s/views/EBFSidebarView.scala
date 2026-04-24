@@ -25,6 +25,7 @@ object EBFSidebarView:
         plansSection(),
         scaleSection(),
         areaTypeSection(),
+        waermebrueckeSection(),
         drawSection(),
         polygonsSection(),
         measurementsSection(),
@@ -154,6 +155,16 @@ object EBFSidebarView:
           dom.window.dispatchEvent(new dom.CustomEvent(areaTypeEvent, init.asInstanceOf[dom.CustomEventInit]))
         }
       )
+    )
+
+  private def waermebrueckeSection(): HtmlElement =
+    div(
+      className := "section",
+      idAttr := "wb-section",
+      display := "none",
+      div(className := "section-label", "Wärmebrücke"),
+      button(className := "btn btn-measure", idAttr := "wb-linear-btn", "Lineare Wärmebrücken"),
+      button(className := "btn btn-measure", idAttr := "wb-point-btn", "Punktförmige Wärmebrücken")
     )
 
   private def drawSection(): HtmlElement =

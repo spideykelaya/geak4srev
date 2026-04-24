@@ -3,9 +3,9 @@ package pme123.geak4s.views
 import be.doeraene.webcomponents.ui5.*
 import be.doeraene.webcomponents.ui5.configkeys.*
 import com.raquo.laminar.api.L.{*, given}
-import pme123.geak4s.components.AreaCalculationTable
+import pme123.geak4s.components.{AreaCalculationTable, WaermebrueckeTable}
 import pme123.geak4s.domain.area.*
-import pme123.geak4s.state.{UWertState, AreaState, AppState}
+import pme123.geak4s.state.{UWertState, AreaState, AppState, WaermebrueckeState}
 import pme123.geak4s.domain.uwert.ComponentType
 
 /**
@@ -88,6 +88,7 @@ object AreaView:
           children <-- allTypesSignal.split(identity) { (ct, _, _) =>
             renderSection(ct)
           },
+          waermebrueckenSection(),
           child <-- missingTypesSignal.map { missing =>
             if missing.isEmpty then div()
             else
@@ -165,6 +166,44 @@ object AreaView:
         borderRadius    := "4px",
         marginBottom    := "1.5rem",
         AreaCalculationTable(ct, entries, saveEntriesToState)
+      )
+    )
+
+  private def waermebrueckenSection(): HtmlElement =
+    div(
+      marginBottom    := "3rem",
+      padding         := "1.5rem",
+      backgroundColor := "#f0fdf4",
+      borderRadius    := "8px",
+      border          := "1px solid #86efac",
+
+      div(marginBottom := "1rem", Title(_.level := TitleLevel.H3, "Wärmebrücken")),
+
+      div(
+        marginBottom    := "1.5rem",
+        padding         := "1rem",
+        backgroundColor := "white",
+        borderRadius    := "4px",
+        div(
+          fontWeight    := "600",
+          marginBottom  := "0.75rem",
+          fontSize      := "0.95rem",
+          "Lineare Wärmebrücken"
+        ),
+        WaermebrueckeTable.linearTable()
+      ),
+
+      div(
+        padding         := "1rem",
+        backgroundColor := "white",
+        borderRadius    := "4px",
+        div(
+          fontWeight    := "600",
+          marginBottom  := "0.75rem",
+          fontSize      := "0.95rem",
+          "Punktförmige Wärmebrücken"
+        ),
+        WaermebrueckeTable.punktTable()
       )
     )
 

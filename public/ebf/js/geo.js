@@ -31,9 +31,15 @@ function centroid(pts) {
 // Returns a point guaranteed to be inside the polygon (scan-line approach)
 export function labelPoint(pts) {
   const ys = pts.map(p => p.y).sort((a, b) => a - b);
-  let bestX = null, bestY = null, bestW = -1;
-  for (let i = 0; i < ys.length - 1; i++) {
-    const y = (ys[i] + ys[i + 1]) / 2;
+  const yMid = (ys[0] + ys[ys.length - 1]) / 2;
+
+  // Candidate scanlines: true vertical center first, then midpoints between vertex ys.
+  // Inserting yMid first ensures it wins any tie (bestDist starts at 0 for yMid).
+  const candidates = new Set([yMid]);
+  for (let i = 0; i < ys.length - 1; i++) candidates.add((ys[i] + ys[i + 1]) / 2);
+
+  let bestX = null, bestY = null, bestW = -1, bestDist = Infinity;
+  for (const y of candidates) {
     const xs = [];
     for (let a = 0, b = pts.length - 1; a < pts.length; b = a++) {
       const [x0, y0, x1, y1] = [pts[a].x, pts[a].y, pts[b].x, pts[b].y];
@@ -43,7 +49,11 @@ export function labelPoint(pts) {
     xs.sort((a, b) => a - b);
     for (let k = 0; k + 1 < xs.length; k += 2) {
       const w = xs[k + 1] - xs[k];
-      if (w > bestW) { bestW = w; bestX = (xs[k] + xs[k + 1]) / 2; bestY = y; }
+      const d = Math.abs(y - yMid);
+      // Primary: widest span; tie-break: closest to vertical centre
+      if (w > bestW || (w === bestW && d < bestDist)) {
+        bestW = w; bestX = (xs[k] + xs[k + 1]) / 2; bestY = y; bestDist = d;
+      }
     }
   }
   return bestX !== null ? { x: bestX, y: bestY } : centroid(pts);

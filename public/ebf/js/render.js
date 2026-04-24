@@ -27,9 +27,12 @@ export function render() {
   S.annotations.forEach(drawAnnotation);
   drawCalibLine();
   drawCurrentPolygon();
+  drawWbLines();
+  drawWbPoints();
   drawMeasureLine();
   drawAngleLine();
   drawShadingLine();
+  drawWbCurrentLine();
   ctx.restore();
 
   drawEdgeLengthTooltip(); // screen-space overlay
@@ -60,7 +63,11 @@ function drawPolygon(poly) {
   const ly = c.y + (labelOffset?.dy || 0);
   const areaLbl = fmtArea(area);
   const titleLbl = (label || '').trim();
-  const fsz = clamp(14 / S.zoom, 10, 36);
+  const xs = points.map(p => p.x), ys = points.map(p => p.y);
+  const worldW = Math.max(...xs) - Math.min(...xs);
+  const worldH = Math.max(...ys) - Math.min(...ys);
+  const worldDim = Math.sqrt(worldW * worldH);
+  const fsz = clamp(worldDim * 0.06, 8, 36);
   ctx.font = `bold ${fsz}px system-ui, sans-serif`;
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   const titleW = titleLbl ? ctx.measureText(titleLbl).width : 0;
@@ -98,12 +105,12 @@ function drawMeasureLine() {
   measLine(S.measPt1, pt2, lbl);
 }
 
-function measLine(pt1, pt2, lbl) {
-  ctx.strokeStyle = MEAS_COLOR; ctx.lineWidth = 1.5 / S.zoom;
+function measLine(pt1, pt2, lbl, color = MEAS_COLOR) {
+  ctx.strokeStyle = color; ctx.lineWidth = 1.5 / S.zoom;
   ctx.setLineDash([6 / S.zoom, 4 / S.zoom]);
   ctx.beginPath(); ctx.moveTo(pt1.x, pt1.y); ctx.lineTo(pt2.x, pt2.y);
   ctx.stroke(); ctx.setLineDash([]);
-  dot(pt1, MEAS_COLOR, 4 / S.zoom); dot(pt2, MEAS_COLOR, 4 / S.zoom);
+  dot(pt1, color, 4 / S.zoom); dot(pt2, color, 4 / S.zoom);
 
   const mx = (pt1.x + pt2.x) / 2, my = (pt1.y + pt2.y) / 2;
   const fsz = clamp(12 / S.zoom, 9, 28);
@@ -113,7 +120,7 @@ function measLine(pt1, pt2, lbl) {
   ctx.fillStyle = 'rgba(0,0,0,0.7)';
   rrect(mx - tw / 2 - 5 / S.zoom, my - th / 2, tw + 10 / S.zoom, th, 3 / S.zoom);
   ctx.fill();
-  ctx.fillStyle = MEAS_COLOR; ctx.fillText(lbl, mx, my);
+  ctx.fillStyle = color; ctx.fillText(lbl, mx, my);
 }
 
 // ── Angle measurements ────────────────────────────────────────────────────────
@@ -367,6 +374,119 @@ function drawShadingLine() {
   rrect(mx - tw / 2 - 5 / S.zoom, my - th / 2, tw + 10 / S.zoom, th, 3 / S.zoom);
   ctx.fill();
   ctx.fillStyle = SHADING_COLOR; ctx.fillText(lbl, mx, my);
+}
+
+// ── Wärmebrücken drawing ──────────────────────────────────────────────────────
+const WB_COLOR  = '#f472b6'; // pink
+const WB_PT_COLOR = '#f472b6'; // pink for punctual
+
+function drawWbLines() {
+  (S.wbLines || []).forEach(({ points, totalLength }) => {
+    if (!points || points.length < 2) return;
+    ctx.strokeStyle = WB_COLOR; ctx.lineWidth = 2.5 / S.zoom; ctx.setLineDash([]);
+    ctx.beginPath(); ctx.moveTo(points[0].x, points[0].y);
+    points.slice(1).forEach(p => ctx.lineTo(p.x, p.y));
+    ctx.stroke();
+    points.forEach(p => dot(p, WB_COLOR, 3.5 / S.zoom));
+    // Length label near the midpoint segment
+    const mid = Math.floor(points.length / 2);
+    const pa  = points[mid > 0 ? mid - 1 : 0], pb = points[mid];
+    const mx  = (pa.x + pb.x) / 2, my = (pa.y + pb.y) / 2;
+    const lbl = totalLength > 0 ? fmtLength(totalLength) : '';
+    if (lbl) {
+      const fsz = clamp(10 / S.zoom, 8, 20);
+      ctx.font = `bold ${fsz}px system-ui, sans-serif`;
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      const tw = ctx.measureText(lbl).width, th = fsz * 1.4;
+      ctx.fillStyle = 'rgba(0,0,0,0.75)';
+      rrect(mx - tw / 2 - 4 / S.zoom, my - th / 2, tw + 8 / S.zoom, th, 3 / S.zoom);
+      ctx.fill();
+      ctx.fillStyle = WB_COLOR; ctx.fillText(lbl, mx, my);
+    }
+  });
+}
+
+function drawWbPoints() {
+  const r = 6 / S.zoom;
+  // Permanent points
+  (S.wbPersistentPoints || []).forEach(p => {
+    ctx.beginPath(); ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
+    ctx.fillStyle = WB_PT_COLOR + 'cc'; ctx.fill();
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5 / S.zoom; ctx.setLineDash([]); ctx.stroke();
+    // ×-mark inside
+    const h = r * 0.55;
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5 / S.zoom;
+    ctx.beginPath(); ctx.moveTo(p.x - h, p.y - h); ctx.lineTo(p.x + h, p.y + h); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(p.x + h, p.y - h); ctx.lineTo(p.x - h, p.y + h); ctx.stroke();
+  });
+  // Session points (in-progress, slightly transparent)
+  if (S.mode === 'wb_point') {
+    (S.wbSessionPoints || []).forEach((p, i) => {
+      ctx.beginPath(); ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
+      ctx.fillStyle = WB_PT_COLOR + '99'; ctx.fill();
+      ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5 / S.zoom; ctx.setLineDash([]); ctx.stroke();
+      const fsz = clamp(9 / S.zoom, 7, 16);
+      ctx.font = `bold ${fsz}px system-ui, sans-serif`;
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillStyle = '#fff';
+      ctx.fillText(String(i + 1), p.x, p.y);
+    });
+  }
+}
+
+function drawWbCurrentLine() {
+  if (S.mode !== 'wb_measure') return;
+  const pts = S.wbCurrentPts || [];
+  if (!S.mouse) return;
+
+  const snap = pts.length >= 2 && (() => {
+    const fs = w2s(pts[0].x, pts[0].y);
+    return Math.hypot(fs.x - S.mouse.sx, fs.y - S.mouse.sy) <= SNAP_RADIUS;
+  })();
+
+  // Draw committed segments
+  if (pts.length >= 2) {
+    ctx.strokeStyle = WB_COLOR; ctx.lineWidth = 2.5 / S.zoom; ctx.setLineDash([]);
+    ctx.beginPath(); ctx.moveTo(pts[0].x, pts[0].y);
+    pts.slice(1).forEach(p => ctx.lineTo(p.x, p.y));
+    ctx.stroke();
+  }
+
+  // Live segment from last point to mouse
+  if (pts.length >= 1 && !snap) {
+    const last = pts[pts.length - 1];
+    const cur  = { x: S.mouse.wx, y: S.mouse.wy };
+    const dx   = cur.x - last.x, dy = cur.y - last.y;
+    const realLen = pxVecToM(dx, dy);
+
+    ctx.strokeStyle = WB_COLOR; ctx.lineWidth = 1.5 / S.zoom;
+    ctx.setLineDash([6 / S.zoom, 4 / S.zoom]);
+    ctx.beginPath(); ctx.moveTo(last.x, last.y); ctx.lineTo(cur.x, cur.y);
+    ctx.stroke(); ctx.setLineDash([]);
+
+    if (realLen !== null) {
+      const lbl = fmtLength(realLen);
+      const mx  = (last.x + cur.x) / 2, my = (last.y + cur.y) / 2;
+      const fsz = clamp(11 / S.zoom, 8, 22);
+      ctx.font = `600 ${fsz}px system-ui, sans-serif`;
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      const tw = ctx.measureText(lbl).width, th = fsz * 1.5;
+      ctx.fillStyle = 'rgba(0,0,0,0.7)';
+      rrect(mx - tw / 2 - 5 / S.zoom, my - th / 2, tw + 10 / S.zoom, th, 3 / S.zoom);
+      ctx.fill();
+      ctx.fillStyle = WB_COLOR; ctx.fillText(lbl, mx, my);
+    }
+  }
+
+  // Vertex dots
+  pts.forEach((p, i) => dot(p, i === 0 ? '#fff' : WB_COLOR, 4 / S.zoom));
+
+  // Snap highlight ring on first point
+  if (snap) {
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = 2 / S.zoom; ctx.setLineDash([]);
+    ctx.beginPath(); ctx.arc(pts[0].x, pts[0].y, SNAP_RADIUS / S.zoom, 0, Math.PI * 2);
+    ctx.stroke();
+  }
 }
 
 // ── Canvas primitives ─────────────────────────────────────────────────────────

@@ -25,6 +25,12 @@ export const S = {
   shadingPolyId:  null, // polygon ID being measured for shading (stable, not an index)
   shadingType:    null, // 'overhang' | 'side'
   shadingPt1:     null, // world-coord center point of shading measure
+  wbCurrentPts:        [],  // in-progress polyline points for wb_measure mode
+  wbSessionPoints:     [],  // temporary points during active wb_point session
+  wbLines:             [],  // permanent WB polylines: [{id, points:[{x,y}], totalLength}]
+  wbPersistentPoints:  [],  // permanent WB point markers: [{id, x, y}]
+  nextWbLineId:        1,
+  nextWbPointId:       1,
   dragVertex: null,    // {polyIdx, vtxIdx}
   dragPoly:       null,    // {polyIdx, startWX, startWY, origPoints, origLabelOffset}
   dragMeas:       null,    // {measIdx, startWX, startWY, origPt1, origPt2}
@@ -90,7 +96,7 @@ export function px2m2(px) {
 
 export function setMode(m) {
   S.mode = m;
-  canvas.style.cursor = (m === 'draw' || m === 'measure' || m === 'angle' || m === 'text' || m === 'shading_measure' || m.startsWith('calibrate'))
+  canvas.style.cursor = (m === 'draw' || m === 'measure' || m === 'angle' || m === 'text' || m === 'shading_measure' || m === 'wb_measure' || m === 'wb_point' || m.startsWith('calibrate'))
     ? 'crosshair' : 'grab';
 }
 

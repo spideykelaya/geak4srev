@@ -4,7 +4,7 @@ import com.raquo.laminar.api.L.{*, given}
 import org.scalajs.dom
 import scala.scalajs.js
 import scala.scalajs.js.JSConverters.*
-import pme123.geak4s.state.{AreaState, AppState, EbfState, UWertState}
+import pme123.geak4s.state.{AreaState, AppState, EbfState, UWertState, WaermebrueckeState}
 import pme123.geak4s.domain.JsonCodecs.given
 import pme123.geak4s.domain.ebf.EbfPlans
 import pme123.geak4s.domain.uwert.ComponentType
@@ -24,6 +24,8 @@ object EBFCalculatorView:
   private val polygonRenamedEvent = "geak:ebf-polygon-renamed"
   private val polygonResetEvent   = "geak:ebf-polygon-reset"
   private val updateColorEvent    = "geak:update-polygon-color"
+  private val wbLinearDoneEvent   = "geak:wb-linear-done"
+  private val wbPointsDoneEvent   = "geak:wb-points-done"
 
   private case class UWertOption(
     id: String,
@@ -105,6 +107,8 @@ object EBFCalculatorView:
     var planUploadListener:     Option[js.Function1[dom.Event, Unit]] = None
     var polygonRenamedListener: Option[js.Function1[dom.Event, Unit]] = None
     var polygonResetListener:   Option[js.Function1[dom.Event, Unit]] = None
+    var wbLinearListener:       Option[js.Function1[dom.Event, Unit]] = None
+    var wbPointsListener:       Option[js.Function1[dom.Event, Unit]] = None
 
     val pendingAssignments: Var[List[PendingAssignment]] = Var(List.empty)
     var seenPolygonLabels: Set[String] = Set.empty
@@ -181,6 +185,26 @@ object EBFCalculatorView:
         dom.window.addEventListener(polygonResetEvent, resetListener)
         polygonResetListener = Some(resetListener)
 
+        // ── WB linear measurement done → WaermebrueckeState ──
+        val wbLinListener: js.Function1[dom.Event, Unit] = (event: dom.Event) =>
+          val d      = event.asInstanceOf[dom.CustomEvent].detail.asInstanceOf[js.Dynamic]
+          val length = js.Dynamic.global.Number(d.selectDynamic("length")).asInstanceOf[Double]
+          if !length.isNaN && length > 0 then
+            WaermebrueckeState.addLinear(length)
+            AppState.saveWaermebruecken()
+        dom.window.addEventListener(wbLinearDoneEvent, wbLinListener)
+        wbLinearListener = Some(wbLinListener)
+
+        // ── WB points session done → WaermebrueckeState ──
+        val wbPtsListener: js.Function1[dom.Event, Unit] = (event: dom.Event) =>
+          val d     = event.asInstanceOf[dom.CustomEvent].detail.asInstanceOf[js.Dynamic]
+          val count = js.Dynamic.global.Number(d.selectDynamic("count")).asInstanceOf[Double].toInt
+          if count > 0 then
+            WaermebrueckeState.addPunkt(count)
+            AppState.saveWaermebruecken()
+        dom.window.addEventListener(wbPointsDoneEvent, wbPtsListener)
+        wbPointsListener = Some(wbPtsListener)
+
         // ── plan upload → Google Drive ──
         val uploadListener: js.Function1[dom.Event, Unit] = (event: dom.Event) =>
           val d        = event.asInstanceOf[dom.CustomEvent].detail.asInstanceOf[js.Dynamic]
@@ -229,8 +253,11 @@ object EBFCalculatorView:
         planUploadListener.foreach(l     => dom.window.removeEventListener(planUploadEvent, l))
         polygonRenamedListener.foreach(l => dom.window.removeEventListener(polygonRenamedEvent, l))
         polygonResetListener.foreach(l   => dom.window.removeEventListener(polygonResetEvent, l))
+        wbLinearListener.foreach(l       => dom.window.removeEventListener(wbLinearDoneEvent, l))
+        wbPointsListener.foreach(l       => dom.window.removeEventListener(wbPointsDoneEvent, l))
         polygonSyncListener = None; plansSyncListener = None; planUploadListener = None
         polygonRenamedListener = None; polygonResetListener = None
+        wbLinearListener = None; wbPointsListener = None
         unmountHandle.foreach(_())
         unmountHandle = None
       },

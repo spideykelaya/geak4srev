@@ -97,6 +97,7 @@ object AppState:
     AreaState.clear()
     EbfState.clear()
     EnergyState.clear()
+    WaermebrueckeState.clear()
     pme123.geak4s.views.WordFormView.formVar.set(pme123.geak4s.domain.project.WordFormData())
     syncInitialized.set(false)
     val emptyProject = GeakProject.empty
@@ -117,6 +118,8 @@ object AppState:
     UWertState.loadFromProject(project)
     // Initialize Area state from project
     AreaState.loadFromProject(project)
+    // Initialize Wärmebrücken state from project
+    WaermebrueckeState.loadFromProject(project)
     // Initialize EBF plans state from project
     EbfState.loadFromProject(project)
     // Initialize energy consumption state from project
@@ -145,6 +148,7 @@ object AppState:
     AreaState.clear()
     EbfState.clear()
     EnergyState.clear()
+    WaermebrueckeState.clear()
     stopPeriodicSync()
     syncInitialized.set(false)
     clearLocalFileHandle()
@@ -243,6 +247,10 @@ object AppState:
   /** Save area calculations to current project */
   def saveAreaCalculations(): Unit =
     updateProject(project => AreaState.saveToProject(project))
+
+  /** Save Wärmebrücken to current project */
+  def saveWaermebruecken(): Unit =
+    updateProject(project => WaermebrueckeState.saveToProject(project))
 
   /** Save EBF plans to current project */
   def saveEbfPlans(): Unit =
