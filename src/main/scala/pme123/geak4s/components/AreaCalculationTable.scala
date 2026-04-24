@@ -75,7 +75,9 @@ object AreaCalculationTable:
           backgroundColor := "#f5f5f5",
           tr(
             th(border := "1px solid #e0e0e0", padding := "0.5rem", "Kürzel"),
-            th(border := "1px solid #e0e0e0", padding := "0.5rem", "Ausrichtung"),
+            Option.when(!noOrientationTypes.contains(componentType))(
+              th(border := "1px solid #e0e0e0", padding := "0.5rem", "Ausrichtung")
+            ),
             th(border := "1px solid #e0e0e0", padding := "0.5rem", "Beschrieb"),
             th(border := "1px solid #e0e0e0", padding := "0.5rem", "Länge/Umfang [m]"),
             th(border := "1px solid #e0e0e0", padding := "0.5rem", "Breite/Höhe [m]"),
@@ -107,6 +109,9 @@ object AreaCalculationTable:
             Option.when(componentType == ComponentType.Window)(
               th(border := "1px solid #e0e0e0", padding := "0.5rem", backgroundColor := "#fff8e1", "Abstand Seitenblende [m]")
             ),
+            Option.when(componentType == ComponentType.Window)(
+              th(border := "1px solid #e0e0e0", padding := "0.5rem", textAlign := "center", "Beidseitig")
+            ),
             th(border := "1px solid #e0e0e0", padding := "0.5rem", "") // Delete button column
           )
         ),
@@ -126,7 +131,7 @@ object AreaCalculationTable:
             td(
               border     := "1px solid #e0e0e0",
               padding    := "0.5rem",
-              colSpan    := 6,
+              colSpan    := (if noOrientationTypes.contains(componentType) then 5 else 6),
               textAlign  := "right",
               fontWeight := "600",
               "Total:"
@@ -188,6 +193,7 @@ object AreaCalculationTable:
             Option.when(componentType == ComponentType.Window)(td(border := "1px solid #e0e0e0", padding := "0.5rem", backgroundColor := "#fffde7")),
             Option.when(componentType == ComponentType.Window)(td(border := "1px solid #e0e0e0", padding := "0.5rem", backgroundColor := "#fffde7")),
             Option.when(componentType == ComponentType.Window)(td(border := "1px solid #e0e0e0", padding := "0.5rem", backgroundColor := "#fffde7")),
+            Option.when(componentType == ComponentType.Window)(td(border := "1px solid #e0e0e0", padding := "0.5rem")),
             td(border    := "1px solid #e0e0e0", padding := "0.5rem")
           )
         )
@@ -217,18 +223,12 @@ object AreaCalculationTable:
         )
       ),
 
-      // Ausrichtung
-      td(
-        border  := "1px solid #e0e0e0",
-        padding := "0.25rem",
-        renderEditableCell(
-          displayEntry,
-          index,
-          _.orientation,
-          dataEntries,
-          (e, v) => e.copy(orientation = v),
-          componentType,
-          onSave
+      // Ausrichtung (nur bei nicht-horizontalen Typen)
+      Option.when(!noOrientationTypes.contains(componentType))(
+        td(
+          border  := "1px solid #e0e0e0",
+          padding := "0.25rem",
+          renderOrientationCell(displayEntry, index, dataEntries, componentType, onSave)
         )
       ),
 
@@ -458,6 +458,26 @@ object AreaCalculationTable:
         )
       ),
 
+      // Beidseitig checkbox (nur Fenster)
+      Option.when(componentType == ComponentType.Window)(
+        td(
+          border    := "1px solid #e0e0e0",
+          padding   := "0.25rem",
+          textAlign := "center",
+          input(
+            typ := "checkbox",
+            checked <-- dataEntries.signal.map(es => if index < es.length then es(index).beidseitig else false),
+            onChange.mapToChecked --> Observer[Boolean] { v =>
+              val curr = dataEntries.now()
+              if index < curr.length then
+                val newEntries = curr.updated(index, curr(index).copy(beidseitig = v))
+                dataEntries.set(newEntries)
+                onSave(componentType, newEntries)
+            }
+          )
+        )
+      ),
+
       // Delete button
       td(
         border    := "1px solid #e0e0e0",
@@ -553,6 +573,38 @@ object AreaCalculationTable:
               )
           }
         )
+
+  private val noOrientationTypes = Set(
+    ComponentType.EBF,
+    ComponentType.AtticFloor,
+    ComponentType.BasementFloor,
+    ComponentType.BasementCeiling,
+    ComponentType.FloorToOutside
+  )
+
+  private val orientationOptions = List("", "N", "NO", "O", "SO", "S", "SW", "W", "NW", "Horiz")
+
+  private def renderOrientationCell(
+      displayEntry: AreaEntry,
+      index: Int,
+      dataEntries: Var[List[AreaEntry]],
+      componentType: ComponentType,
+      onSave: (ComponentType, List[AreaEntry]) => Unit
+  ): HtmlElement =
+    select(
+      width   := "100%",
+      padding := "0.25rem",
+      border  := "none",
+      value <-- dataEntries.signal.map(es => if index < es.length then es(index).orientation else ""),
+      onChange.mapToValue --> Observer[String] { v =>
+        val curr = dataEntries.now()
+        if index < curr.length then
+          val newEntries = curr.updated(index, curr(index).copy(orientation = v))
+          dataEntries.set(newEntries)
+          onSave(componentType, newEntries)
+      },
+      orientationOptions.map(o => option(value := o, if o.isEmpty then "–" else o))
+    )
 
   private def renderEditableCell(
       displayEntry: AreaEntry,

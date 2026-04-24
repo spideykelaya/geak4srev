@@ -194,7 +194,8 @@ object JsonCodecs:
       uValue          <- c.getOrElse[Option[Double]]("uValue")(None)
       gValue          <- c.getOrElse[Option[Double]]("gValue")(None)
       glassRatio      <- c.getOrElse[Option[Double]]("glassRatio")(None)
-    yield AreaEntry(kuerzel, orientation, description, length, width, area, quantity, totalArea, areaNew, quantityNew, totalAreaNew, descriptionNew, isManual, overhang, overhangDist, sideShading, sideShadingDist, uwertId, uValue, gValue, glassRatio)
+      beidseitig      <- c.getOrElse[Boolean]("beidseitig")(false)
+    yield AreaEntry(kuerzel, orientation, description, length, width, area, quantity, totalArea, areaNew, quantityNew, totalAreaNew, descriptionNew, isManual, overhang, overhangDist, sideShading, sideShadingDist, uwertId, uValue, gValue, glassRatio, beidseitig)
   }
 
   given Encoder[AreaCalculation] = deriveEncoder[AreaCalculation]

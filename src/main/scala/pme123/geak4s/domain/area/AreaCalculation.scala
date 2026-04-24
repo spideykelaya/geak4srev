@@ -27,7 +27,8 @@ case class AreaEntry(
     uwertId: Option[String] = None,
     uValue: Option[Double] = None,
     gValue: Option[Double] = None,      // only for Window
-    glassRatio: Option[Double] = None   // only for Window
+    glassRatio: Option[Double] = None,  // only for Window
+    beidseitig: Boolean = false         // only for Window
 ):
   /** Calculate total area from individual values */
   def calculateTotalArea: Double = area * quantity

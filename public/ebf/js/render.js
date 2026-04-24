@@ -63,7 +63,11 @@ function drawPolygon(poly) {
   const ly = c.y + (labelOffset?.dy || 0);
   const areaLbl = fmtArea(area);
   const titleLbl = (label || '').trim();
-  const fsz = clamp(14 / S.zoom, 10, 36);
+  const xs = points.map(p => p.x), ys = points.map(p => p.y);
+  const worldW = Math.max(...xs) - Math.min(...xs);
+  const worldH = Math.max(...ys) - Math.min(...ys);
+  const worldDim = Math.sqrt(worldW * worldH);
+  const fsz = clamp(worldDim * 0.06, 8, 36);
   ctx.font = `bold ${fsz}px system-ui, sans-serif`;
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   const titleW = titleLbl ? ctx.measureText(titleLbl).width : 0;
