@@ -26,6 +26,7 @@ case class AreaEntry(
     // Linked U-Wert calculation
     uwertId: Option[String] = None,
     uValue: Option[Double] = None,
+    bValue: Option[Double] = None,      // b-factor from linked calculation
     gValue: Option[Double] = None,      // only for Window
     glassRatio: Option[Double] = None,  // only for Window
     beidseitig: Boolean = false         // only for Window

@@ -329,21 +329,38 @@ object ExcelService:
 
   // ── Area-based envelope fill (areaCalculations + uwertCalculations) ─────────
 
-  /** Compute U-value (1/R_total) and b-factor from uwertCalculations JSON for one ComponentType. */
-  private def uValueFor(uwerts: Seq[ujson.Value], ct: String): (Double, Double) =
-    uwerts.find(u => Try(u("componentType").str).getOrElse("") == ct) match
-      case None => (0.0, 1.0)
-      case Some(u) =>
-        val ist    = Try(u("istCalculation")).getOrElse(ujson.Obj())
+  /** Extract (uValueWithoutB, bFactor) from a single uwertCalculation JSON entry. */
+  private def extractUVB(u: ujson.Value): (Double, Double) =
+    val ist      = Try(u("istCalculation")).getOrElse(ujson.Obj())
+    val directV  = Try(ist("directUValueWithoutB").num).toOption.filter(_ != 0.0)
+    val bFac     = Try(ist("bFactor").num).getOrElse(1.0)
+    directV match
+      case Some(v) => (v, bFac)
+      case None =>
         val mats   = Try(ist("materials").arr.toSeq).getOrElse(Seq.empty)
         val rTotal = mats.foldLeft(0.0) { (acc, m) =>
           val d = Try(m("thickness").num).getOrElse(0.0)
           val l = Try(m("lambda").num).getOrElse(0.0)
           acc + (if l != 0 then d / l else 0.0)
         }
-        val uVal = if rTotal != 0 then 1.0 / rTotal else 0.0
-        val bFac = Try(ist("bFactor").num).getOrElse(1.0)
-        (uVal, bFac)
+        (if rTotal != 0 then 1.0 / rTotal else 0.0, bFac)
+
+  /** Lookup by ComponentType (first match, fallback). */
+  private def uValueFor(uwerts: Seq[ujson.Value], ct: String): (Double, Double) =
+    uwerts.find(u => Try(u("componentType").str).getOrElse("") == ct) match
+      case None    => (0.0, 1.0)
+      case Some(u) => extractUVB(u)
+
+  /** Lookup by uwertId (per-entry link). */
+  private def uValueForId(uwerts: Seq[ujson.Value], id: String): (Double, Double) =
+    uwerts.find(u => Try(u("id").str).getOrElse("") == id) match
+      case None    => (0.0, 1.0)
+      case Some(u) => extractUVB(u)
+
+  /** Resolve U-value for an area entry: prefer uwertId link, fall back to componentType lookup. */
+  private def uvbForEntry(e: ujson.Value, ct: String, uwerts: Seq[ujson.Value]): (Double, Double) =
+    val id = Try(e("uwertId").str).getOrElse("")
+    if id.nonEmpty then uValueForId(uwerts, id) else uValueFor(uwerts, ct)
 
   /** Return non-empty area entries for a ComponentType from the areaCalculations JSON object. */
   private def areaEntriesFor(areaCalcs: ujson.Value, ct: String): Seq[ujson.Value] =
@@ -402,27 +419,20 @@ object ExcelService:
   private def fillRoofsFromArea(wb: Workbook, areaCalcs: ujson.Value, uwerts: Seq[ujson.Value]): Unit =
     val sh = wb.getSheet("Dächer und Decken")
     if sh == null then return
-    val (pU, pB) = uValueFor(uwerts, "PitchedRoof")
-    val (fU, fB) = uValueFor(uwerts, "FlatRoof")
-    val (aU, aB) = uValueFor(uwerts, "AtticFloor")
     val rows =
-      areaEntriesFor(areaCalcs, "PitchedRoof").map((_, "Schrägdach, unbeheizt", pU, pB)) ++
-      areaEntriesFor(areaCalcs, "FlatRoof").map((_, "Flachdach/Terrasse", fU, fB)) ++
-      areaEntriesFor(areaCalcs, "AtticFloor").map((_, "Decke gegen unbeheizt", aU, aB))
+      areaEntriesFor(areaCalcs, "PitchedRoof").map(e => { val (u,b) = uvbForEntry(e, "PitchedRoof", uwerts); (e, "Schrägdach, unbeheizt", u, b) }) ++
+      areaEntriesFor(areaCalcs, "FlatRoof").map(e => { val (u,b) = uvbForEntry(e, "FlatRoof", uwerts); (e, "Flachdach/Terrasse", u, b) }) ++
+      areaEntriesFor(areaCalcs, "AtticFloor").map(e => { val (u,b) = uvbForEntry(e, "AtticFloor", uwerts); (e, "Decke gegen unbeheizt", u, b) })
     insertAndFillFromArea(sh, 10, rows, (rowIdx, t) => fillRoofRowFromArea(sh, rowIdx, t._1, t._2, t._3, t._4))
 
   private def fillWallsFromArea(wb: Workbook, areaCalcs: ujson.Value, uwerts: Seq[ujson.Value]): Unit =
     val sh = wb.getSheet("Wände")
     if sh == null then return
-    val (eU, eB)   = uValueFor(uwerts, "ExteriorWall")
-    val (geU, geB) = uValueFor(uwerts, "BasementWallToEarth")
-    val (guU, guB) = uValueFor(uwerts, "BasementWallToUnheated")
-    val (gaU, gaB) = uValueFor(uwerts, "BasementWallToOutside")
     val rows =
-      areaEntriesFor(areaCalcs, "ExteriorWall").map((_, "Aussenwand", eU, eB)) ++
-      areaEntriesFor(areaCalcs, "BasementWallToEarth").map((_, "Wand gegen Erdreich", geU, geB)) ++
-      areaEntriesFor(areaCalcs, "BasementWallToUnheated").map((_, "Wand gegen unbeheizt", guU, guB)) ++
-      areaEntriesFor(areaCalcs, "BasementWallToOutside").map((_, "Kellerwand gegen Aussen", gaU, gaB))
+      areaEntriesFor(areaCalcs, "ExteriorWall").map(e => { val (u,b) = uvbForEntry(e, "ExteriorWall", uwerts); (e, "Aussenwand", u, b) }) ++
+      areaEntriesFor(areaCalcs, "BasementWallToEarth").map(e => { val (u,b) = uvbForEntry(e, "BasementWallToEarth", uwerts); (e, "Wand gegen Erdreich", u, b) }) ++
+      areaEntriesFor(areaCalcs, "BasementWallToUnheated").map(e => { val (u,b) = uvbForEntry(e, "BasementWallToUnheated", uwerts); (e, "Wand gegen unbeheizt", u, b) }) ++
+      areaEntriesFor(areaCalcs, "BasementWallToOutside").map(e => { val (u,b) = uvbForEntry(e, "BasementWallToOutside", uwerts); (e, "Kellerwand gegen Aussen", u, b) })
     insertAndFillFromArea(sh, 10, rows, (rowIdx, t) => fillWallRowFromArea(sh, rowIdx, t._1, t._2, t._3, t._4))
 
   private def fillWindowsFromArea(wb: Workbook, areaCalcs: ujson.Value): Unit =
@@ -436,13 +446,10 @@ object ExcelService:
   private def fillFloorsFromArea(wb: Workbook, areaCalcs: ujson.Value, uwerts: Seq[ujson.Value]): Unit =
     val sh = wb.getSheet("Böden")
     if sh == null then return
-    val (bfU, bfB) = uValueFor(uwerts, "BasementFloor")
-    val (bcU, bcB) = uValueFor(uwerts, "BasementCeiling")
-    val (foU, foB) = uValueFor(uwerts, "FloorToOutside")
     val rows =
-      areaEntriesFor(areaCalcs, "BasementFloor").map((_, "Boden gegen Erdreich", bfU, bfB)) ++
-      areaEntriesFor(areaCalcs, "BasementCeiling").map((_, "Boden gegen unbeheizt", bcU, bcB)) ++
-      areaEntriesFor(areaCalcs, "FloorToOutside").map((_, "Boden gegen aussen", foU, foB))
+      areaEntriesFor(areaCalcs, "BasementFloor").map(e => { val (u,b) = uvbForEntry(e, "BasementFloor", uwerts); (e, "Boden gegen Erdreich", u, b) }) ++
+      areaEntriesFor(areaCalcs, "BasementCeiling").map(e => { val (u,b) = uvbForEntry(e, "BasementCeiling", uwerts); (e, "Boden gegen unbeheizt", u, b) }) ++
+      areaEntriesFor(areaCalcs, "FloorToOutside").map(e => { val (u,b) = uvbForEntry(e, "FloorToOutside", uwerts); (e, "Boden gegen aussen", u, b) })
     insertAndFillFromArea(sh, 10, rows, (rowIdx, t) => fillFloorRowFromArea(sh, rowIdx, t._1, t._2, t._3, t._4))
 
   // ── Public entry point ────────────────────────────────────────────────────

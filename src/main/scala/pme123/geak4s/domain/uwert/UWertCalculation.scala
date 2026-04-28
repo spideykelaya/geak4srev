@@ -11,7 +11,8 @@ case class UWertCalculation(
   componentType: ComponentType,
   bWertName: Option[String],
   istCalculation: UWertTableData,
-  sollCalculation: UWertTableData
+  sollCalculation: UWertTableData,
+  isDirectInput: Boolean = false                 // true = user enters U-value directly, no material table
 )
 
 object UWertCalculation:
@@ -25,27 +26,42 @@ object UWertCalculation:
     sollCalculation = UWertTableData.empty
   )
 
+  def emptyDirect(id: String): UWertCalculation = UWertCalculation(
+    id = id,
+    label = "",
+    componentLabel = "",
+    componentType = ComponentType.ExteriorWall,
+    bWertName = None,
+    istCalculation = UWertTableData.empty,
+    sollCalculation = UWertTableData.empty,
+    isDirectInput = true
+  )
+
 /** 
  * Data for a single U-Wert calculation table (IST or SOLL)
  */
 case class UWertTableData(
   materials: List[MaterialLayer],                // Material layers (rows 1-9)
-  bFactor: Double                                // b-Factor for the calculation
+  bFactor: Double,                               // b-Factor for the calculation
+  directUValueWithoutB: Option[Double] = None    // set when parent calc is direct input
 ):
   /** Calculate total R-value (sum of all layer R-values) */
   def rTotal: Double = materials.map(_.rValue).sum
-  
-  /** Calculate U-value without b-factor */
-  def uValueWithoutB: Double = if rTotal != 0 then 1.0 / rTotal else 0.0
-  
-  /** Calculate U-value with b-factor */
-  def uValue: Double = if rTotal != 0 then bFactor / rTotal else 0.0
+
+  /** U-value without b-factor: direct input overrides material-based calculation */
+  def uValueWithoutB: Double = directUValueWithoutB.getOrElse(
+    if rTotal != 0 then 1.0 / rTotal else 0.0
+  )
+
+  /** U-value with b-factor */
+  def uValue: Double = bFactor * uValueWithoutB
 
 object UWertTableData:
   /** Create empty table data */
   def empty: UWertTableData = UWertTableData(
     materials = List.empty,
-    bFactor = 1.0
+    bFactor = 1.0,
+    directUValueWithoutB = None
   )
   
   /** Initialize table data from a building component */

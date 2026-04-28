@@ -24,11 +24,11 @@ object UWertView:
           padding      := "1.5rem",
 
           // Render all calculation tables with stable keys
-          children <-- UWertState.calculations.signal.split(_.id) { (id, _, calcSignal) =>
-            UWertCalculationTable(id)
+          children <-- UWertState.calculations.signal.split(_.id) { (id, initialCalc, _) =>
+            UWertCalculationTable(id, initialCalc.isDirectInput)
           },
 
-          // Add table button
+          // Add calculation button
           div(
             marginTop := "1.5rem",
             textAlign := "center",
@@ -40,6 +40,21 @@ object UWertView:
                 AppState.saveUWertCalculations()
               },
               "Weitere Berechnung hinzufügen"
+            )
+          ),
+
+          // Add direct U-value button
+          div(
+            marginTop := "0.5rem",
+            textAlign := "center",
+            Button(
+              _.design := ButtonDesign.Default,
+              _.icon   := IconName.add,
+              _.events.onClick.mapTo(()) --> { _ =>
+                UWertState.addDirectCalculation()
+                AppState.saveUWertCalculations()
+              },
+              "Weiterer U-Wert hinzufügen"
             )
           )
         )
