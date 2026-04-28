@@ -192,10 +192,11 @@ object JsonCodecs:
       sideShadingDist <- c.getOrElse[Double]("sideShadingDist")(0.0)
       uwertId         <- c.getOrElse[Option[String]]("uwertId")(None)
       uValue          <- c.getOrElse[Option[Double]]("uValue")(None)
+      bValue          <- c.getOrElse[Option[Double]]("bValue")(None)
       gValue          <- c.getOrElse[Option[Double]]("gValue")(None)
       glassRatio      <- c.getOrElse[Option[Double]]("glassRatio")(None)
       beidseitig      <- c.getOrElse[Boolean]("beidseitig")(false)
-    yield AreaEntry(kuerzel, orientation, description, length, width, area, quantity, totalArea, areaNew, quantityNew, totalAreaNew, descriptionNew, isManual, overhang, overhangDist, sideShading, sideShadingDist, uwertId, uValue, gValue, glassRatio, beidseitig)
+    yield AreaEntry(kuerzel, orientation, description, length, width, area, quantity, totalArea, areaNew, quantityNew, totalAreaNew, descriptionNew, isManual, overhang, overhangDist, sideShading, sideShadingDist, uwertId, uValue, bValue, gValue, glassRatio, beidseitig)
   }
 
   given Encoder[AreaCalculation] = deriveEncoder[AreaCalculation]

@@ -91,6 +91,9 @@ object AreaCalculationTable:
             Option.when(componentType != ComponentType.EBF)(
               th(border := "1px solid #e0e0e0", padding := "0.5rem", backgroundColor := "#e8f4f8", "U-Wert [W/m²K]")
             ),
+            Option.when(componentType != ComponentType.EBF)(
+              th(border := "1px solid #e0e0e0", padding := "0.5rem", backgroundColor := "#e8f4f8", "b-Wert [-]")
+            ),
             Option.when(componentType == ComponentType.Window)(
               th(border := "1px solid #e0e0e0", padding := "0.5rem", backgroundColor := "#e8f4f8", "g-Wert [-]")
             ),
@@ -186,6 +189,7 @@ object AreaCalculationTable:
 
             // Empty cells for Beschrieb Neu, u-wert cols, optional Fenster shading cols, and Delete button
             td(border    := "1px solid #e0e0e0", padding := "0.5rem"),
+            Option.when(componentType != ComponentType.EBF)(td(border := "1px solid #e0e0e0", padding := "0.5rem", backgroundColor := "#e8f4f8")),
             Option.when(componentType != ComponentType.EBF)(td(border := "1px solid #e0e0e0", padding := "0.5rem", backgroundColor := "#e8f4f8")),
             Option.when(componentType == ComponentType.Window)(td(border := "1px solid #e0e0e0", padding := "0.5rem", backgroundColor := "#e8f4f8")),
             Option.when(componentType == ComponentType.Window)(td(border := "1px solid #e0e0e0", padding := "0.5rem", backgroundColor := "#e8f4f8")),
@@ -398,12 +402,20 @@ object AreaCalculationTable:
         )
       ),
 
-      // U-Wert / g-Wert / Glasanteil (read-only, from linked calculation)
+      // U-Wert / b-Wert / g-Wert / Glasanteil (read-only, from linked calculation)
       Option.when(componentType != ComponentType.EBF)(
         td(
           border := "1px solid #e0e0e0", padding := "0.25rem", backgroundColor := "#e8f4f8", textAlign := "right",
           child.text <-- dataEntries.signal.map(es =>
             if index < es.length then es(index).uValue.fold("–")(v => f"$v%.2f") else "–"
+          )
+        )
+      ),
+      Option.when(componentType != ComponentType.EBF)(
+        td(
+          border := "1px solid #e0e0e0", padding := "0.25rem", backgroundColor := "#e8f4f8", textAlign := "right",
+          child.text <-- dataEntries.signal.map(es =>
+            if index < es.length then es(index).bValue.fold("–")(v => f"$v%.2f") else "–"
           )
         )
       ),
@@ -550,7 +562,7 @@ object AreaCalculationTable:
                 val base  = if calc.label.nonEmpty then calc.label else calc.componentLabel
                 val label = if matching.length == 1 || calc.label.nonEmpty then base
                             else s"$base (${idx + 1})"
-                (calc.id, label, calc.sollCalculation.uValue)
+                (calc.id, label, calc.sollCalculation.uValueWithoutB, calc.sollCalculation.bFactor)
               }
               select(
                 width := "100%", padding := "0.25rem", border := "none",
@@ -562,14 +574,15 @@ object AreaCalculationTable:
                     val updated = curr(index).copy(
                       description = label,
                       uwertId     = matched.map(_._1),
-                      uValue      = matched.map(_._3)
+                      uValue      = matched.map(_._3),
+                      bValue      = matched.map(_._4)
                     )
                     val newEntries = curr.updated(index, updated)
                     dataEntries.set(newEntries)
                     onSave(componentType, newEntries)
                 },
                 option(value := "", "– wählen –"),
-                opts.map { (_, label, _) => option(value := label, label) }
+                opts.map { (_, label, _, _) => option(value := label, label) }
               )
           }
         )

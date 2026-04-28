@@ -44,6 +44,14 @@ object UWertState:
     calculations.update(_ :+ newCalc)
     id
 
+  /** Add a new direct-input U-value entry (no material table) */
+  def addDirectCalculation(): String =
+    idCounter += 1
+    val id = s"uwert-calc-$idCounter"
+    val newCalc = UWertCalculation.emptyDirect(id)
+    calculations.update(_ :+ newCalc)
+    id
+
   /** Remove a calculation by ID (also removes linked WindowCalculation for Fenster type) */
   def removeCalculation(id: String): Unit =
     val isWindow = calculations.now().find(_.id == id).exists(_.componentLabel == "Fenster")
@@ -63,6 +71,37 @@ object UWertState:
         if calc.id == id then update(calc) else calc
       }
     }
+
+  /** Update component selection for direct-input entries (no material layers) */
+  def updateComponentForDirect(id: String, component: BuildingComponent, bWertName: Option[String]): Unit =
+    val alwaysOne = Set(ComponentType.PitchedRoof, ComponentType.FlatRoof)
+    updateCalculation(id, calc =>
+      calc.copy(
+        componentLabel = component.label,
+        componentType = component.compType,
+        bWertName = if alwaysOne.contains(component.compType) then None else bWertName,
+        istCalculation = UWertTableData.empty.copy(
+          bFactor = if alwaysOne.contains(component.compType) then 1.0 else calc.istCalculation.bFactor,
+          directUValueWithoutB = calc.istCalculation.directUValueWithoutB
+        ),
+        sollCalculation = UWertTableData.empty.copy(
+          bFactor = if alwaysOne.contains(component.compType) then 1.0 else calc.sollCalculation.bFactor,
+          directUValueWithoutB = calc.sollCalculation.directUValueWithoutB
+        )
+      )
+    )
+
+  /** Set direct IST U-value (without b-factor) */
+  def updateDirectIstUValue(id: String, uValue: Double): Unit =
+    updateCalculation(id, calc =>
+      calc.copy(istCalculation = calc.istCalculation.copy(directUValueWithoutB = Some(uValue)))
+    )
+
+  /** Set direct SOLL U-value (without b-factor) */
+  def updateDirectSollUValue(id: String, uValue: Double): Unit =
+    updateCalculation(id, calc =>
+      calc.copy(sollCalculation = calc.sollCalculation.copy(directUValueWithoutB = Some(uValue)))
+    )
 
   /** Update component selection */
   def updateComponent(id: String, component: BuildingComponent, bWertName: Option[String]): Unit =

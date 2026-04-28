@@ -17,7 +17,7 @@ object UWertCalculationTable:
   // `label` in Laminar refers to the <label> element; use a custom HtmlAttr for <optgroup label="...">
   private val optGroupLabel = htmlAttr[String]("label", com.raquo.laminar.codecs.StringAsIsCodec)
 
-  def apply(calculationId: String): HtmlElement =
+  def apply(calculationId: String, isDirectInput: Boolean = false): HtmlElement =
     val calcSignal = UWertState.getCalculation(calculationId)
 
     div(
@@ -28,12 +28,13 @@ object UWertCalculationTable:
       borderRadius := "8px",
       border := "1px solid #ddd",
 
-
       // Component selector
-      renderComponentSelector(calculationId, calcSignal),
+      renderComponentSelector(calculationId, calcSignal, isDirectInput),
 
-      // Tables - only shown when a component is selected
+      // Tables / direct input - only shown when a component is selected
       child <-- calcSignal.map {
+        case Some(calc) if isDirectInput && calc.componentLabel.nonEmpty =>
+          renderDirectInputSection(calculationId, calcSignal)
         case Some(calc) if calc.componentLabel == "Fenster" =>
           WindowCalculationCard(calculationId, showDelete = false)
         case Some(calc) if calc.componentLabel.nonEmpty =>
@@ -95,7 +96,8 @@ object UWertCalculationTable:
 
   private def renderComponentSelector(
     calculationId: String,
-    calcSignal: Signal[Option[UWertCalculation]]
+    calcSignal: Signal[Option[UWertCalculation]],
+    isDirectInput: Boolean = false
   ): HtmlElement =
     div(
       className := "component-selector",
@@ -118,12 +120,15 @@ object UWertCalculationTable:
         Select(
           _.value <-- calcSignal.map(_.map(_.componentLabel).getOrElse("")),
           _.events.onChange.mapToValue --> Observer[String] { label =>
-            if label == "Fenster" then
+            if !isDirectInput && label == "Fenster" then
               UWertState.selectWindow(calculationId)
               AppState.saveUWertCalculations()
             else if label.nonEmpty then
               buildingComponents.find(_.label == label).foreach { component =>
-                UWertState.updateComponent(calculationId, component, None)
+                if isDirectInput then
+                  UWertState.updateComponentForDirect(calculationId, component, None)
+                else
+                  UWertState.updateComponent(calculationId, component, None)
                 AppState.saveUWertCalculations()
               }
           },
@@ -131,7 +136,9 @@ object UWertCalculationTable:
           buildingComponents.map { component =>
             Select.option(_.value := component.label, component.label)
           },
-          Select.option(_.value := "Fenster", "Fenster")
+          Option.when(!isDirectInput)(
+            Select.option(_.value := "Fenster", "Fenster")
+          )
         )
       ),
 
@@ -236,6 +243,100 @@ object UWertCalculationTable:
           )
         case _ => emptyNode
       }
+    )
+
+  private def renderDirectInputSection(
+    calculationId: String,
+    calcSignal: Signal[Option[UWertCalculation]]
+  ): HtmlElement =
+    div(
+      backgroundColor := "white",
+      padding := "1rem",
+      borderRadius := "4px",
+      marginBottom := "1.5rem",
+      div(
+        display := "flex",
+        gap := "2rem",
+        marginTop := "1.5rem",
+
+        // IST
+        div(
+          flex := "1",
+          div(marginBottom := "1rem", Title(_.level := TitleLevel.H4, "U-Wert IST")),
+          input(
+            typ := "text",
+            placeholder := "0.00",
+            width := "100%",
+            padding := "0.5rem",
+            border := "1px solid #ccc",
+            borderRadius := "4px",
+            value <-- calcSignal.map { c =>
+              c.flatMap(_.istCalculation.directUValueWithoutB).map(v => f"$v%.3f").getOrElse("")
+            },
+            onBlur.mapToValue --> Observer[String] { v =>
+              v.replace(',', '.').toDoubleOption.foreach { d =>
+                UWertState.updateDirectIstUValue(calculationId, d)
+                AppState.saveUWertCalculations()
+              }
+            },
+            onKeyDown --> Observer[org.scalajs.dom.KeyboardEvent] { e =>
+              if e.key == "Enter" then
+                val el = e.target.asInstanceOf[org.scalajs.dom.HTMLInputElement]
+                el.value.replace(',', '.').toDoubleOption.foreach { d =>
+                  UWertState.updateDirectIstUValue(calculationId, d)
+                  AppState.saveUWertCalculations()
+                }
+                el.blur()
+            }
+          ),
+          div(
+            marginTop := "0.5rem",
+            fontSize := "0.85rem",
+            color := "#888",
+            fontStyle := "italic",
+            "W/m²K (ohne b-Faktor)"
+          )
+        ),
+
+        // SOLL
+        div(
+          flex := "1",
+          div(marginBottom := "1rem", Title(_.level := TitleLevel.H4, "U-Wert SOLL")),
+          input(
+            typ := "text",
+            placeholder := "0.00",
+            width := "100%",
+            padding := "0.5rem",
+            border := "1px solid #ccc",
+            borderRadius := "4px",
+            value <-- calcSignal.map { c =>
+              c.flatMap(_.sollCalculation.directUValueWithoutB).map(v => f"$v%.3f").getOrElse("")
+            },
+            onBlur.mapToValue --> Observer[String] { v =>
+              v.replace(',', '.').toDoubleOption.foreach { d =>
+                UWertState.updateDirectSollUValue(calculationId, d)
+                AppState.saveUWertCalculations()
+              }
+            },
+            onKeyDown --> Observer[org.scalajs.dom.KeyboardEvent] { e =>
+              if e.key == "Enter" then
+                val el = e.target.asInstanceOf[org.scalajs.dom.HTMLInputElement]
+                el.value.replace(',', '.').toDoubleOption.foreach { d =>
+                  UWertState.updateDirectSollUValue(calculationId, d)
+                  AppState.saveUWertCalculations()
+                }
+                el.blur()
+            }
+          ),
+          div(
+            marginTop := "0.5rem",
+            fontSize := "0.85rem",
+            color := "#888",
+            fontStyle := "italic",
+            "W/m²K (ohne b-Faktor)"
+          )
+        )
+      )
     )
 
   private def renderTable(
