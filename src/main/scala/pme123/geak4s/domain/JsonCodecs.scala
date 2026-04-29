@@ -205,6 +205,7 @@ object JsonCodecs:
       overhangDist    <- c.getOrElse[Double]("overhangDist")(0.0)
       sideShading     <- c.getOrElse[Double]("sideShading")(0.0)
       sideShadingDist <- c.getOrElse[Double]("sideShadingDist")(0.0)
+      horizont        <- c.getOrElse[Double]("horizont")(0.0)
       uwertId         <- c.getOrElse[Option[String]]("uwertId")(None)
       uValue          <- c.getOrElse[Option[Double]]("uValue")(None)
       bValue          <- c.getOrElse[Option[Double]]("bValue")(None)
@@ -215,7 +216,7 @@ object JsonCodecs:
       investition     <- c.getOrElse[Double]("investition")(0.0)
       nutzungsdauer   <- c.getOrElse[Int]("nutzungsdauer")(0)
       rateKey         <- c.getOrElse[String]("rateKey")("")
-    yield AreaEntry(kuerzel, orientation, description, length, width, area, quantity, totalArea, areaNew, quantityNew, totalAreaNew, descriptionNew, isManual, overhang, overhangDist, sideShading, sideShadingDist, uwertId, uValue, bValue, gValue, glassRatio, beidseitig, werterhalt, investition, nutzungsdauer, rateKey)
+    yield AreaEntry(kuerzel, orientation, description, length, width, area, quantity, totalArea, areaNew, quantityNew, totalAreaNew, descriptionNew, isManual, overhang, overhangDist, sideShading, sideShadingDist, horizont, uwertId, uValue, bValue, gValue, glassRatio, beidseitig, werterhalt, investition, nutzungsdauer, rateKey)
   }
 
   given Encoder[AreaCalculation] = deriveEncoder[AreaCalculation]
