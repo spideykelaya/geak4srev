@@ -23,6 +23,7 @@ case class AreaEntry(
     overhangDist: Double = 0.0,
     sideShading: Double = 0.0,
     sideShadingDist: Double = 0.0,
+    horizont: Double = 0.0,      // allgemeiner Horizontwinkel [°] nach SIA 380/1
     // Linked U-Wert calculation
     uwertId: Option[String] = None,
     uValue: Option[Double] = None,

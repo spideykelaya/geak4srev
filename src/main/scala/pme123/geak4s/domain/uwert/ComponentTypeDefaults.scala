@@ -40,8 +40,8 @@ object ComponentTypeDefaults:
     ComponentType.BasementWallToOutside  -> ComponentTypeDefaults(0.0, 200.0, 50),
     ComponentType.BasementCeiling      -> ComponentTypeDefaults(0.0,   150.0, 50),
     ComponentType.BasementFloor        -> ComponentTypeDefaults(0.0,   300.0, 50),
-    // Fenster — Werterhalt 800/m² (PVC Standard), Investition 800/m², 40 Jahre
-    ComponentType.Window               -> ComponentTypeDefaults(800.0, 800.0, 40),
+    // Fenster — Werterhalt 1000/m², Investition 1000/m², 40 Jahre
+    ComponentType.Window               -> ComponentTypeDefaults(1000.0, 1000.0, 40),
     // Türen — 6'000 pauschal pro Stück, 40 Jahre
     ComponentType.Door                 -> ComponentTypeDefaults(6000.0, 6000.0, 40, ratePerUnit = true),
     // Storenkasten

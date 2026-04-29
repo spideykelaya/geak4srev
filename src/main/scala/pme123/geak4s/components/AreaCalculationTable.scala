@@ -10,6 +10,7 @@ import pme123.geak4s.domain.area.*
 import pme123.geak4s.domain.uwert.{ComponentType, ComponentTypeDefaults}
 import pme123.geak4s.state.UWertState
 import pme123.geak4s.utils.ColorUtils
+import pme123.geak4s.utils.ShadingUtils
 
 /** Reusable area calculation table component Displays area entries for a specific category (EBF,
   * Dach, Wand, etc.)
@@ -52,9 +53,10 @@ object AreaCalculationTable:
             val currentEntries = entries.now()
             val d = ComponentTypeDefaults.get(category)
             val newEntries     = currentEntries :+ AreaEntry.empty().copy(
-              isManual = true,
+              isManual      = true,
               nutzungsdauer = d.nutzungsdauer,
-              investition   = d.investitionRate
+              investition   = d.investitionRate,
+              horizont      = if category == ComponentType.Window then 30.0 else 0.0
             )
             entries.set(newEntries)
             displayEntries.set(newEntries)  // Update display immediately
@@ -102,22 +104,17 @@ object AreaCalculationTable:
             Option.when(componentType != ComponentType.EBF)(
               th(border := "1px solid #e0e0e0", padding := "0.5rem", backgroundColor := "#e8f4f8", "b-Wert [-]")
             ),
-            Option.when(componentType != ComponentType.EBF)(
-              th(border := "1px solid #e0e0e0", padding := "0.5rem", backgroundColor := "#fef9c3", "Werterhalt [CHF/m²]")
-            ),
-            Option.when(componentType != ComponentType.EBF)(
-              th(border := "1px solid #e0e0e0", padding := "0.5rem", backgroundColor := "#fef9c3",
-                if componentType == ComponentType.Door then "Investition [CHF/Stk.]"
-                else "Investition [CHF/m²]")
-            ),
-            Option.when(componentType != ComponentType.EBF)(
-              th(border := "1px solid #e0e0e0", padding := "0.5rem", backgroundColor := "#fef9c3", "Nutzungsdauer [a]")
-            ),
+            // g-Wert / Glasanteil (Window)
             Option.when(componentType == ComponentType.Window)(
               th(border := "1px solid #e0e0e0", padding := "0.5rem", backgroundColor := "#e8f4f8", "g-Wert [-]")
             ),
             Option.when(componentType == ComponentType.Window)(
               th(border := "1px solid #e0e0e0", padding := "0.5rem", backgroundColor := "#e8f4f8", "Glasanteil [-]")
+            ),
+            // Verschattung (Window only)
+            Option.when(componentType == ComponentType.Window)(
+              th(border := "1px solid #e0e0e0", padding := "0.5rem", backgroundColor := "#fff8e1",
+                title := "Allgemeiner Horizontwinkel [°] nach SIA 380/1", "Horizont [°]")
             ),
             Option.when(componentType == ComponentType.Window)(
               th(border := "1px solid #e0e0e0", padding := "0.5rem", backgroundColor := "#fff8e1", "Überhang [m]")
@@ -133,6 +130,22 @@ object AreaCalculationTable:
             ),
             Option.when(componentType == ComponentType.Window)(
               th(border := "1px solid #e0e0e0", padding := "0.5rem", textAlign := "center", "Beidseitig")
+            ),
+            Option.when(componentType == ComponentType.Window)(
+              th(border := "1px solid #e0e0e0", padding := "0.5rem", backgroundColor := "#fef3c7", textAlign := "center",
+                title := "Verschattungsfaktor nach SIA 380/1:2016", "Fs [-]")
+            ),
+            // Wirtschaftliche Kennwerte (ans Ende verschoben)
+            Option.when(componentType != ComponentType.EBF)(
+              th(border := "1px solid #e0e0e0", padding := "0.5rem", backgroundColor := "#fef9c3", "Werterhalt [CHF/m²]")
+            ),
+            Option.when(componentType != ComponentType.EBF)(
+              th(border := "1px solid #e0e0e0", padding := "0.5rem", backgroundColor := "#fef9c3",
+                if componentType == ComponentType.Door then "Investition [CHF/Stk.]"
+                else "Investition [CHF/m²]")
+            ),
+            Option.when(componentType != ComponentType.EBF)(
+              th(border := "1px solid #e0e0e0", padding := "0.5rem", backgroundColor := "#fef9c3", "Nutzungsdauer [a]")
             ),
             th(border := "1px solid #e0e0e0", padding := "0.5rem", "") // Delete button column
           )
@@ -206,21 +219,25 @@ object AreaCalculationTable:
               }
             ),
 
-            // Empty cells for Beschrieb Neu, u-wert cols, wirtschaftliche cols, optional Fenster shading cols, and Delete button
+            // Empty cells: Beschrieb Neu, U-Wert, b-Wert, Window-only shading cols, Wirtschaftsspalten, Delete
             td(border    := "1px solid #e0e0e0", padding := "0.5rem"),
             Option.when(componentType != ComponentType.EBF)(td(border := "1px solid #e0e0e0", padding := "0.5rem", backgroundColor := "#e8f4f8")),
             Option.when(componentType != ComponentType.EBF)(td(border := "1px solid #e0e0e0", padding := "0.5rem", backgroundColor := "#e8f4f8")),
-            // Werterhalt / Investition / Nutzungsdauer — no totals (rates per m², not absolute values)
-            Option.when(componentType != ComponentType.EBF)(td(border := "1px solid #e0e0e0", padding := "0.5rem", backgroundColor := "#fef9c3")),
-            Option.when(componentType != ComponentType.EBF)(td(border := "1px solid #e0e0e0", padding := "0.5rem", backgroundColor := "#fef9c3")),
-            Option.when(componentType != ComponentType.EBF)(td(border := "1px solid #e0e0e0", padding := "0.5rem", backgroundColor := "#fef9c3")),
+            // g-Wert / Glasanteil (Window)
             Option.when(componentType == ComponentType.Window)(td(border := "1px solid #e0e0e0", padding := "0.5rem", backgroundColor := "#e8f4f8")),
             Option.when(componentType == ComponentType.Window)(td(border := "1px solid #e0e0e0", padding := "0.5rem", backgroundColor := "#e8f4f8")),
+            // Horizont / Überhang / Seitenblende / Beidseitig / Fs (Window)
+            Option.when(componentType == ComponentType.Window)(td(border := "1px solid #e0e0e0", padding := "0.5rem", backgroundColor := "#fff8e1")),
             Option.when(componentType == ComponentType.Window)(td(border := "1px solid #e0e0e0", padding := "0.5rem", backgroundColor := "#fffde7")),
             Option.when(componentType == ComponentType.Window)(td(border := "1px solid #e0e0e0", padding := "0.5rem", backgroundColor := "#fffde7")),
             Option.when(componentType == ComponentType.Window)(td(border := "1px solid #e0e0e0", padding := "0.5rem", backgroundColor := "#fffde7")),
             Option.when(componentType == ComponentType.Window)(td(border := "1px solid #e0e0e0", padding := "0.5rem", backgroundColor := "#fffde7")),
             Option.when(componentType == ComponentType.Window)(td(border := "1px solid #e0e0e0", padding := "0.5rem")),
+            Option.when(componentType == ComponentType.Window)(td(border := "1px solid #e0e0e0", padding := "0.5rem", backgroundColor := "#fef3c7")),
+            // Werterhalt / Investition / Nutzungsdauer (ans Ende verschoben)
+            Option.when(componentType != ComponentType.EBF)(td(border := "1px solid #e0e0e0", padding := "0.5rem", backgroundColor := "#fef9c3")),
+            Option.when(componentType != ComponentType.EBF)(td(border := "1px solid #e0e0e0", padding := "0.5rem", backgroundColor := "#fef9c3")),
+            Option.when(componentType != ComponentType.EBF)(td(border := "1px solid #e0e0e0", padding := "0.5rem", backgroundColor := "#fef9c3")),
             td(border    := "1px solid #e0e0e0", padding := "0.5rem")
           )
         )
@@ -443,54 +460,7 @@ object AreaCalculationTable:
         )
       ),
 
-      // Werterhalt / Investition / Nutzungsdauer — editable, auto-filled from component defaults
-      Option.when(componentType != ComponentType.EBF)(
-        td(
-          border := "1px solid #e0e0e0", padding := "0.25rem", backgroundColor := "#fef9c3",
-          componentType match
-            case ComponentType.Window =>
-              // Fenster: dropdown PVC vs Holz-Metall (sets both Werterhalt + Investition)
-              renderRateDropdownCell(
-                displayEntry, index, dataEntries, componentType, onSave,
-                options = List("pvc" -> "PVC – 800 CHF/m²", "holz" -> "Holz-Metall – 1'000 CHF/m²"),
-                effectiveFn = ComponentTypeDefaults.effectiveWerterhalt
-              )
-            case _ =>
-              renderEconomicCell(displayEntry, index, dataEntries, componentType, onSave,
-                effectiveFn = ComponentTypeDefaults.effectiveWerterhalt,
-                isAutoComputed = e => e.rateKey.isEmpty && e.werterhalt == 0.0,
-                update = (e, v) => e.copy(werterhalt = v, rateKey = ""),
-                decimals = 0
-              )
-        )
-      ),
-      Option.when(componentType != ComponentType.EBF)(
-        td(
-          border := "1px solid #e0e0e0", padding := "0.25rem", backgroundColor := "#fef9c3",
-          componentType match
-            case ct if kellerwandTypes.contains(ct) =>
-              // Kellerwand: dropdown einfach vs aufwändig (sets Investition; Werterhalt bleibt 0)
-              renderRateDropdownCell(
-                displayEntry, index, dataEntries, componentType, onSave,
-                options = List("einfach" -> "Einfach – 150 CHF/m²", "aufwaendig" -> "Aufwändig – 200 CHF/m²"),
-                effectiveFn = ComponentTypeDefaults.effectiveInvestition
-              )
-            case _ =>
-              renderEconomicCell(displayEntry, index, dataEntries, componentType, onSave,
-                effectiveFn = ComponentTypeDefaults.effectiveInvestition,
-                isAutoComputed = e => e.rateKey.isEmpty && e.investition == 0.0,
-                update = (e, v) => e.copy(investition = v, rateKey = ""),
-                decimals = 0
-              )
-        )
-      ),
-      Option.when(componentType != ComponentType.EBF)(
-        td(
-          border := "1px solid #e0e0e0", padding := "0.25rem", backgroundColor := "#fef9c3",
-          renderNutzungsdauerCell(displayEntry, index, dataEntries, componentType, onSave)
-        )
-      ),
-
+      // g-Wert / Glasanteil (Window)
       Option.when(componentType == ComponentType.Window)(
         td(
           border := "1px solid #e0e0e0", padding := "0.25rem", backgroundColor := "#e8f4f8", textAlign := "right",
@@ -509,6 +479,15 @@ object AreaCalculationTable:
       ),
 
       // Fenster shading columns
+      // Horizont (allgemeiner Horizontwinkel in Grad)
+      Option.when(componentType == ComponentType.Window)(
+        td(
+          border := "1px solid #e0e0e0", padding := "0.25rem", backgroundColor := "#fff8e1",
+          renderNumericCell(displayEntry, index, _.horizont, dataEntries,
+            (e, v) => e.copy(horizont = v), componentType, onSave)
+        )
+      ),
+      // Überhang (Überstandtiefe)
       Option.when(componentType == ComponentType.Window)(
         td(
           border := "1px solid #e0e0e0", padding := "0.25rem", backgroundColor := "#fffde7",
@@ -559,6 +538,87 @@ object AreaCalculationTable:
                 onSave(componentType, newEntries)
             }
           )
+        )
+      ),
+
+      // Fs – berechneter Verschattungsfaktor nach SIA 380/1:2016 (read-only)
+      Option.when(componentType == ComponentType.Window)(
+        td(
+          border := "1px solid #e0e0e0", padding := "0.25rem", backgroundColor := "#fef3c7",
+          textAlign := "center",
+          child <-- dataEntries.signal.map { entries =>
+            if index >= entries.length then span("–")
+            else
+              val e = entries(index)
+              ShadingUtils.shadingFactor(
+                orientation      = e.orientation,
+                overhangDepth    = e.overhang,
+                overhangDist     = e.overhangDist,
+                sideShadingDepth = e.sideShading,
+                sideShadingDist  = e.sideShadingDist,
+                beidseitig       = e.beidseitig,
+                horizont         = e.horizont
+              ) match
+                case None => span(color := "#999", "–")
+                case Some(fs) =>
+                  val (col, bg) =
+                    if fs >= 0.90 then ("#166534", "#dcfce7")
+                    else if fs >= 0.70 then ("#92400e", "#fef3c7")
+                    else ("#991b1b", "#fee2e2")
+                  span(
+                    fontWeight := "600", fontSize := "0.85rem",
+                    color := col, backgroundColor := bg,
+                    padding := "1px 4px", borderRadius := "3px",
+                    title := "Fs = Fs,H × Fs,V nach SIA 380/1:2016",
+                    f"$fs%.2f"
+                  )
+          }
+        )
+      ),
+
+      // Werterhalt / Investition / Nutzungsdauer — ans Ende verschoben
+      Option.when(componentType != ComponentType.EBF)(
+        td(
+          border := "1px solid #e0e0e0", padding := "0.25rem", backgroundColor := "#fef9c3",
+          componentType match
+            case ComponentType.Window =>
+              renderRateDropdownCell(
+                displayEntry, index, dataEntries, componentType, onSave,
+                options = List("pvc" -> "PVC – 800 CHF/m²", "holz" -> "Holz-Metall – 1'000 CHF/m²"),
+                effectiveFn = ComponentTypeDefaults.effectiveWerterhalt
+              )
+            case _ =>
+              renderEconomicCell(displayEntry, index, dataEntries, componentType, onSave,
+                effectiveFn = ComponentTypeDefaults.effectiveWerterhalt,
+                isAutoComputed = e => e.rateKey.isEmpty && e.werterhalt == 0.0,
+                update = (e, v) => e.copy(werterhalt = v, rateKey = ""),
+                decimals = 0
+              )
+        )
+      ),
+      Option.when(componentType != ComponentType.EBF)(
+        td(
+          border := "1px solid #e0e0e0", padding := "0.25rem", backgroundColor := "#fef9c3",
+          componentType match
+            case ct if kellerwandTypes.contains(ct) =>
+              renderRateDropdownCell(
+                displayEntry, index, dataEntries, componentType, onSave,
+                options = List("einfach" -> "Einfach – 150 CHF/m²", "aufwaendig" -> "Aufwändig – 200 CHF/m²"),
+                effectiveFn = ComponentTypeDefaults.effectiveInvestition
+              )
+            case _ =>
+              renderEconomicCell(displayEntry, index, dataEntries, componentType, onSave,
+                effectiveFn = ComponentTypeDefaults.effectiveInvestition,
+                isAutoComputed = e => e.rateKey.isEmpty && e.investition == 0.0,
+                update = (e, v) => e.copy(investition = v, rateKey = ""),
+                decimals = 0
+              )
+        )
+      ),
+      Option.when(componentType != ComponentType.EBF)(
+        td(
+          border := "1px solid #e0e0e0", padding := "0.25rem", backgroundColor := "#fef9c3",
+          renderNutzungsdauerCell(displayEntry, index, dataEntries, componentType, onSave)
         )
       ),
 

@@ -16,9 +16,23 @@ object AreaState:
   /** Building envelope area calculations for the current project */
   val areaCalculations: Var[Option[BuildingEnvelopeArea]] = Var(None)
 
-  /** Initialize state from project */
+  /** Initialize state from project, applying default backfill for Window entries. */
   def loadFromProject(project: GeakProject): Unit =
-    areaCalculations.set(project.areaCalculations)
+    val backfilled = project.areaCalculations.map { area =>
+      area.copy(calculations = area.calculations.map { calc =>
+        if calc.componentType != ComponentType.Window then calc
+        else
+          val defaults = pme123.geak4s.domain.uwert.ComponentTypeDefaults.get(ComponentType.Window)
+          calc.copy(entries = calc.entries.map { e =>
+            e.copy(
+              horizont      = if e.horizont == 0.0 then 30.0 else e.horizont,
+              investition   = if e.investition == 0.0 && e.rateKey.isEmpty then defaults.investitionRate else e.investition,
+              nutzungsdauer = if e.nutzungsdauer == 0 then defaults.nutzungsdauer else e.nutzungsdauer
+            )
+          })
+      })
+    }
+    areaCalculations.set(backfilled)
 
   /** Get current area calculations to save to project */
   def getAreaCalculations: Option[BuildingEnvelopeArea] =
@@ -101,6 +115,9 @@ object AreaState:
         .map(_.entries)
         .getOrElse(List.empty)
 
+      val defaults = pme123.geak4s.domain.uwert.ComponentTypeDefaults.get(compType)
+      val isWindow = compType == ComponentType.Window
+
       val syncedEntries = typePolygons.map { case (rawLabel, polygonArea, ovhDist, sdDist) =>
         existingEntries.find(e => e.kuerzel == rawLabel && !e.isManual) match
           case Some(current) =>
@@ -114,7 +131,11 @@ object AreaState:
               areaNew         = effectiveAreaNew,
               totalAreaNew    = effectiveAreaNew * current.quantityNew,
               overhangDist    = ovhDist.getOrElse(current.overhangDist),
-              sideShadingDist = sdDist.getOrElse(current.sideShadingDist)
+              sideShadingDist = sdDist.getOrElse(current.sideShadingDist),
+              // Backfill real defaults for entries that still carry the zero sentinel
+              investition   = if current.investition == 0.0 && current.rateKey.isEmpty then defaults.investitionRate else current.investition,
+              nutzungsdauer = if current.nutzungsdauer == 0 then defaults.nutzungsdauer else current.nutzungsdauer,
+              horizont      = if isWindow && current.horizont == 0.0 then 30.0 else current.horizont
             )
           case None =>
             AreaEntry.empty(rawLabel).copy(
@@ -125,7 +146,10 @@ object AreaState:
               quantityNew     = 1,
               totalAreaNew    = polygonArea,
               overhangDist    = ovhDist.getOrElse(0.0),
-              sideShadingDist = sdDist.getOrElse(0.0)
+              sideShadingDist = sdDist.getOrElse(0.0),
+              investition     = defaults.investitionRate,
+              nutzungsdauer   = defaults.nutzungsdauer,
+              horizont        = if isWindow then 30.0 else 0.0
             )
       }.toList
 

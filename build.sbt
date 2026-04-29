@@ -21,6 +21,7 @@ lazy val root = (project in file("."))
   .aggregate(backend)
   .settings(
     name                            := "geak4s",
+    scalacOptions += "-Xmax-inlines:64",
     sourcesInBase                   := false,
     scalaJSUseMainModuleInitializer := true,
     scalaJSLinkerConfig ~= {
