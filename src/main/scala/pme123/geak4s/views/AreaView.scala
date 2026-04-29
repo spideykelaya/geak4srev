@@ -19,6 +19,7 @@ object AreaView:
   // These types have no U-Wert — warnings about missing U-Wert are suppressed for them
   private val noUWertTypes = Set(ComponentType.EBF)
 
+
   private val areaEntriesByType = scala.collection.mutable.Map[ComponentType, Var[List[AreaEntry]]]()
 
   private def entriesVar(ct: ComponentType): Var[List[AreaEntry]] =
@@ -78,6 +79,7 @@ object AreaView:
         )
       },
       AreaState.areaCalculations.signal --> Observer[Option[BuildingEnvelopeArea]](onAreaStateChange),
+
       Card(
         className := "project-view",
         maxWidth  := "100%",

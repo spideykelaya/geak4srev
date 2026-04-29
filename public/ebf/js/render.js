@@ -40,21 +40,30 @@ export function render() {
 
 // ── Polygon ───────────────────────────────────────────────────────────────────
 function drawPolygon(poly) {
-  const { points, color, area, label, labelOffset } = poly;
+  const { points, color, area, label, labelOffset, areaType } = poly;
   if (points.length < 2) return;
+
+  const isMeasureOnly = (areaType || '') === '__measure__';
 
   ctx.beginPath();
   ctx.moveTo(points[0].x, points[0].y);
   points.slice(1).forEach(p => ctx.lineTo(p.x, p.y));
   ctx.closePath();
 
-  ctx.fillStyle = color + '50';
+  ctx.fillStyle = color + (isMeasureOnly ? '28' : '50');
   ctx.fill();
 
-  // Double-stroke: white outline for contrast on any background
-  ctx.setLineDash([]);
-  ctx.strokeStyle = 'rgba(255,255,255,0.7)'; ctx.lineWidth = 4 / S.zoom; ctx.stroke();
-  ctx.strokeStyle = color;                   ctx.lineWidth = 2 / S.zoom; ctx.stroke();
+  if (isMeasureOnly) {
+    // Dashed outline — no white double-stroke so the dashes remain visible
+    ctx.setLineDash([10 / S.zoom, 6 / S.zoom]);
+    ctx.strokeStyle = color; ctx.lineWidth = 2 / S.zoom; ctx.stroke();
+    ctx.setLineDash([]);
+  } else {
+    // Double-stroke: white outline for contrast on any background
+    ctx.setLineDash([]);
+    ctx.strokeStyle = 'rgba(255,255,255,0.7)'; ctx.lineWidth = 4 / S.zoom; ctx.stroke();
+    ctx.strokeStyle = color;                   ctx.lineWidth = 2 / S.zoom; ctx.stroke();
+  }
 
   points.forEach(p => dot(p, color, CLOSE_VERTEX_RADIUS / S.zoom));
 

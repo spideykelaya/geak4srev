@@ -29,7 +29,12 @@ case class AreaEntry(
     bValue: Option[Double] = None,      // b-factor from linked calculation
     gValue: Option[Double] = None,      // only for Window
     glassRatio: Option[Double] = None,  // only for Window
-    beidseitig: Boolean = false         // only for Window
+    beidseitig: Boolean = false,        // only for Window
+    // GEAK Plus economic columns (0 = use component-type default)
+    werterhalt: Double = 0.0,           // CHF like-for-like replacement cost
+    investition: Double = 0.0,          // CHF improvement measure cost
+    nutzungsdauer: Int = 0,             // component lifespan in years
+    rateKey: String = ""                // selected rate preset ("pvc","holz","einfach","aufwaendig") or ""
 ):
   /** Calculate total area from individual values */
   def calculateTotalArea: Double = area * quantity

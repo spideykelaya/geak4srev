@@ -150,6 +150,30 @@ export function findNearEdge(sx, sy) {
   return best;
 }
 
+/** Returns {polyIdx, edgeIdx, insertX, insertY} for the nearest polygon edge within
+ *  hitRadius screen pixels, projecting the click onto the edge in world coords.
+ *  Used for double-click vertex insertion. */
+export function findEdgeForInsert(sx, sy, hitRadius = EDGE_HIT_RADIUS) {
+  let best = null, bestD = hitRadius;
+  for (let pi = 0; pi < S.polygons.length; pi++) {
+    const pts = S.polygons[pi].points;
+    for (let ei = 0; ei < pts.length; ei++) {
+      const a = pts[ei], b = pts[(ei + 1) % pts.length];
+      const as = w2s(a.x, a.y), bs = w2s(b.x, b.y);
+      const dx_s = bs.x - as.x, dy_s = bs.y - as.y;
+      const lenSq_s = dx_s * dx_s + dy_s * dy_s;
+      if (lenSq_s === 0) continue;
+      const t = Math.max(0, Math.min(1, ((sx - as.x) * dx_s + (sy - as.y) * dy_s) / lenSq_s));
+      const d = Math.hypot(sx - (as.x + t * dx_s), sy - (as.y + t * dy_s));
+      if (d < bestD) {
+        bestD = d;
+        best = { polyIdx: pi, edgeIdx: ei, insertX: a.x + t * (b.x - a.x), insertY: a.y + t * (b.y - a.y) };
+      }
+    }
+  }
+  return best;
+}
+
 // ── Formatters ────────────────────────────────────────────────────────────────
 export function fmtArea(m2) {
   if (m2 === null) return '?';

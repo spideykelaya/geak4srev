@@ -2,7 +2,7 @@
 
 import { S, initDom, canvas, s2w, w2s, setMode, px2m2, pxVecToM, $, emitPolygonSyncEvent, emitPlansSyncEvent, EBF_LOAD_PLANS_EVENT } from './state.js';
 import { PDFJS_WORKER, SNAP_RADIUS }                      from './config.js';
-import { shoelace, findNearVertex, findNearEdge, dist, labelPoint, findPolygonAt, findNearMeasurement, findNearAnnotation, findWindowCenterMarker } from './geo.js';
+import { shoelace, findNearVertex, findNearEdge, findEdgeForInsert, dist, labelPoint, findPolygonAt, findNearMeasurement, findNearAnnotation, findWindowCenterMarker } from './geo.js';
 import { render }                                         from './render.js';
 import { updateSidebar, nextPolygonLabel, setSwitchPlanHandler, setCurrentAreaTypeLabel, colorForCurrentAreaType, getCurrentAreaTypeLabel, pasteFromClipboard, setSaveAnnotationsHandler } from './sidebar.js';
 import { loadPDF, loadPDFPages, loadImg, exportData, exportExcel, exportXML, importData, printView, loadImageFromDataUrl } from './io.js';
@@ -140,6 +140,7 @@ function bindUI(ownerDocument) {
   $('confirm-scale').addEventListener('click', confirmScale);
   $('cancel-scale').addEventListener('click', cancelCalibration);
   $('draw-btn').addEventListener('click', startDrawing);
+  $('measure-area-btn')?.addEventListener('click', startMeasureArea);
   $('measure-btn').addEventListener('click', startMeasuring);
   $('angle-btn').addEventListener('click', startAngling);
   $('wb-linear-btn')?.addEventListener('click', startWbMeasure);
@@ -714,9 +715,30 @@ function applyScaleStatus() {
 // ── Drawing actions ───────────────────────────────────────────────────────────
 function startDrawing() {
   if (!S.image) return;
+  S.drawMeasureArea = false;
   $('draw-btn').classList.remove('btn-highlight');
   S.current = []; setMode('draw');
   setInstructions('Klicken Sie, um Punkte hinzuzufügen – Doppelklick oder Klicken auf den ersten Punkt zum Beenden');
+}
+
+function startMeasureArea() {
+  if (!S.image) return;
+  S.drawMeasureArea = true;
+  S.current = []; setMode('draw');
+  setInstructions('Messpunkte hinzufügen – Doppelklick oder Klicken auf den ersten Punkt zum Beenden (wird nicht in Schritt 6 übernommen)');
+}
+
+/** Generates the next label for a measure-only polygon (M1, M2, …). */
+function nextMeasureAreaLabel() {
+  const allPolygons = S.plans.flatMap(plan =>
+    plan.id === S.activePlanId ? S.polygons : plan.polygons
+  );
+  const used = new Set(
+    allPolygons.filter(p => (p.areaType || '') === '__measure__').map(p => (p.label || '').trim())
+  );
+  let idx = 1;
+  while (used.has(`M${idx}`)) idx++;
+  return `M${idx}`;
 }
 
 function finishPolygon() {
@@ -724,11 +746,18 @@ function finishPolygon() {
   if (pts.length < 3) { S.current = []; setMode('idle'); setInstructions(''); render(); return; }
   const pixelArea = shoelace(pts);
   const id = S.nextId++;
-  const label = nextPolygonLabel();
-  S.polygons.push({ id, label, areaType: getCurrentAreaTypeLabel(), points: pts, color: colorForCurrentAreaType(), pixelArea, area: px2m2(pixelArea) });
+
+  const isMeasureOnly = S.drawMeasureArea;
+  S.drawMeasureArea = false;
+
+  const label    = isMeasureOnly ? nextMeasureAreaLabel() : nextPolygonLabel();
+  const areaType = isMeasureOnly ? '__measure__'          : getCurrentAreaTypeLabel();
+  const color    = isMeasureOnly ? '#94a3b8'              : colorForCurrentAreaType();
+
+  S.polygons.push({ id, label, areaType, points: pts, color, pixelArea, area: px2m2(pixelArea) });
   S.current = []; setMode('idle'); setInstructions('');
   updateSidebar(); render();
-  emitPolygonSyncEvent();
+  if (!isMeasureOnly) emitPolygonSyncEvent();  // measure-only polygons are not synced to Step 6
   saveCurrentPlanState();
   emitPlansSyncEvent();
 }
@@ -1194,11 +1223,15 @@ function onMouseMove(e) {
   }
 
   if (S.mode === 'idle' && !S.panning) {
-    const hovering = findNearVertex(sx, sy) || findNearLabel(sx, sy) !== null
+    const nearVtx = findNearVertex(sx, sy);
+    S.hoverEdge = findNearEdge(sx, sy);
+    const hovering = nearVtx !== null || findNearLabel(sx, sy) !== null
       || findNearAnnotation(sx, sy) !== null || findNearMeasurement(sx, sy) !== null
       || findPolygonAt(sx, sy) !== null;
-    canvas.style.cursor = hovering ? 'move' : 'grab';
-    S.hoverEdge = findNearEdge(sx, sy);
+    // 'cell' cursor on edge hover signals that double-click inserts a vertex
+    if (nearVtx !== null)       canvas.style.cursor = 'move';
+    else if (S.hoverEdge)       canvas.style.cursor = 'cell';
+    else                        canvas.style.cursor = hovering ? 'move' : 'grab';
   } else {
     S.hoverEdge = null;
   }
@@ -1246,6 +1279,51 @@ function onDblClick(e) {
   if (S.mode === 'idle') {
     const r  = canvas.getBoundingClientRect();
     const sx = e.clientX - r.left, sy = e.clientY - r.top;
+
+    // Collect all polygon vertices within SNAP_RADIUS of the click
+    const nearVtxs = [];
+    for (let pi = 0; pi < S.polygons.length; pi++) {
+      const pts = S.polygons[pi].points;
+      for (let vi = 0; vi < pts.length; vi++) {
+        const s = w2s(pts[vi].x, pts[vi].y);
+        if (Math.hypot(s.x - sx, s.y - sy) <= SNAP_RADIUS) nearVtxs.push({ polyIdx: pi, vtxIdx: vi });
+      }
+    }
+
+    if (nearVtxs.length >= 2) {
+      // Merge overlapping vertices from the same polygon into one
+      const byPoly = {};
+      for (const h of nearVtxs) (byPoly[h.polyIdx] ??= []).push(h.vtxIdx);
+      let merged = false;
+      for (const [piStr, idxs] of Object.entries(byPoly)) {
+        const pi = +piStr, poly = S.polygons[pi];
+        if (idxs.length < 2 || poly.points.length - idxs.length + 1 < 3) continue;
+        // Remove all but the lowest-index vertex; descending order keeps earlier indices valid
+        idxs.sort((a, b) => b - a);
+        for (let i = 0; i < idxs.length - 1; i++) poly.points.splice(idxs[i], 1);
+        poly.pixelArea = shoelace(poly.points);
+        poly.area = px2m2(poly.pixelArea);
+        merged = true;
+      }
+      if (merged) {
+        emitPolygonSyncEvent(); saveCurrentPlanState(); emitPlansSyncEvent();
+        updateSidebar(); render(); return;
+      }
+    }
+
+    if (nearVtxs.length === 0) {
+      // Insert a new vertex on the nearest edge (within SNAP_RADIUS)
+      const hit = findEdgeForInsert(sx, sy, SNAP_RADIUS);
+      if (hit !== null) {
+        const poly = S.polygons[hit.polyIdx];
+        poly.points.splice(hit.edgeIdx + 1, 0, { x: hit.insertX, y: hit.insertY });
+        poly.pixelArea = shoelace(poly.points);
+        poly.area = px2m2(poly.pixelArea);
+        emitPolygonSyncEvent(); saveCurrentPlanState(); emitPlansSyncEvent();
+        updateSidebar(); render(); return;
+      }
+    }
+
     const na = findNearAnnotation(sx, sy);
     if (na !== null) showAnnotationEditor(S.annotations[na].id, sx, sy);
   }

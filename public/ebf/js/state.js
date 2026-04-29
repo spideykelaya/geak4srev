@@ -31,6 +31,7 @@ export const S = {
   wbPersistentPoints:  [],  // permanent WB point markers: [{id, x, y}]
   nextWbLineId:        1,
   nextWbPointId:       1,
+  drawMeasureArea: false, // true while drawing a "Fläche messen" (measure-only) polygon
   dragVertex: null,    // {polyIdx, vtxIdx}
   dragPoly:       null,    // {polyIdx, startWX, startWY, origPoints, origLabelOffset}
   dragMeas:       null,    // {measIdx, startWX, startWY, origPt1, origPt2}
@@ -107,6 +108,7 @@ export function emitPolygonSyncEvent() {
   // Use the live S.polygons for the active plan so unsaved changes are included.
   const allRaw = S.plans.flatMap(plan =>
     (plan.id === S.activePlanId ? S.polygons : plan.polygons)
+      .filter(poly => (poly.areaType || '') !== '__measure__')  // exclude measure-only polygons
       .map(poly => {
         const inc = poly.inclination || 0;
         const raw = Number.isFinite(poly.area) ? poly.area : 0;

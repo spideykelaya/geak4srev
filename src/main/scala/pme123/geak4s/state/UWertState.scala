@@ -17,16 +17,28 @@ object UWertState:
   /** All window calculations for the current project */
   val windowCalculations: Var[List[WindowCalculation]] = Var(List.empty)
 
+  /** Incremented on every project load so that UWertView's split() gets new keys,
+   *  forcing full component recreation and preventing stale initialLayer/customMode state. */
+  val loadNonce: Var[Int] = Var(0)
+
   /** Counter for generating unique IDs */
   private var idCounter = 0
   private var windowIdCounter = 0
 
   /** Initialize state from project */
   def loadFromProject(project: GeakProject): Unit =
+    loadNonce.update(_ + 1)              // must come first — triggers split key invalidation
     calculations.set(project.uwertCalculations)
     windowCalculations.set(project.windowCalculations)
-    idCounter = project.uwertCalculations.length
-    windowIdCounter = project.windowCalculations.length
+    // Set idCounter to the highest numeric suffix in existing IDs (avoids collisions)
+    val maxId = project.uwertCalculations
+      .flatMap(c => c.id.split("-").lastOption.flatMap(_.toIntOption))
+      .maxOption.getOrElse(0)
+    idCounter = maxId
+    val maxWinId = project.windowCalculations
+      .flatMap(c => c.id.split("-").lastOption.flatMap(_.toIntOption))
+      .maxOption.getOrElse(0)
+    windowIdCounter = maxWinId
 
   /** Get current calculations to save to project */
   def getCalculations: List[UWertCalculation] =
