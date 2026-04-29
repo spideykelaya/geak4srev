@@ -93,6 +93,7 @@ object AppState:
   /** Project management */
   def createNewProject(): Unit =
     clearWip()
+    UndoState.clear()
     UWertState.clear()
     AreaState.clear()
     EbfState.clear()
@@ -113,6 +114,7 @@ object AppState:
     autoConnectToGoogleDrive()
 
   def loadProject(project: GeakProject, fileName: String): Unit =
+    UndoState.clear()   // loading a different project resets undo history
     projectState.set(ProjectState.Loaded(project, fileName))
     // Initialize U-Wert state from project
     UWertState.loadFromProject(project)
@@ -161,16 +163,37 @@ object AppState:
       case ProjectState.Loaded(project, _) => Some(project)
       case _ => None
   
-  /** Update current project (with auto-save trigger) */
+  /** Update current project (with auto-save trigger).
+   *  Pushes the current snapshot to UndoState before applying the change. */
   def updateProject(updater: GeakProject => GeakProject): Unit =
     projectState.now() match
       case ProjectState.Loaded(project, fileName) =>
         println(s"Updating project: ${project.project.projectName} - $fileName")
+        UndoState.push(project)   // snapshot before change
         val updated = updater(project)
         projectState.set(ProjectState.Loaded(updated, fileName))
         saveWip(updated, fileName)
         triggerAutoSave()
       case _ => // ignore if no project loaded
+
+  /** Undo the last change (Ctrl+Z / Cmd+Z).
+   *  Restores the previous GeakProject snapshot and re-syncs all sub-states.
+   *  Bypasses updateProject intentionally so the restore is not added to the undo stack. */
+  def undo(): Unit =
+    UndoState.pop().foreach { prev =>
+      projectState.now() match
+        case ProjectState.Loaded(_, fileName) =>
+          // Set state directly — no side effects inside Var.update, no undo-stack push
+          projectState.set(ProjectState.Loaded(prev, fileName))
+          saveWip(prev, fileName)
+          triggerAutoSave()
+          // Re-sync sub-states from the restored project
+          UWertState.loadFromProject(prev)
+          AreaState.loadFromProject(prev)
+          WaermebrueckeState.loadFromProject(prev)
+          EnergyState.loadFromProject(prev)
+        case _ => ()
+    }
 
   /** Enrich project with EBF plan images before export/file-write */
   def enrichProjectWithImages(project: GeakProject): GeakProject =

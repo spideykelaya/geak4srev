@@ -104,22 +104,26 @@ object AreaState:
       val syncedEntries = typePolygons.map { case (rawLabel, polygonArea, ovhDist, sdDist) =>
         existingEntries.find(e => e.kuerzel == rawLabel && !e.isManual) match
           case Some(current) =>
+            // Preserve areaNew / totalAreaNew if the user has manually changed them
+            // (detected by areaNew differing from the old area — i.e. no longer the polygon default).
+            val userEditedAreaNew = current.areaNew != current.area
+            val effectiveAreaNew  = if userEditedAreaNew then current.areaNew else polygonArea
             current.copy(
-              area = polygonArea,
-              totalArea = polygonArea * current.quantity,
-              areaNew = polygonArea,
-              totalAreaNew = polygonArea * current.quantityNew,
-              overhangDist   = ovhDist.getOrElse(current.overhangDist),
+              area            = polygonArea,
+              totalArea       = polygonArea * current.quantity,
+              areaNew         = effectiveAreaNew,
+              totalAreaNew    = effectiveAreaNew * current.quantityNew,
+              overhangDist    = ovhDist.getOrElse(current.overhangDist),
               sideShadingDist = sdDist.getOrElse(current.sideShadingDist)
             )
           case None =>
             AreaEntry.empty(rawLabel).copy(
-              area = polygonArea,
-              quantity = 1,
-              totalArea = polygonArea,
-              areaNew = polygonArea,
-              quantityNew = 1,
-              totalAreaNew = polygonArea,
+              area            = polygonArea,
+              quantity        = 1,
+              totalArea       = polygonArea,
+              areaNew         = polygonArea,
+              quantityNew     = 1,
+              totalAreaNew    = polygonArea,
               overhangDist    = ovhDist.getOrElse(0.0),
               sideShadingDist = sdDist.getOrElse(0.0)
             )
@@ -137,7 +141,8 @@ object AreaState:
       description: String,
       uValue: Option[Double],
       gValue: Option[Double],
-      glassRatio: Option[Double]
+      glassRatio: Option[Double],
+      bValue: Option[Double] = None
   ): Unit =
     areaCalculations.update { maybeArea =>
       maybeArea.map { area =>
@@ -149,7 +154,8 @@ object AreaState:
                 uwertId     = Some(uwertId),
                 uValue      = uValue,
                 gValue      = gValue,
-                glassRatio  = glassRatio
+                glassRatio  = glassRatio,
+                bValue      = bValue.orElse(entry.bValue)
               )
             else entry
           })

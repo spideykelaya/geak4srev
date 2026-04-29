@@ -4,9 +4,12 @@ import be.doeraene.webcomponents.ui5.*
 import be.doeraene.webcomponents.ui5.configkeys.*
 import com.raquo.laminar.api.L.{*, given}
 import org.scalajs.dom.{HTMLInputElement, KeyboardEvent}
+import org.scalajs.dom
+import scala.scalajs.js
 import pme123.geak4s.domain.area.*
-import pme123.geak4s.domain.uwert.ComponentType
+import pme123.geak4s.domain.uwert.{ComponentType, ComponentTypeDefaults}
 import pme123.geak4s.state.UWertState
+import pme123.geak4s.utils.ColorUtils
 
 /** Reusable area calculation table component Displays area entries for a specific category (EBF,
   * Dach, Wand, etc.)
@@ -47,7 +50,12 @@ object AreaCalculationTable:
           _.icon   := IconName.add,
           _.events.onClick.mapTo(()) --> Observer[Unit] { _ =>
             val currentEntries = entries.now()
-            val newEntries     = currentEntries :+ AreaEntry.empty().copy(isManual = true)
+            val d = ComponentTypeDefaults.get(category)
+            val newEntries     = currentEntries :+ AreaEntry.empty().copy(
+              isManual = true,
+              nutzungsdauer = d.nutzungsdauer,
+              investition   = d.investitionRate
+            )
             entries.set(newEntries)
             displayEntries.set(newEntries)  // Update display immediately
             onSave(category, newEntries)
@@ -93,6 +101,17 @@ object AreaCalculationTable:
             ),
             Option.when(componentType != ComponentType.EBF)(
               th(border := "1px solid #e0e0e0", padding := "0.5rem", backgroundColor := "#e8f4f8", "b-Wert [-]")
+            ),
+            Option.when(componentType != ComponentType.EBF)(
+              th(border := "1px solid #e0e0e0", padding := "0.5rem", backgroundColor := "#fef9c3", "Werterhalt [CHF/m²]")
+            ),
+            Option.when(componentType != ComponentType.EBF)(
+              th(border := "1px solid #e0e0e0", padding := "0.5rem", backgroundColor := "#fef9c3",
+                if componentType == ComponentType.Door then "Investition [CHF/Stk.]"
+                else "Investition [CHF/m²]")
+            ),
+            Option.when(componentType != ComponentType.EBF)(
+              th(border := "1px solid #e0e0e0", padding := "0.5rem", backgroundColor := "#fef9c3", "Nutzungsdauer [a]")
             ),
             Option.when(componentType == ComponentType.Window)(
               th(border := "1px solid #e0e0e0", padding := "0.5rem", backgroundColor := "#e8f4f8", "g-Wert [-]")
@@ -187,10 +206,14 @@ object AreaCalculationTable:
               }
             ),
 
-            // Empty cells for Beschrieb Neu, u-wert cols, optional Fenster shading cols, and Delete button
+            // Empty cells for Beschrieb Neu, u-wert cols, wirtschaftliche cols, optional Fenster shading cols, and Delete button
             td(border    := "1px solid #e0e0e0", padding := "0.5rem"),
             Option.when(componentType != ComponentType.EBF)(td(border := "1px solid #e0e0e0", padding := "0.5rem", backgroundColor := "#e8f4f8")),
             Option.when(componentType != ComponentType.EBF)(td(border := "1px solid #e0e0e0", padding := "0.5rem", backgroundColor := "#e8f4f8")),
+            // Werterhalt / Investition / Nutzungsdauer — no totals (rates per m², not absolute values)
+            Option.when(componentType != ComponentType.EBF)(td(border := "1px solid #e0e0e0", padding := "0.5rem", backgroundColor := "#fef9c3")),
+            Option.when(componentType != ComponentType.EBF)(td(border := "1px solid #e0e0e0", padding := "0.5rem", backgroundColor := "#fef9c3")),
+            Option.when(componentType != ComponentType.EBF)(td(border := "1px solid #e0e0e0", padding := "0.5rem", backgroundColor := "#fef9c3")),
             Option.when(componentType == ComponentType.Window)(td(border := "1px solid #e0e0e0", padding := "0.5rem", backgroundColor := "#e8f4f8")),
             Option.when(componentType == ComponentType.Window)(td(border := "1px solid #e0e0e0", padding := "0.5rem", backgroundColor := "#e8f4f8")),
             Option.when(componentType == ComponentType.Window)(td(border := "1px solid #e0e0e0", padding := "0.5rem", backgroundColor := "#fffde7")),
@@ -402,7 +425,7 @@ object AreaCalculationTable:
         )
       ),
 
-      // U-Wert / b-Wert / g-Wert / Glasanteil (read-only, from linked calculation)
+      // U-Wert (read-only, from linked calculation via description dropdown)
       Option.when(componentType != ComponentType.EBF)(
         td(
           border := "1px solid #e0e0e0", padding := "0.25rem", backgroundColor := "#e8f4f8", textAlign := "right",
@@ -419,6 +442,55 @@ object AreaCalculationTable:
           )
         )
       ),
+
+      // Werterhalt / Investition / Nutzungsdauer — editable, auto-filled from component defaults
+      Option.when(componentType != ComponentType.EBF)(
+        td(
+          border := "1px solid #e0e0e0", padding := "0.25rem", backgroundColor := "#fef9c3",
+          componentType match
+            case ComponentType.Window =>
+              // Fenster: dropdown PVC vs Holz-Metall (sets both Werterhalt + Investition)
+              renderRateDropdownCell(
+                displayEntry, index, dataEntries, componentType, onSave,
+                options = List("pvc" -> "PVC – 800 CHF/m²", "holz" -> "Holz-Metall – 1'000 CHF/m²"),
+                effectiveFn = ComponentTypeDefaults.effectiveWerterhalt
+              )
+            case _ =>
+              renderEconomicCell(displayEntry, index, dataEntries, componentType, onSave,
+                effectiveFn = ComponentTypeDefaults.effectiveWerterhalt,
+                isAutoComputed = e => e.rateKey.isEmpty && e.werterhalt == 0.0,
+                update = (e, v) => e.copy(werterhalt = v, rateKey = ""),
+                decimals = 0
+              )
+        )
+      ),
+      Option.when(componentType != ComponentType.EBF)(
+        td(
+          border := "1px solid #e0e0e0", padding := "0.25rem", backgroundColor := "#fef9c3",
+          componentType match
+            case ct if kellerwandTypes.contains(ct) =>
+              // Kellerwand: dropdown einfach vs aufwändig (sets Investition; Werterhalt bleibt 0)
+              renderRateDropdownCell(
+                displayEntry, index, dataEntries, componentType, onSave,
+                options = List("einfach" -> "Einfach – 150 CHF/m²", "aufwaendig" -> "Aufwändig – 200 CHF/m²"),
+                effectiveFn = ComponentTypeDefaults.effectiveInvestition
+              )
+            case _ =>
+              renderEconomicCell(displayEntry, index, dataEntries, componentType, onSave,
+                effectiveFn = ComponentTypeDefaults.effectiveInvestition,
+                isAutoComputed = e => e.rateKey.isEmpty && e.investition == 0.0,
+                update = (e, v) => e.copy(investition = v, rateKey = ""),
+                decimals = 0
+              )
+        )
+      ),
+      Option.when(componentType != ComponentType.EBF)(
+        td(
+          border := "1px solid #e0e0e0", padding := "0.25rem", backgroundColor := "#fef9c3",
+          renderNutzungsdauerCell(displayEntry, index, dataEntries, componentType, onSave)
+        )
+      ),
+
       Option.when(componentType == ComponentType.Window)(
         td(
           border := "1px solid #e0e0e0", padding := "0.25rem", backgroundColor := "#e8f4f8", textAlign := "right",
@@ -508,6 +580,14 @@ object AreaCalculationTable:
       )
     )
 
+  /** Dispatch geak:update-polygon-color event so the EBF canvas reflects the new U-value color. */
+  private def dispatchPolygonColorUpdate(kuerzel: String, color: String): Unit =
+    val detail = js.Dynamic.literal(label = kuerzel, color = color)
+    val init   = js.Dynamic.literal(detail = detail, bubbles = false, cancelable = false)
+    dom.window.dispatchEvent(
+      new dom.CustomEvent("geak:update-polygon-color", init.asInstanceOf[dom.CustomEventInit])
+    )
+
   private def renderDescriptionCell(
       displayEntry: AreaEntry,
       index: Int,
@@ -545,6 +625,12 @@ object AreaCalculationTable:
                     val newEntries = curr.updated(index, updated)
                     dataEntries.set(newEntries)
                     onSave(componentType, newEntries)
+                    // Sync color to floor plan canvas
+                    val allUVals = named.map(_.uValue)
+                    val color = matched
+                      .map(wc => ColorUtils.computeUWertColor(ComponentType.Window.polygonColor, wc.uValue, allUVals))
+                      .getOrElse(ComponentType.Window.polygonColor)
+                    dispatchPolygonColorUpdate(curr(index).kuerzel, color)
                 },
                 option(value := "", "– wählen –"),
                 named.map(wc => option(value := wc.label, wc.label))
@@ -562,7 +648,7 @@ object AreaCalculationTable:
                 val base  = if calc.label.nonEmpty then calc.label else calc.componentLabel
                 val label = if matching.length == 1 || calc.label.nonEmpty then base
                             else s"$base (${idx + 1})"
-                (calc.id, label, calc.sollCalculation.uValueWithoutB, calc.sollCalculation.bFactor)
+                (calc.id, label, calc.istCalculation.uValueWithoutB, calc.istCalculation.bFactor)
               }
               select(
                 width := "100%", padding := "0.25rem", border := "none",
@@ -580,6 +666,14 @@ object AreaCalculationTable:
                     val newEntries = curr.updated(index, updated)
                     dataEntries.set(newEntries)
                     onSave(componentType, newEntries)
+                    // Sync color to floor plan canvas (use IST values, consistent with EBFCalculatorView)
+                    val allUVals = calcs
+                      .filter(c => c.componentType == ct && c.componentLabel.nonEmpty)
+                      .map(_.istCalculation.uValueWithoutB)
+                    val color = matched
+                      .map { (_, _, uVal, _) => ColorUtils.computeUWertColor(ct.polygonColor, uVal, allUVals) }
+                      .getOrElse(ct.polygonColor)
+                    dispatchPolygonColorUpdate(curr(index).kuerzel, color)
                 },
                 option(value := "", "– wählen –"),
                 opts.map { (_, label, _, _) => option(value := label, label) }
@@ -719,6 +813,146 @@ object AreaCalculationTable:
           val entry      = currentEntries(index)
           val updated    = updateEntry(entry, numValue)
           val newEntries = currentEntries.updated(index, updated)
+          dataEntries.set(newEntries)
+          onSave(componentType, newEntries)
+      }
+    )
+
+  private val kellerwandTypes: Set[ComponentType] = Set(
+    ComponentType.BasementWallToEarth,
+    ComponentType.BasementWallToUnheated,
+    ComponentType.BasementWallToOutside,
+    ComponentType.BasementCeiling,
+    ComponentType.BasementFloor
+  )
+
+  /** Rate preset dropdown cell (Fenster Werterhalt, Kellerwand Investition).
+   *  Selecting a preset stores rateKey; the effective value is computed reactively from totalArea × rate.
+   *  Selecting "— auswählen —" clears rateKey (reverts to stored/default). */
+  private def renderRateDropdownCell(
+      displayEntry: AreaEntry,
+      index: Int,
+      dataEntries: Var[List[AreaEntry]],
+      componentType: ComponentType,
+      onSave: (ComponentType, List[AreaEntry]) => Unit,
+      options: List[(String, String)],     // (rateKey, display label)
+      effectiveFn: (AreaEntry, ComponentType) => Double
+  ): HtmlElement =
+    div(
+      display := "flex",
+      flexDirection := "column",
+      gap := "0.1rem",
+      // Preset dropdown
+      select(
+        fontSize := "0.8rem",
+        padding := "0.1rem 0.2rem",
+        border := "1px solid #ccc",
+        borderRadius := "3px",
+        width := "100%",
+        value <-- dataEntries.signal.map(es => if index < es.length then es(index).rateKey else ""),
+        onChange.mapToValue --> Observer[String] { selectedKey =>
+          val curr = dataEntries.now()
+          if index < curr.length then
+            val newEntries = curr.updated(index, curr(index).copy(
+              rateKey = selectedKey,
+              werterhalt = 0.0,   // cleared so effectiveX uses rateKey computation
+              investition = 0.0
+            ))
+            dataEntries.set(newEntries)
+            onSave(componentType, newEntries)
+        },
+        option(value := "", "— auswählen —"),
+        options.map { (key, label) => option(value := key, label) }
+      ),
+      // Computed CHF total shown below dropdown when a preset is active
+      child.text <-- dataEntries.signal.map { entries =>
+        if index < entries.length && entries(index).rateKey.nonEmpty then
+          val total = effectiveFn(entries(index), componentType)
+          if total != 0.0 then f"= CHF $total%.0f" else ""
+        else ""
+      }
+    )
+
+  /** Editable cell for Werterhalt or Investition.
+   *  Shows auto-computed default (grey/italic) when no explicit value and no rateKey is active.
+   *  Typing a value clears rateKey (preset dropdown resets to "— auswählen —"). */
+  private def renderEconomicCell(
+      displayEntry: AreaEntry,
+      index: Int,
+      dataEntries: Var[List[AreaEntry]],
+      componentType: ComponentType,
+      onSave: (ComponentType, List[AreaEntry]) => Unit,
+      effectiveFn: (AreaEntry, ComponentType) => Double,
+      isAutoComputed: AreaEntry => Boolean,   // true = showing default, not user-set
+      update: (AreaEntry, Double) => AreaEntry,
+      decimals: Int
+  ): HtmlElement =
+    val fmt = if decimals == 0 then (v: Double) => f"$v%.0f" else (v: Double) => f"$v%.2f"
+    input(
+      typ       := "text",
+      width     := "100%",
+      padding   := "0.25rem",
+      border    := "none",
+      textAlign := "right",
+      value <-- dataEntries.signal.map { entries =>
+        if index < entries.length then
+          val effective = effectiveFn(entries(index), componentType)
+          if effective != 0.0 then fmt(effective) else ""
+        else ""
+      },
+      color <-- dataEntries.signal.map { entries =>
+        if index < entries.length && isAutoComputed(entries(index)) then "#999" else "inherit"
+      },
+      fontStyle <-- dataEntries.signal.map { entries =>
+        if index < entries.length && isAutoComputed(entries(index)) then "italic" else "normal"
+      },
+      onBlur --> Observer[org.scalajs.dom.FocusEvent] { event =>
+        val inputEl = event.target.asInstanceOf[org.scalajs.dom.HTMLInputElement]
+        val raw = inputEl.value.replace("'", "").replace(",", ".").trim
+        val numValue = raw.toDoubleOption.getOrElse(0.0)
+        val curr = dataEntries.now()
+        if index < curr.length then
+          val base = curr(index).copy(rateKey = "")
+          val newEntries = curr.updated(index, update(base, numValue))
+          dataEntries.set(newEntries)
+          onSave(componentType, newEntries)
+      }
+    )
+
+  /** Editable cell for Nutzungsdauer with auto-fill from ComponentTypeDefaults.
+   *  stored == 0 → display computed default (grey/italic); stored != 0 → display stored (normal). */
+  private def renderNutzungsdauerCell(
+      displayEntry: AreaEntry,
+      index: Int,
+      dataEntries: Var[List[AreaEntry]],
+      componentType: ComponentType,
+      onSave: (ComponentType, List[AreaEntry]) => Unit
+  ): HtmlElement =
+    input(
+      typ       := "text",
+      width     := "100%",
+      padding   := "0.25rem",
+      border    := "none",
+      textAlign := "right",
+      value <-- dataEntries.signal.map { entries =>
+        if index < entries.length then
+          ComponentTypeDefaults.effectiveNutzungsdauer(entries(index), componentType).toString
+        else ""
+      },
+      color <-- dataEntries.signal.map { entries =>
+        if index < entries.length && entries(index).nutzungsdauer == 0 then "#999"
+        else "inherit"
+      },
+      fontStyle <-- dataEntries.signal.map { entries =>
+        if index < entries.length && entries(index).nutzungsdauer == 0 then "italic"
+        else "normal"
+      },
+      onBlur --> Observer[org.scalajs.dom.FocusEvent] { event =>
+        val inputEl = event.target.asInstanceOf[org.scalajs.dom.HTMLInputElement]
+        val numValue = inputEl.value.trim.toIntOption.getOrElse(0)
+        val curr = dataEntries.now()
+        if index < curr.length then
+          val newEntries = curr.updated(index, curr(index).copy(nutzungsdauer = numValue))
           dataEntries.set(newEntries)
           onSave(componentType, newEntries)
       }

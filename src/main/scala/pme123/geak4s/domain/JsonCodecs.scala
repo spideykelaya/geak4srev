@@ -131,10 +131,24 @@ object JsonCodecs:
   given Decoder[BuildingComponent] = deriveDecoder[BuildingComponent]
 
   given Encoder[MaterialLayer] = deriveEncoder[MaterialLayer]
-  given Decoder[MaterialLayer] = deriveDecoder[MaterialLayer]
+  given Decoder[MaterialLayer] = Decoder.instance { c =>
+    for
+      nr          <- c.get[Int]("nr")
+      description <- c.getOrElse[String]("description")("")
+      thickness   <- c.getOrElse[Double]("thickness")(0.0)
+      lambda      <- c.getOrElse[Double]("lambda")(0.0)
+      isEditable  <- c.getOrElse[Boolean]("isEditable")(true)
+    yield MaterialLayer(nr, description, thickness, lambda, isEditable)
+  }
 
   given Encoder[UWertTableData] = deriveEncoder[UWertTableData]
-  given Decoder[UWertTableData] = deriveDecoder[UWertTableData]
+  given Decoder[UWertTableData] = Decoder.instance { c =>
+    for
+      materials            <- c.getOrElse[List[MaterialLayer]]("materials")(List.empty)
+      bFactor              <- c.getOrElse[Double]("bFactor")(1.0)
+      directUValueWithoutB <- c.getOrElse[Option[Double]]("directUValueWithoutB")(None)
+    yield UWertTableData(materials, bFactor, directUValueWithoutB)
+  }
 
   given Encoder[UWertCalculation] = deriveEncoder[UWertCalculation]
   given Decoder[UWertCalculation] = Decoder.instance { c =>
@@ -146,7 +160,8 @@ object JsonCodecs:
       bWertName       <- c.getOrElse[Option[String]]("bWertName")(None)
       istCalculation  <- c.getOrElse[UWertTableData]("istCalculation")(UWertTableData.empty)
       sollCalculation <- c.getOrElse[UWertTableData]("sollCalculation")(UWertTableData.empty)
-    yield UWertCalculation(id, label, componentLabel, componentType, bWertName, istCalculation, sollCalculation)
+      isDirectInput   <- c.getOrElse[Boolean]("isDirectInput")(false)
+    yield UWertCalculation(id, label, componentLabel, componentType, bWertName, istCalculation, sollCalculation, isDirectInput)
   }
 
   given Encoder[WindowCalculation] = deriveEncoder[WindowCalculation]
@@ -196,7 +211,11 @@ object JsonCodecs:
       gValue          <- c.getOrElse[Option[Double]]("gValue")(None)
       glassRatio      <- c.getOrElse[Option[Double]]("glassRatio")(None)
       beidseitig      <- c.getOrElse[Boolean]("beidseitig")(false)
-    yield AreaEntry(kuerzel, orientation, description, length, width, area, quantity, totalArea, areaNew, quantityNew, totalAreaNew, descriptionNew, isManual, overhang, overhangDist, sideShading, sideShadingDist, uwertId, uValue, bValue, gValue, glassRatio, beidseitig)
+      werterhalt      <- c.getOrElse[Double]("werterhalt")(0.0)
+      investition     <- c.getOrElse[Double]("investition")(0.0)
+      nutzungsdauer   <- c.getOrElse[Int]("nutzungsdauer")(0)
+      rateKey         <- c.getOrElse[String]("rateKey")("")
+    yield AreaEntry(kuerzel, orientation, description, length, width, area, quantity, totalArea, areaNew, quantityNew, totalAreaNew, descriptionNew, isManual, overhang, overhangDist, sideShading, sideShadingDist, uwertId, uValue, bValue, gValue, glassRatio, beidseitig, werterhalt, investition, nutzungsdauer, rateKey)
   }
 
   given Encoder[AreaCalculation] = deriveEncoder[AreaCalculation]

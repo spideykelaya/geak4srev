@@ -25,6 +25,20 @@ object WorkflowView:
     div(
       className := "workflow-view",
 
+      // Global Ctrl+Z / Cmd+Z undo handler.
+      // Skipped when focus is in an input/textarea/select so the browser's
+      // native text-undo still works for individual fields.
+      windowEvents(_.onKeyDown)
+        .filter(e => (e.ctrlKey || e.metaKey) && e.key == "z" && !e.shiftKey)
+        .filter { e =>
+          val tag = e.target.asInstanceOf[org.scalajs.dom.Element].tagName.toLowerCase
+          tag != "input" && tag != "textarea" && tag != "select"
+        }
+        --> Observer[org.scalajs.dom.KeyboardEvent] { e =>
+          e.preventDefault()
+          AppState.undo()
+        },
+
       // Top bar with progress and actions
       topBar(projectSignal),
 

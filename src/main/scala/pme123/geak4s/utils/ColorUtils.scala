@@ -48,14 +48,16 @@ object ColorUtils:
 
   /**
    * Returns an adjusted color for a specific U-Wert value.
-   * Smallest U-Wert → lightest (L=0.82), largest → darkest (L=0.32).
+   * Uses index-based (rank) distribution so that even similar U-values get clearly
+   * distinct lightness levels — ensures visual separability regardless of value gaps.
+   * Smallest U-Wert (rank 0) → lightest (L=0.82), largest → darkest (L=0.32).
    * If only one distinct value exists, returns the base color unchanged.
    */
   def computeUWertColor(baseHex: String, uValue: Double, allUValues: Seq[Double]): String =
     val sorted = allUValues.distinct.sorted
-    if sorted.size <= 1 then baseHex
-    else
-      val minU  = sorted.head
-      val maxU  = sorted.last
-      val t     = if maxU == minU then 0.5 else (uValue - minU) / (maxU - minU)
-      withLightness(baseHex, 0.82 - t * 0.50)
+    sorted.size match
+      case 0 | 1 => baseHex
+      case n =>
+        val idx = sorted.zipWithIndex.minBy { case (v, _) => math.abs(v - uValue) }._2
+        val t   = idx.toDouble / (n - 1)
+        withLightness(baseHex, 0.82 - t * 0.50)

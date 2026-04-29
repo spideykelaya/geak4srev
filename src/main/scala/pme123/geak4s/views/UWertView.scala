@@ -23,10 +23,15 @@ object UWertView:
           className    := "card-content",
           padding      := "1.5rem",
 
-          // Render all calculation tables with stable keys
-          children <-- UWertState.calculations.signal.split(_.id) { (id, initialCalc, _) =>
-            UWertCalculationTable(id, initialCalc.isDirectInput)
-          },
+          // Compound key: loadNonce prefix + calc id.
+          // When a project is loaded, loadNonce changes → all split keys become new →
+          // Laminar recreates every component with fresh initialLayer/customMode state.
+          children <-- UWertState.calculations.signal
+            .combineWith(UWertState.loadNonce.signal)
+            .map { (calcs, nonce) => calcs.map(c => (s"${nonce}_${c.id}", c)) }
+            .split(_._1) { (_, initial, _) =>
+              UWertCalculationTable(initial._2.id, initial._2.isDirectInput)
+            },
 
           // Add calculation button
           div(

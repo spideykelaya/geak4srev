@@ -174,6 +174,7 @@ object EBFSidebarView:
       display := "none",
       div(className := "section-label", "Werkzeuge"),
       button(className := "btn btn-success btn-draw-main", idAttr := "draw-btn", "Neues Polygon"),
+      button(className := "btn btn-measure-area", idAttr := "measure-area-btn", "Fläche messen"),
       button(className := "btn btn-measure", idAttr := "measure-btn", "Distanz messen"),
       button(className := "btn btn-angle", idAttr := "angle-btn", "Winkel messen"),
       button(className := "btn btn-text", idAttr := "text-btn", "Kommentar"),

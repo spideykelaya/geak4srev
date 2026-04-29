@@ -37,6 +37,14 @@ object WelcomeView:
       case Left(err) =>
         jsonError.set(Some(s"Ungültige JSON-Datei: ${err.getMessage.take(120)}"))
 
+  /** Try to load the last work-in-progress project from localStorage. */
+  private def loadWipFromStorage(): Option[(GeakProject, String)] =
+    for
+      fileName <- Option(dom.window.localStorage.getItem(AppState.WIP_FILE_KEY)).filter(_.nonEmpty)
+      json     <- Option(dom.window.localStorage.getItem(AppState.WIP_KEY)).filter(_.nonEmpty)
+      project  <- decode[GeakProject](json).toOption
+    yield (project, fileName)
+
   def apply(): HtmlElement =
     val errorMessage    = Var[Option[String]](None)
     val isLoading       = Var(false)
@@ -44,6 +52,39 @@ object WelcomeView:
     val showDialog      = Var(false)
     val newProjNummer   = Var("")
     val newProjAdresse  = Var("")
+
+    // Compute WIP restore card once at render time (localStorage is synchronous)
+    val wipRestoreCard: HtmlElement = loadWipFromStorage() match
+      case None => div(display := "none")
+      case Some((project, fileName)) =>
+        val displayName = project.project.projectName.trim match
+          case n if n.nonEmpty => n
+          case _               => fileName
+        Card(
+          _.slots.header := CardHeader(
+            _.titleText    := "Letztes Projekt fortsetzen",
+            _.subtitleText := displayName,
+            _.slots.avatar := Icon(_.name := IconName.`history`)
+          ),
+          div(
+            className := "card-content",
+            Label(
+              _.wrappingType := WrappingType.Normal,
+              "Zuvor bearbeitetes Projekt aus dem lokalen Arbeitsspeicher wiederherstellen."
+            ),
+            div(
+              className := "card-actions",
+              Button(
+                _.design := ButtonDesign.Emphasized,
+                _.icon   := IconName.`play`,
+                _.events.onClick.mapTo(()) --> Observer[Unit] { _ =>
+                  AppState.loadProject(project, fileName)
+                },
+                "Fortsetzen"
+              )
+            )
+          )
+        )
 
     def confirmNewProject(): Unit =
       val nummer  = newProjNummer.now().trim
@@ -182,6 +223,9 @@ object WelcomeView:
       div(
         className := "welcome-actions",
 
+        // WIP restore card (only rendered when localStorage has a saved project)
+        wipRestoreCard,
+
         // New Project Card
         Card(
           _.slots.header := CardHeader(
@@ -267,7 +311,7 @@ object WelcomeView:
                     val acceptObj = js.Object().asInstanceOf[js.Dynamic]
                     acceptObj.updateDynamic("application/json")(js.Array(".json"))
                     val typeItem = js.Dynamic.literal(description = "GEAK JSON Projektdatei", accept = acceptObj)
-                    val opts = js.Dynamic.literal(types = js.Array(typeItem), multiple = false)
+                    val opts = js.Dynamic.literal(types = js.Array(typeItem), multiple = false, mode = "readwrite")
 
                     val onHandles: js.Function1[js.Any, Unit] = handles =>
                       val arr = handles.asInstanceOf[js.Array[js.Dynamic]]

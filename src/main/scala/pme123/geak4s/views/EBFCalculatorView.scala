@@ -33,7 +33,8 @@ object EBFCalculatorView:
     uValue: Double,
     gValue: Option[Double],
     glassRatio: Option[Double],
-    adjustedColor: String
+    adjustedColor: String,
+    bValue: Option[Double]
   )
 
   private case class PendingAssignment(
@@ -81,7 +82,8 @@ object EBFCalculatorView:
             uValue       = wc.uValue,
             gValue       = Some(wc.gValue),
             glassRatio   = Some(wc.glassRatio),
-            adjustedColor = ColorUtils.computeUWertColor(baseColor, wc.uValue, allUVals)
+            adjustedColor = ColorUtils.computeUWertColor(baseColor, wc.uValue, allUVals),
+            bValue       = None
           )
         }
       else
@@ -92,10 +94,11 @@ object EBFCalculatorView:
           UWertOption(
             id           = calc.id,
             displayLabel = calc.label,
-            uValue       = calc.istCalculation.uValue,
+            uValue       = calc.istCalculation.uValueWithoutB,
             gValue       = None,
             glassRatio   = None,
-            adjustedColor = ColorUtils.computeUWertColor(baseColor, calc.istCalculation.uValue, allUVals)
+            adjustedColor = ColorUtils.computeUWertColor(baseColor, calc.istCalculation.uValue, allUVals),
+            bValue       = Some(calc.istCalculation.bFactor)
           )
         }
     if options.size >= 2 then Some(PendingAssignment(polygonLabel, options)) else None
@@ -294,7 +297,7 @@ object EBFCalculatorView:
                     styleAttr := s"padding: 10px 14px; font-size: 13px; font-weight: 600; background: ${opt.adjustedColor}; color: #111; border: none; border-radius: 8px; cursor: pointer; text-align: left;",
                     s"${opt.displayLabel}  (${f"${opt.uValue}%.2f"} W/m²K)",
                     onClick --> { _ =>
-                      AreaState.linkUWert(polygonLabel, opt.id, opt.displayLabel, Some(opt.uValue), opt.gValue, opt.glassRatio)
+                      AreaState.linkUWert(polygonLabel, opt.id, opt.displayLabel, Some(opt.uValue), opt.gValue, opt.glassRatio, opt.bValue)
                       AppState.saveAreaCalculations()
                       val detail = js.Dynamic.literal(label = polygonLabel, color = opt.adjustedColor)
                       val init   = js.Dynamic.literal(detail = detail, bubbles = false, cancelable = false)
