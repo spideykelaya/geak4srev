@@ -311,20 +311,31 @@ object WelcomeView:
                     val acceptObj = js.Object().asInstanceOf[js.Dynamic]
                     acceptObj.updateDynamic("application/json")(js.Array(".json"))
                     val typeItem = js.Dynamic.literal(description = "GEAK JSON Projektdatei", accept = acceptObj)
-                    val opts = js.Dynamic.literal(types = js.Array(typeItem), multiple = false, mode = "readwrite")
+                    // Note: no 'mode' option here — 'mode' is not a valid showOpenFilePicker parameter
+                    // and causes Chrome to reject the call silently. Write access is requested below.
+                    val opts = js.Dynamic.literal(types = js.Array(typeItem), multiple = false)
 
                     val onHandles: js.Function1[js.Any, Unit] = handles =>
                       val arr = handles.asInstanceOf[js.Array[js.Dynamic]]
                       if arr.length > 0 then
                         val handle = arr(0)
-                        val onFile: js.Function1[js.Any, Unit] = file =>
-                          val reader = new dom.FileReader()
-                          reader.onload = _ =>
-                            val text = reader.result.asInstanceOf[String]
-                            val name = file.asInstanceOf[js.Dynamic].name.asInstanceOf[String]
-                            loadProjectFromText(text, name, Some(handle), jsonError)
-                          reader.readAsText(file.asInstanceOf[dom.Blob])
-                        handle.getFile().asInstanceOf[js.Dynamic].`then`(onFile)
+                        // After file selection, explicitly ask for write permission (shows browser prompt).
+                        // This is the "Darf diese Seite Änderungen speichern?" prompt the user sees.
+                        val readFile: js.Function0[Unit] = () =>
+                          val onFile: js.Function1[js.Any, Unit] = file =>
+                            val reader = new dom.FileReader()
+                            reader.onload = _ =>
+                              val text = reader.result.asInstanceOf[String]
+                              val name = file.asInstanceOf[js.Dynamic].name.asInstanceOf[String]
+                              loadProjectFromText(text, name, Some(handle), jsonError)
+                            reader.readAsText(file.asInstanceOf[dom.Blob])
+                          handle.getFile().asInstanceOf[js.Dynamic].`then`(onFile)
+                        if js.typeOf(handle.requestPermission) == "function" then
+                          val done: js.Function1[js.Any, Unit] = _ => readFile()
+                          handle.requestPermission(js.Dynamic.literal(mode = "readwrite"))
+                            .asInstanceOf[js.Dynamic].`then`(done, done)
+                        else
+                          readFile()
 
                     val onCancel: js.Function1[js.Any, Unit] = _ => () // user dismissed
                     win.showOpenFilePicker(opts).asInstanceOf[js.Dynamic].`then`(onHandles, onCancel)
