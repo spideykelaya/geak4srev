@@ -34,7 +34,7 @@ export function pasteFromClipboard() {
     S.polygons.push({
       ...src,
       id: S.nextId++,
-      label: createUniquePolygonLabel(src.label),
+      label: src.label, // keep original label — Step 6 increments quantity instead of adding a new row
       points: pts,
       pixelArea,
       area: px2m2(pixelArea),
@@ -321,7 +321,7 @@ function updatePolygonList() {
     const del = document.createElement('button');
     del.className = 'btn-delete'; del.textContent = '\u00d7'; del.title = 'Löschen';
     del.onclick = () => {
-      S.polygons = S.polygons.filter(p => p.label !== poly.label);
+      S.polygons = S.polygons.filter(p => p.id !== poly.id);
       updateSidebar(); render();
       emitPolygonSyncEvent();
       emitPlansSyncEvent();
