@@ -35,7 +35,8 @@ case class AreaEntry(
     werterhalt: Double = 0.0,           // CHF like-for-like replacement cost
     investition: Double = 0.0,          // CHF improvement measure cost
     nutzungsdauer: Int = 0,             // component lifespan in years
-    rateKey: String = ""                // selected rate preset ("pvc","holz","einfach","aufwaendig") or ""
+    rateKey: String = "",               // selected rate preset ("pvc","holz","einfach","aufwaendig") or ""
+    installedIn: Option[String] = None  // for Window/Door: label of the wall/roof the element is installed in
 ):
   /** Calculate total area from individual values */
   def calculateTotalArea: Double = area * quantity

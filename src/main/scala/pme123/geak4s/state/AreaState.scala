@@ -42,6 +42,28 @@ object AreaState:
   def initializeEmpty(): Unit =
     areaCalculations.set(Some(BuildingEnvelopeArea.empty))
 
+  /** When a wall/roof entry's orientation changes, cascade it to all windows
+    * whose installedIn references that entry. */
+  private def cascadeOrientationToWindows(): Unit =
+    areaCalculations.update { maybeArea =>
+      maybeArea.map { area =>
+        val wallOrientationByLabel: Map[String, String] = area.calculations
+          .filterNot(_.componentType == ComponentType.Window)
+          .flatMap(_.entries.map(e => e.kuerzel -> e.orientation))
+          .toMap
+        val updatedCalcs = area.calculations.map { calc =>
+          if calc.componentType != ComponentType.Window then calc
+          else calc.copy(entries = calc.entries.map { e =>
+            e.installedIn
+              .flatMap(wallOrientationByLabel.get)
+              .filter(_.nonEmpty)
+              .fold(e)(o => e.copy(orientation = o))
+          })
+        }
+        area.copy(calculations = updatedCalcs)
+      }
+    }
+
   /** Update area calculation for a specific component type.
    *  syncEbfToWordForm: set to true only when called from Step 6 (manual table edits). */
   def updateAreaCalculation(
@@ -53,6 +75,9 @@ object AreaState:
       val area = maybeArea.getOrElse(BuildingEnvelopeArea.empty)
       val calculation = AreaCalculation(componentType, entries)
       Some(area.update(calculation))
+    // If a wall/roof was updated, cascade orientation changes to assigned windows
+    if componentType != ComponentType.Window && componentType != ComponentType.EBF then
+      cascadeOrientationToWindows()
     if componentType == ComponentType.EBF then
       val totalEbf    = entries.map(_.totalArea).sum
       val rounded = math.round(totalEbf).toDouble
@@ -80,7 +105,26 @@ object AreaState:
     * Groups polygons by label prefix, routes each group to the matching ComponentType.
     * Preserves manually-set fields (quantity, orientation) for matching labels.
     */
-  def syncPolygons(polygons: Seq[(String, String, Double, Option[Double], Option[Double])]): Unit =
+  /** Update the orientation of a single entry (called from the U-Wert popup). */
+  def updateOrientation(kuerzel: String, orientation: String): Unit =
+    if orientation.nonEmpty then
+      areaCalculations.update { maybeArea =>
+        maybeArea.map { area =>
+          val updated = area.calculations.map { calc =>
+            calc.copy(entries = calc.entries.map { entry =>
+              if entry.kuerzel == kuerzel then entry.copy(orientation = orientation) else entry
+            })
+          }
+          area.copy(calculations = updated)
+        }
+      }
+
+  /** @param installedInMap optional map from polygon label → containing wall/roof label
+    *                       (detected geometrically on the canvas side) */
+  def syncPolygons(
+    polygons: Seq[(String, String, Double, Option[Double], Option[Double])],
+    installedInMap: Map[String, Option[String]] = Map.empty
+  ): Unit =
     val normalized = polygons
       .map((label, areaType, area, ovhDist, sdDist) => (label.trim, areaType.trim, if area.isNaN || area < 0 then 0.0 else area, ovhDist, sdDist))
       .filter(_._1.nonEmpty)
@@ -118,44 +162,82 @@ object AreaState:
       val defaults = pme123.geak4s.domain.uwert.ComponentTypeDefaults.get(compType)
       val isWindow = compType == ComponentType.Window
 
-      val syncedEntries = typePolygons.map { case (rawLabel, polygonArea, ovhDist, sdDist) =>
+      // Group polygons by label so that duplicate labels (copy-pasted windows) become
+      // a single row in Step 6 with quantity = number of canvas polygons.
+      val labelOrder = typePolygons.map(_._1).toList.distinct
+      val grouped    = typePolygons.groupBy(_._1)
+      val syncedEntries = labelOrder.map { rawLabel =>
+        val labelPolygons = grouped(rawLabel)
+        val polygonArea   = labelPolygons.head._2
+        val polyCount     = labelPolygons.length
+        val ovhDist       = labelPolygons.head._3
+        val sdDist        = labelPolygons.head._4
         existingEntries.find(e => e.kuerzel == rawLabel && !e.isManual) match
           case Some(current) =>
-            // Preserve areaNew / totalAreaNew if the user has manually changed them
+            // Preserve areaNew if the user has manually changed it
             // (detected by areaNew differing from the old area — i.e. no longer the polygon default).
             val userEditedAreaNew = current.areaNew != current.area
             val effectiveAreaNew  = if userEditedAreaNew then current.areaNew else polygonArea
+            // Preserve quantityNew if the user has manually changed it relative to old quantity.
+            val userEditedQtyNew  = current.quantityNew != current.quantity
+            val effectiveQtyNew   = if userEditedQtyNew then current.quantityNew else polyCount
             current.copy(
               area            = polygonArea,
-              totalArea       = polygonArea * current.quantity,
+              quantity        = polyCount,
+              totalArea       = polygonArea * polyCount,
               areaNew         = effectiveAreaNew,
-              totalAreaNew    = effectiveAreaNew * current.quantityNew,
+              quantityNew     = effectiveQtyNew,
+              totalAreaNew    = effectiveAreaNew * effectiveQtyNew,
               overhangDist    = ovhDist.getOrElse(current.overhangDist),
               sideShadingDist = sdDist.getOrElse(current.sideShadingDist),
               // Backfill real defaults for entries that still carry the zero sentinel
               investition   = if current.investition == 0.0 && current.rateKey.isEmpty then defaults.investitionRate else current.investition,
               nutzungsdauer = if current.nutzungsdauer == 0 then defaults.nutzungsdauer else current.nutzungsdauer,
-              horizont      = if isWindow && current.horizont == 0.0 then 30.0 else current.horizont
+              horizont      = if isWindow && current.horizont == 0.0 then 30.0 else current.horizont,
+              // Canvas-detected containment takes priority; fall back to existing user value
+              installedIn   = installedInMap.get(rawLabel).flatten.orElse(current.installedIn)
             )
           case None =>
             AreaEntry.empty(rawLabel).copy(
               area            = polygonArea,
-              quantity        = 1,
-              totalArea       = polygonArea,
+              quantity        = polyCount,
+              totalArea       = polygonArea * polyCount,
               areaNew         = polygonArea,
-              quantityNew     = 1,
-              totalAreaNew    = polygonArea,
+              quantityNew     = polyCount,
+              totalAreaNew    = polygonArea * polyCount,
               overhangDist    = ovhDist.getOrElse(0.0),
               sideShadingDist = sdDist.getOrElse(0.0),
               investition     = defaults.investitionRate,
               nutzungsdauer   = defaults.nutzungsdauer,
-              horizont        = if isWindow then 30.0 else 0.0
+              horizont        = if isWindow then 30.0 else 0.0,
+              installedIn     = installedInMap.get(rawLabel).flatten
             )
-      }.toList
+      }
 
       // Manual entries for this type are preserved alongside polygon-derived ones
       val manualEntries = existingEntries.filter(_.isManual)
       updateAreaCalculation(compType, syncedEntries ++ manualEntries)
+    }
+
+    // Second pass: for windows with installedIn set but no orientation,
+    // auto-fill orientation from the referenced wall/roof entry.
+    areaCalculations.update { maybeArea =>
+      maybeArea.map { area =>
+        val wallOrientationByLabel: Map[String, String] = area.calculations
+          .filterNot(_.componentType == ComponentType.Window)
+          .flatMap(_.entries.map(e => e.kuerzel -> e.orientation))
+          .toMap
+        val updatedCalcs = area.calculations.map { calc =>
+          if calc.componentType != ComponentType.Window then calc
+          else calc.copy(entries = calc.entries.map { e =>
+            if e.orientation.nonEmpty || e.installedIn.isEmpty then e
+            else
+              val wallOrientation = e.installedIn.flatMap(wallOrientationByLabel.get).filter(_.nonEmpty)
+              wallOrientation.fold(e)(o => e.copy(orientation = o))
+          })
+        }
+        area.copy(calculations = updatedCalcs)
+      }
     }
 
   /** Link a U-Wert calculation to a polygon entry by kuerzel */

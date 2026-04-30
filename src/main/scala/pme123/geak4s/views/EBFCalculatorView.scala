@@ -39,10 +39,30 @@ object EBFCalculatorView:
 
   private case class PendingAssignment(
     polygonLabel: String,
+    compType: ComponentType,
     options: Seq[UWertOption]
   )
 
-  private def decodePolygons(event: dom.Event): Seq[(String, String, Double, Option[Double], Option[Double])] =
+  private case class PolygonSyncEntry(
+    label: String,
+    areaType: String,
+    area: Double,
+    overhangDist: Option[Double],
+    sideShadingDist: Option[Double],
+    installedIn: Option[String]
+  )
+
+  // Types for which the orientation popup is shown (wall and roof types that have an orientation column)
+  private val orientationPopupTypes: Set[ComponentType] = Set(
+    ComponentType.PitchedRoof,
+    ComponentType.ExteriorWall,
+    ComponentType.BasementWallToEarth,
+    ComponentType.BasementWallToUnheated,
+    ComponentType.BasementWallToOutside,
+    ComponentType.Door
+  )
+
+  private def decodePolygons(event: dom.Event): Seq[PolygonSyncEntry] =
     val payload = event.asInstanceOf[dom.CustomEvent].detail.asInstanceOf[js.Array[js.Dynamic]]
     payload.toSeq.flatMap { item =>
       val rawLabel = item.selectDynamic("label")
@@ -64,9 +84,16 @@ object EBFCalculatorView:
           else
             val d = js.Dynamic.global.Number(raw).asInstanceOf[Double]
             if d.isNaN then None else Some(d)
+        def decodeOptString(field: String): Option[String] =
+          val raw = item.selectDynamic(field)
+          if js.isUndefined(raw) || raw == null then None
+          else
+            val s = raw.toString.trim
+            if s.isEmpty || s == "null" then None else Some(s)
         val overhangDist = decodeOptDouble("overhangDist")
         val sideDist     = decodeOptDouble("sideDist")
-        Some((label, areaType, area, overhangDist, sideDist))
+        val installedIn  = decodeOptString("installedIn")
+        Some(PolygonSyncEntry(label, areaType, area, overhangDist, sideDist, installedIn))
     }
 
   private def buildPendingAssignment(polygonLabel: String, compType: ComponentType): Option[PendingAssignment] =
@@ -101,7 +128,10 @@ object EBFCalculatorView:
             bValue       = Some(calc.istCalculation.bFactor)
           )
         }
-    if options.size >= 2 then Some(PendingAssignment(polygonLabel, options)) else None
+    // Show popup if ≥1 U-Wert options, OR if this type benefits from orientation selection in the popup
+    if options.size >= 1 || orientationPopupTypes.contains(compType) then
+      Some(PendingAssignment(polygonLabel, compType, options))
+    else None
 
   def apply(): HtmlElement =
     var unmountHandle:          Option[js.Function0[Unit]]            = None
@@ -124,9 +154,10 @@ object EBFCalculatorView:
         // ── polygon sync → AreaState ──
         val polyListener: js.Function1[dom.Event, Unit] = (event: dom.Event) =>
           val polygons      = decodePolygons(event)
-          val currentLabels = polygons.map(_._1).toSet
-          dom.console.log(s"[AreaState] polygon-sync received ${polygons.length}: ${polygons.map((l,t,a,_,_) => s"$l($t)=%.2f".format(a)).mkString(", ")}")
-          AreaState.syncPolygons(polygons)
+          val currentLabels = polygons.map(_.label).toSet
+          dom.console.log(s"[AreaState] polygon-sync received ${polygons.length}: ${polygons.map(p => s"${p.label}(${p.areaType})=%.2f".format(p.area)).mkString(", ")}")
+          val installedInMap = polygons.map(p => p.label -> p.installedIn).toMap
+          AreaState.syncPolygons(polygons.map(p => (p.label, p.areaType, p.area, p.overhangDist, p.sideShadingDist)), installedInMap)
           dom.console.log(s"[AreaState] after sync, entries: ${AreaState.areaCalculations.now().map(_.calculations.flatMap(c => c.entries.map(e => s"${c.componentType.polygonLabel}/${e.kuerzel}")).mkString(", ")).getOrElse("None")}")
           AppState.saveAreaCalculations()
 
@@ -136,8 +167,8 @@ object EBFCalculatorView:
           else
             val newLabels  = currentLabels -- seenPolygonLabels
             val newPending = newLabels.toSeq.sorted.flatMap { label =>
-              polygons.find(_._1 == label).flatMap { case (_, areaType, _, _, _) =>
-                val compType = ComponentType.fromPolygonLabel(areaType)
+              polygons.find(_.label == label).flatMap { p =>
+                val compType = ComponentType.fromPolygonLabel(p.areaType)
                   .orElse(ComponentType.fromPolygonLabel(label))
                   .getOrElse(ComponentType.EBF)
                 if compType == ComponentType.EBF then None
@@ -276,38 +307,73 @@ object EBFCalculatorView:
       scaleDialog(),
       child <-- pendingAssignments.signal.map {
         case Nil => emptyNode
-        case PendingAssignment(polygonLabel, options) :: _ =>
+        case PendingAssignment(polygonLabel, compType, options) :: _ =>
+          val orientationVar = Var("")
+          val showOrientation = orientationPopupTypes.contains(compType)
+          val orientationOptions = List("", "N", "NO", "O", "SO", "S", "SW", "W", "NW", "Horiz")
+          def applyOrientation(): Unit =
+            val ori = orientationVar.now()
+            if ori.nonEmpty then
+              AreaState.updateOrientation(polygonLabel, ori)
+              AppState.saveAreaCalculations()
           div(
             styleAttr := "position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 9999; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.55);",
             div(
               styleAttr := "background: #1a1a28; border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 24px; min-width: 320px; max-width: 480px; box-shadow: 0 8px 32px rgba(0,0,0,0.6); font-family: system-ui,sans-serif; color: #f0f0f8;",
               h3(
                 styleAttr := "margin: 0 0 6px; font-size: 16px; font-weight: 600;",
-                s"U-Wert für Polygon «$polygonLabel» wählen"
+                if options.nonEmpty then s"Einstellungen für Polygon «$polygonLabel»"
+                else s"Ausrichtung für Polygon «$polygonLabel»"
               ),
-              p(
-                styleAttr := "margin: 0 0 16px; font-size: 13px; color: #8888aa;",
-                "Welcher U-Wert gilt für diese Fläche?"
+              // Orientation dropdown (shown for wall/roof types)
+              Option.when(showOrientation)(
+                div(
+                  styleAttr := "margin-bottom: 14px;",
+                  p(styleAttr := "margin: 0 0 6px; font-size: 13px; color: #8888aa;", "Ausrichtung wählen:"),
+                  select(
+                    styleAttr := "width: 100%; padding: 8px 10px; font-size: 13px; background: #2a2a3a; color: #f0f0f8; border: 1px solid rgba(255,255,255,0.15); border-radius: 6px; cursor: pointer;",
+                    onChange.mapToValue --> orientationVar.writer,
+                    orientationOptions.map(o => option(value := o, if o.isEmpty then "– Ausrichtung wählen –" else o))
+                  )
+                )
               ),
-              div(
-                (Seq[Modifier[HtmlElement]](
-                  styleAttr := "display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px;"
-                ) ++ options.map { opt =>
-                  button(
-                    styleAttr := s"padding: 10px 14px; font-size: 13px; font-weight: 600; background: ${opt.adjustedColor}; color: #111; border: none; border-radius: 8px; cursor: pointer; text-align: left;",
-                    s"${opt.displayLabel}  (${f"${opt.uValue}%.2f"} W/m²K)",
-                    onClick --> { _ =>
-                      AreaState.linkUWert(polygonLabel, opt.id, opt.displayLabel, Some(opt.uValue), opt.gValue, opt.glassRatio, opt.bValue)
-                      AppState.saveAreaCalculations()
-                      val detail = js.Dynamic.literal(label = polygonLabel, color = opt.adjustedColor)
-                      val init   = js.Dynamic.literal(detail = detail, bubbles = false, cancelable = false)
-                      dom.window.dispatchEvent(
-                        new dom.CustomEvent(updateColorEvent, init.asInstanceOf[dom.CustomEventInit])
-                      )
-                      pendingAssignments.update(_.tail)
-                    }
-                  ): Modifier[HtmlElement]
-                })*
+              // U-Wert options (shown when ≥1 option exists)
+              Option.when(options.nonEmpty)(
+                div(
+                  p(styleAttr := "margin: 0 0 8px; font-size: 13px; color: #8888aa;", "U-Wert wählen:"),
+                  div(
+                    (Seq[Modifier[HtmlElement]](
+                      styleAttr := "display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px;"
+                    ) ++ options.map { opt =>
+                      button(
+                        styleAttr := s"padding: 10px 14px; font-size: 13px; font-weight: 600; background: ${opt.adjustedColor}; color: #111; border: none; border-radius: 8px; cursor: pointer; text-align: left;",
+                        s"${opt.displayLabel}  (${f"${opt.uValue}%.2f"} W/m²K)",
+                        onClick --> { _ =>
+                          applyOrientation()
+                          AreaState.linkUWert(polygonLabel, opt.id, opt.displayLabel, Some(opt.uValue), opt.gValue, opt.glassRatio, opt.bValue)
+                          AppState.saveAreaCalculations()
+                          val detail = js.Dynamic.literal(label = polygonLabel, color = opt.adjustedColor)
+                          val init   = js.Dynamic.literal(detail = detail, bubbles = false, cancelable = false)
+                          dom.window.dispatchEvent(
+                            new dom.CustomEvent(updateColorEvent, init.asInstanceOf[dom.CustomEventInit])
+                          )
+                          pendingAssignments.update(_.tail)
+                        }
+                      ): Modifier[HtmlElement]
+                    })*
+                  )
+                )
+              ),
+              // "Bestätigen" button — only shown when there are no U-Wert options (orientation-only popup)
+              Option.when(options.isEmpty)(
+                button(
+                  styleAttr := "padding: 8px 14px; font-size: 13px; font-weight: 600; background: #4f46e5; color: #fff; border: none; border-radius: 8px; cursor: pointer; margin-bottom: 8px; width: 100%;",
+                  "Bestätigen",
+                  onClick --> { _ =>
+                    applyOrientation()
+                    pendingAssignments.update(_.tail)
+                  }
+                )
               ),
               button(
                 styleAttr := "padding: 8px 14px; font-size: 12px; font-weight: 600; background: transparent; color: #666; border: 1px solid rgba(255,255,255,0.15); border-radius: 8px; cursor: pointer;",

@@ -8,7 +8,7 @@ import org.scalajs.dom
 import scala.scalajs.js
 import pme123.geak4s.domain.area.*
 import pme123.geak4s.domain.uwert.{ComponentType, ComponentTypeDefaults}
-import pme123.geak4s.state.UWertState
+import pme123.geak4s.state.{AreaState, UWertState}
 import pme123.geak4s.utils.ColorUtils
 import pme123.geak4s.utils.ShadingUtils
 
@@ -88,7 +88,10 @@ object AreaCalculationTable:
             Option.when(!noOrientationTypes.contains(componentType))(
               th(border := "1px solid #e0e0e0", padding := "0.5rem", "Ausrichtung")
             ),
-            th(border := "1px solid #e0e0e0", padding := "0.5rem", "Beschrieb"),
+            Option.when(componentType == ComponentType.Window)(
+              th(border := "1px solid #e0e0e0", padding := "0.5rem", "Eingebaut in")
+            ),
+            th(border := "1px solid #e0e0e0", padding := "0.5rem", minWidth := "200px", "Beschrieb"),
             th(border := "1px solid #e0e0e0", padding := "0.5rem", "Länge/Umfang [m]"),
             th(border := "1px solid #e0e0e0", padding := "0.5rem", "Breite/Höhe [m]"),
             th(border := "1px solid #e0e0e0", padding := "0.5rem", "Fläche [m²]"),
@@ -166,7 +169,11 @@ object AreaCalculationTable:
             td(
               border     := "1px solid #e0e0e0",
               padding    := "0.5rem",
-              colSpan    := (if noOrientationTypes.contains(componentType) then 5 else 6),
+              colSpan    := (
+                if noOrientationTypes.contains(componentType) then 5
+                else if componentType == ComponentType.Window then 7  // Kürzel + Ausrichtung + Eingebaut in + Beschrieb + Länge + Breite + Fläche
+                else 6
+              ),
               textAlign  := "right",
               fontWeight := "600",
               "Total:"
@@ -220,7 +227,7 @@ object AreaCalculationTable:
             ),
 
             // Empty cells: Beschrieb Neu, U-Wert, b-Wert, Window-only shading cols, Wirtschaftsspalten, Delete
-            td(border    := "1px solid #e0e0e0", padding := "0.5rem"),
+            td(border := "1px solid #e0e0e0", padding := "0.5rem"),
             Option.when(componentType != ComponentType.EBF)(td(border := "1px solid #e0e0e0", padding := "0.5rem", backgroundColor := "#e8f4f8")),
             Option.when(componentType != ComponentType.EBF)(td(border := "1px solid #e0e0e0", padding := "0.5rem", backgroundColor := "#e8f4f8")),
             // g-Wert / Glasanteil (Window)
@@ -273,6 +280,15 @@ object AreaCalculationTable:
           border  := "1px solid #e0e0e0",
           padding := "0.25rem",
           renderOrientationCell(displayEntry, index, dataEntries, componentType, onSave)
+        )
+      ),
+
+      // Eingebaut in (nur Fenster) — Dropdown aller Wand/Dach-Kürzel; bei Auswahl Ausrichtung auto-übernehmen
+      Option.when(componentType == ComponentType.Window)(
+        td(
+          border  := "1px solid #e0e0e0",
+          padding := "0.25rem",
+          renderInstalledInCell(displayEntry, index, dataEntries, onSave)
         )
       ),
 
@@ -1015,6 +1031,62 @@ object AreaCalculationTable:
           val newEntries = curr.updated(index, curr(index).copy(nutzungsdauer = numValue))
           dataEntries.set(newEntries)
           onSave(componentType, newEntries)
+      }
+    )
+
+  private val wallRoofTypesForInstallation: Set[ComponentType] = Set(
+    ComponentType.PitchedRoof,
+    ComponentType.AtticFloor,
+    ComponentType.ExteriorWall,
+    ComponentType.BasementWallToEarth,
+    ComponentType.BasementWallToUnheated,
+    ComponentType.BasementWallToOutside
+  )
+
+  private def renderInstalledInCell(
+      displayEntry: AreaEntry,
+      index: Int,
+      dataEntries: Var[List[AreaEntry]],
+      onSave: (ComponentType, List[AreaEntry]) => Unit
+  ): HtmlElement =
+    // Both children and value subscribe to the SAME combined signal.
+    // children is registered first → options are rebuilt first.
+    // value is registered second → value is restored after rebuild.
+    // This guarantees the correct selection even when onSave triggers an AreaState update.
+    val combined = AreaState.areaCalculations.signal.combineWith(dataEntries.signal)
+    select(
+      width   := "100%",
+      padding := "0.25rem",
+      border  := "none",
+      onChange.mapToValue --> Observer[String] { v =>
+        val curr = dataEntries.now()
+        if index < curr.length then
+          val wallEntries = AreaState.areaCalculations.now().toList.flatMap { area =>
+            area.calculations
+              .filter(c => wallRoofTypesForInstallation.contains(c.componentType))
+              .flatMap(_.entries.map(e => (e.kuerzel, e.orientation)))
+          }
+          val autoOrientation = wallEntries.find(_._1 == v).map(_._2).filter(_.nonEmpty)
+          val updated = curr(index).copy(
+            installedIn = if v.isEmpty then None else Some(v),
+            orientation = autoOrientation.getOrElse(curr(index).orientation)
+          )
+          val newEntries = curr.updated(index, updated)
+          dataEntries.set(newEntries)
+          onSave(ComponentType.Window, newEntries)
+      },
+      // 1st: rebuild options (may reset browser selection)
+      children <-- combined.map { (maybeArea, _) =>
+        val wallEntries = maybeArea.toList.flatMap { area =>
+          area.calculations
+            .filter(c => wallRoofTypesForInstallation.contains(c.componentType))
+            .flatMap(_.entries.map(e => (e.kuerzel, e.orientation)))
+        }
+        option(value := "", "– wählen –") :: wallEntries.map { (kuerzel, _) => option(value := kuerzel, kuerzel) }
+      },
+      // 2nd: restore correct value after options are rebuilt
+      value <-- combined.map { (_, es) =>
+        if index < es.length then es(index).installedIn.getOrElse("") else ""
       }
     )
 

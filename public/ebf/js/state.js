@@ -101,28 +101,66 @@ export function setMode(m) {
     ? 'crosshair' : 'grab';
 }
 
+const WALL_ROOF_AREA_TYPES = new Set([
+  'Wand gegen Aussenluft', 'Wand gegen Erdreich', 'Wand gegen unbeheizt',
+  'Dach gegen Aussenluft', 'Decke gegen unbeheizt',
+]);
+
+function _centroidOf(pts) {
+  let x = 0, y = 0;
+  for (const p of pts) { x += p.x; y += p.y; }
+  return { x: x / pts.length, y: y / pts.length };
+}
+
+function _pointInPoly(px, py, pts) {
+  let inside = false;
+  for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) {
+    const xi = pts[i].x, yi = pts[i].y, xj = pts[j].x, yj = pts[j].y;
+    if ((yi > py) !== (yj > py) && px < (xj - xi) * (py - yi) / (yj - yi) + xi)
+      inside = !inside;
+  }
+  return inside;
+}
+
 export function emitPolygonSyncEvent() {
   if (typeof window === 'undefined' || typeof window.dispatchEvent !== 'function') return;
 
   // Aggregate polygons from all plans.
   // Use the live S.polygons for the active plan so unsaved changes are included.
-  const allRaw = S.plans.flatMap(plan =>
-    (plan.id === S.activePlanId ? S.polygons : plan.polygons)
-      .filter(poly => (poly.areaType || '') !== '__measure__')  // exclude measure-only polygons
-      .map(poly => {
-        const inc = poly.inclination || 0;
-        const raw = Number.isFinite(poly.area) ? poly.area : 0;
-        const area = (inc > 0) ? raw / Math.cos(inc * Math.PI / 180) : raw;
-        return {
-          label:       (poly.label    || '').trim(),
-          areaType:    (poly.areaType || '').trim(),
-          area,
-          overhangDist: Number.isFinite(poly.overhangDist) ? poly.overhangDist : null,
-          sideDist:     Number.isFinite(poly.sideDist)     ? poly.sideDist     : null,
-        };
-      })
-      .filter(poly => poly.label)
-  );
+  const allRaw = S.plans.flatMap(plan => {
+    const planPolys = (plan.id === S.activePlanId ? S.polygons : plan.polygons)
+      .filter(poly => (poly.areaType || '') !== '__measure__');
+
+    return planPolys.map(poly => {
+      const inc = poly.inclination || 0;
+      const raw = Number.isFinite(poly.area) ? poly.area : 0;
+      const area = (inc > 0) ? raw / Math.cos(inc * Math.PI / 180) : raw;
+      const areaType = (poly.areaType || '').trim();
+
+      // For Fenster/Türe: detect which wall/roof polygon geometrically contains this polygon's centroid
+      let installedIn = null;
+      if ((areaType === 'Fenster' || areaType === 'Tür') && poly.points.length >= 3) {
+        const c = _centroidOf(poly.points);
+        for (const wp of planPolys) {
+          if (wp !== poly && WALL_ROOF_AREA_TYPES.has(wp.areaType) && wp.points.length >= 3) {
+            if (_pointInPoly(c.x, c.y, wp.points)) {
+              installedIn = (wp.label || '').trim() || null;
+              break;
+            }
+          }
+        }
+      }
+
+      return {
+        label:       (poly.label || '').trim(),
+        areaType,
+        area,
+        overhangDist: Number.isFinite(poly.overhangDist) ? poly.overhangDist : null,
+        sideDist:     Number.isFinite(poly.sideDist)     ? poly.sideDist     : null,
+        installedIn,
+      };
+    }).filter(poly => poly.label);
+  });
 
   // Send labels exactly as they are in the canvas — no renumbering.
   const polygons = allRaw;

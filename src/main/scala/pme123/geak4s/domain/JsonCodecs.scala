@@ -216,7 +216,8 @@ object JsonCodecs:
       investition     <- c.getOrElse[Double]("investition")(0.0)
       nutzungsdauer   <- c.getOrElse[Int]("nutzungsdauer")(0)
       rateKey         <- c.getOrElse[String]("rateKey")("")
-    yield AreaEntry(kuerzel, orientation, description, length, width, area, quantity, totalArea, areaNew, quantityNew, totalAreaNew, descriptionNew, isManual, overhang, overhangDist, sideShading, sideShadingDist, horizont, uwertId, uValue, bValue, gValue, glassRatio, beidseitig, werterhalt, investition, nutzungsdauer, rateKey)
+      installedIn     <- c.getOrElse[Option[String]]("installedIn")(None)
+    yield AreaEntry(kuerzel, orientation, description, length, width, area, quantity, totalArea, areaNew, quantityNew, totalAreaNew, descriptionNew, isManual, overhang, overhangDist, sideShading, sideShadingDist, horizont, uwertId, uValue, bValue, gValue, glassRatio, beidseitig, werterhalt, investition, nutzungsdauer, rateKey, installedIn)
   }
 
   given Encoder[AreaCalculation] = deriveEncoder[AreaCalculation]
