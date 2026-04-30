@@ -22,6 +22,9 @@ object Main:
     // Initialize application
     AppState.initializeGoogleDrive()
 
+    // Auto-restore the last session from localStorage (project) and IndexedDB (file handle)
+    AppState.restoreSession()
+
     val appContainer = dom.document.querySelector("#app")
     dom.console.log(s"📦 App container: $appContainer")
 

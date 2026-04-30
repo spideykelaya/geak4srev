@@ -804,10 +804,13 @@ object AreaCalculationTable:
       width   := "100%",
       padding := "0.25rem",
       border  := "none",
-      // Controlled input: value updates reactively from dataEntries
       value <-- dataEntries.signal.map { entries =>
         if index < entries.length then getValue(entries(index))
         else ""
+      },
+      onKeyDown --> Observer[org.scalajs.dom.KeyboardEvent] { event =>
+        if event.key == "Enter" then
+          event.target.asInstanceOf[org.scalajs.dom.HTMLInputElement].blur()
       },
       onBlur --> Observer[org.scalajs.dom.FocusEvent] { event =>
         val inputEl = event.target.asInstanceOf[org.scalajs.dom.HTMLInputElement]
@@ -840,15 +843,17 @@ object AreaCalculationTable:
       border    := "none",
       stepAttr  := "0.01",
       textAlign := "right",
-      // Controlled input: value updates reactively from dataEntries
       value <-- dataEntries.signal.map { entries =>
         if index < entries.length then getValue(entries(index)).toString
         else "0"
       },
+      onKeyDown --> Observer[org.scalajs.dom.KeyboardEvent] { event =>
+        if event.key == "Enter" then
+          event.target.asInstanceOf[org.scalajs.dom.HTMLInputElement].blur()
+      },
       onBlur --> Observer[org.scalajs.dom.FocusEvent] { event =>
         val inputEl = event.target.asInstanceOf[org.scalajs.dom.HTMLInputElement]
-        val value = inputEl.value
-        val numValue = value.toDoubleOption.getOrElse(0.0)
+        val numValue = inputEl.value.toDoubleOption.getOrElse(0.0)
         val currentEntries = dataEntries.now()
         if index < currentEntries.length then
           val entry      = currentEntries(index)
@@ -875,15 +880,17 @@ object AreaCalculationTable:
       border    := "none",
       stepAttr  := "1",
       textAlign := "right",
-      // Controlled input: value updates reactively from dataEntries
       value <-- dataEntries.signal.map { entries =>
         if index < entries.length then getValue(entries(index)).toString
         else "0"
       },
+      onKeyDown --> Observer[org.scalajs.dom.KeyboardEvent] { event =>
+        if event.key == "Enter" then
+          event.target.asInstanceOf[org.scalajs.dom.HTMLInputElement].blur()
+      },
       onBlur --> Observer[org.scalajs.dom.FocusEvent] { event =>
         val inputEl = event.target.asInstanceOf[org.scalajs.dom.HTMLInputElement]
-        val value = inputEl.value
-        val numValue = value.toIntOption.getOrElse(0)
+        val numValue = inputEl.value.toIntOption.getOrElse(0)
         val currentEntries = dataEntries.now()
         if index < currentEntries.length then
           val entry      = currentEntries(index)
@@ -982,6 +989,10 @@ object AreaCalculationTable:
       fontStyle <-- dataEntries.signal.map { entries =>
         if index < entries.length && isAutoComputed(entries(index)) then "italic" else "normal"
       },
+      onKeyDown --> Observer[org.scalajs.dom.KeyboardEvent] { event =>
+        if event.key == "Enter" then
+          event.target.asInstanceOf[org.scalajs.dom.HTMLInputElement].blur()
+      },
       onBlur --> Observer[org.scalajs.dom.FocusEvent] { event =>
         val inputEl = event.target.asInstanceOf[org.scalajs.dom.HTMLInputElement]
         val raw = inputEl.value.replace("'", "").replace(",", ".").trim
@@ -1022,6 +1033,10 @@ object AreaCalculationTable:
       fontStyle <-- dataEntries.signal.map { entries =>
         if index < entries.length && entries(index).nutzungsdauer == 0 then "italic"
         else "normal"
+      },
+      onKeyDown --> Observer[org.scalajs.dom.KeyboardEvent] { event =>
+        if event.key == "Enter" then
+          event.target.asInstanceOf[org.scalajs.dom.HTMLInputElement].blur()
       },
       onBlur --> Observer[org.scalajs.dom.FocusEvent] { event =>
         val inputEl = event.target.asInstanceOf[org.scalajs.dom.HTMLInputElement]

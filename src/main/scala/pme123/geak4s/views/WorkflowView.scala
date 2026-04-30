@@ -87,19 +87,68 @@ object WorkflowView:
       _.slots.endContent := div(
         className := "action-buttons",
 
-        // Local file auto-save status
-        child.maybe <-- AppState.localFileName.signal.map(_.map { name =>
+        // Local file save error — stale handle (e.g. file moved)
+        child.maybe <-- AppState.localSaveError.signal.map(_.map { errMsg =>
           div(
-            display := "flex", alignItems := "center", gap := "0.25rem",
-            Icon(_.name := IconName.`save`, color := "#107e3e"),
-            span(
-              fontSize := "0.75rem",
-              color := "#107e3e",
-              fontWeight := "600",
-              s"Auto-Save: $name"
+            display := "flex", alignItems := "center", gap := "0.5rem",
+            backgroundColor := "#fff0f0", border := "1px solid #f5c2c7",
+            borderRadius := "6px", padding := "0.25rem 0.75rem",
+            span(fontSize := "0.75rem", color := "#c0392b", errMsg),
+            button(
+              fontSize := "0.75rem", fontWeight := "600",
+              padding := "0.2rem 0.6rem", border := "1px solid #c0392b",
+              borderRadius := "4px", backgroundColor := "white",
+              color := "#c0392b", cursor := "pointer",
+              "Datei neu öffnen",
+              onClick --> Observer[org.scalajs.dom.MouseEvent] { _ =>
+                AppState.localSaveError.set(None)
+                val win = org.scalajs.dom.window.asInstanceOf[scala.scalajs.js.Dynamic]
+                if scala.scalajs.js.typeOf(win.showOpenFilePicker) == "function" then
+                  val acceptObj = scala.scalajs.js.Object().asInstanceOf[scala.scalajs.js.Dynamic]
+                  acceptObj.updateDynamic("application/json")(scala.scalajs.js.Array(".json"))
+                  val typeItem = scala.scalajs.js.Dynamic.literal(description = "GEAK JSON Projektdatei", accept = acceptObj)
+                  val opts = scala.scalajs.js.Dynamic.literal(types = scala.scalajs.js.Array(typeItem), multiple = false)
+                  val onHandles: scala.scalajs.js.Function1[scala.scalajs.js.Any, Unit] = handles =>
+                    val arr = handles.asInstanceOf[scala.scalajs.js.Array[scala.scalajs.js.Dynamic]]
+                    if arr.length > 0 then
+                      val handle = arr(0)
+                      val onPerm: scala.scalajs.js.Function1[scala.scalajs.js.Any, Unit] = _ =>
+                        val nameRaw = handle.getFile().asInstanceOf[scala.scalajs.js.Dynamic]
+                        nameRaw.`then`((f: scala.scalajs.js.Any) =>
+                          val name = f.asInstanceOf[scala.scalajs.js.Dynamic].name.toString
+                          AppState.setLocalFileHandle(handle, name)
+                        )
+                      handle.requestPermission(scala.scalajs.js.Dynamic.literal(mode = "readwrite"))
+                        .asInstanceOf[scala.scalajs.js.Dynamic].`then`(onPerm)
+                  val onCancel: scala.scalajs.js.Function1[scala.scalajs.js.Any, Unit] = _ => ()
+                  win.showOpenFilePicker(opts).asInstanceOf[scala.scalajs.js.Dynamic].`then`(onHandles, onCancel)
+              }
             )
           )
         }),
+
+        // Local file auto-save status + manual save button
+        child.maybe <-- AppState.localSaveError.signal
+          .combineWith(AppState.localFileName.signal)
+          .combineWith(AppState.localSaveSuccess.signal)
+          .map { case (err, name, success) =>
+            if err.isDefined || name.isEmpty then None
+            else Some(div(
+              display := "flex", alignItems := "center", gap := "0.5rem",
+              Option.when(success)(
+                span(fontSize := "0.75rem", color := "#107e3e", fontWeight := "700", "✓ Gespeichert")
+              ),
+              button(
+                fontSize := "0.75rem", padding := "0.2rem 0.6rem",
+                border := "1px solid #107e3e", borderRadius := "4px",
+                backgroundColor := "white", color := "#107e3e", cursor := "pointer",
+                "Jetzt speichern",
+                onClick --> Observer[org.scalajs.dom.MouseEvent] { _ =>
+                  AppState.getCurrentProject.foreach(AppState.saveNow)
+                }
+              )
+            ))
+          },
 
       )
     )

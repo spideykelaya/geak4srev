@@ -92,8 +92,11 @@ object FormField:
         _.placeholder := metadata.placeholder.getOrElse(""),
         _.required := metadata.validation.exists(_.required),
         _.disabled := disabled,
-        onBlur.mapToValue --> Observer[String](onChange),  // Update on blur
-        onBlur.mapTo(true) --> touched.writer,  // Mark as touched on blur
+        onKeyDown.filter(_.key == "Enter").mapTo(()) --> Observer[Unit] { _ =>
+          org.scalajs.dom.document.activeElement.asInstanceOf[org.scalajs.dom.HTMLElement].blur()
+        },
+        onBlur.mapToValue --> Observer[String](onChange),
+        onBlur.mapTo(true) --> touched.writer,
         className := "form-input"
       ),
       metadata.unit.map { unit =>
