@@ -274,15 +274,21 @@ object WordFormView:
   // Begehungsprotokoll generieren (clientseitig)
   def sendToBackend(): Unit =
     val form = formVar.now()
-    WordExportService.generate(form).foreach { blob =>
-      val objectUrl = dom.URL.createObjectURL(blob)
-      val link = dom.document.createElement("a").asInstanceOf[dom.html.Anchor]
-      link.href = objectUrl
-      val nameParts = List(form.projektnummer, form.adresse.replace(",", "")).filter(_.nonEmpty)
-      val baseName  = if nameParts.nonEmpty then s"Begehung_${nameParts.mkString(" ")}" else "Begehungsprotokoll"
-      link.download = s"$baseName.docx"
-      dom.document.body.appendChild(link)
-      link.click()
-      dom.document.body.removeChild(link)
-      dom.URL.revokeObjectURL(objectUrl)
+    dom.console.log("[WordFormView] generating Begehungsprotokoll …")
+    WordExportService.generate(form).onComplete {
+      case scala.util.Success(blob) =>
+        val objectUrl = dom.URL.createObjectURL(blob)
+        val link = dom.document.createElement("a").asInstanceOf[dom.html.Anchor]
+        link.href = objectUrl
+        val nameParts = List(form.projektnummer, form.adresse.replace(",", "")).filter(_.nonEmpty)
+        val baseName  = if nameParts.nonEmpty then s"Begehung_${nameParts.mkString(" ")}" else "Begehungsprotokoll"
+        link.download = s"$baseName.docx"
+        dom.document.body.appendChild(link)
+        link.click()
+        dom.document.body.removeChild(link)
+        dom.URL.revokeObjectURL(objectUrl)
+      case scala.util.Failure(ex) =>
+        dom.console.error("[WordFormView] Begehungsprotokoll fehlgeschlagen:", ex.getMessage)
+        ex.printStackTrace()
+        dom.window.alert(s"Begehungsprotokoll fehlgeschlagen:\n${ex.getMessage}")
     }
