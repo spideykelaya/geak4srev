@@ -70,20 +70,116 @@ object AppState:
   // Local file auto-save (File System Access API)
   val localFileHandle: Var[Option[js.Dynamic]] = Var(None)
   val localFileName: Var[Option[String]]        = Var(None)
+  val localSaveError: Var[Option[String]]       = Var(None)   // shown in UI when write fails
+  val localSaveSuccess: Var[Boolean]            = Var(false)  // briefly true after successful write
   private var localFileSaveTimer: Option[Int]   = None
+  private var successClearTimer: Option[Int]    = None
   private val LOCAL_SAVE_DELAY_MS               = 3000 // 3 seconds debounce
 
-  /** Store the FileSystemFileHandle obtained from showOpenFilePicker / showSaveFilePicker */
+  // IndexedDB constants for cross-session file handle persistence
+  private val IDB_DB_NAME    = "geak4s_files"
+  private val IDB_STORE_NAME = "handles"
+  private val IDB_HANDLE_KEY = "lastProjectHandle"
+  private val IDB_NAME_KEY   = "lastProjectName"
+
+  /** Store the FileSystemFileHandle obtained from showOpenFilePicker / showSaveFilePicker.
+   *  Also persists the handle in IndexedDB so it survives browser restarts. */
   def setLocalFileHandle(handle: js.Dynamic, name: String): Unit =
     localFileHandle.set(Some(handle))
     localFileName.set(Some(name))
     dom.console.log(s"✅ Lokales Auto-Save aktiviert für: $name")
+    saveHandleToIndexedDb(handle, name)
 
   def clearLocalFileHandle(): Unit =
     localFileHandle.set(None)
     localFileName.set(None)
     localFileSaveTimer.foreach(dom.window.clearTimeout)
     localFileSaveTimer = None
+
+  /** Persist FileSystemFileHandle and filename in IndexedDB. */
+  private def saveHandleToIndexedDb(handle: js.Dynamic, name: String): Unit =
+    try
+      val req = dom.window.asInstanceOf[js.Dynamic].indexedDB.open(IDB_DB_NAME, 1)
+      req.asInstanceOf[js.Dynamic].onupgradeneeded = { (e: js.Dynamic) =>
+        val db = e.target.result.asInstanceOf[js.Dynamic]
+        if js.isUndefined(db.objectStoreNames.contains(IDB_STORE_NAME)) ||
+           !db.objectStoreNames.contains(IDB_STORE_NAME).asInstanceOf[Boolean] then
+          db.createObjectStore(IDB_STORE_NAME)
+      }: js.Function1[js.Dynamic, Unit]
+      req.asInstanceOf[js.Dynamic].onsuccess = { (e: js.Dynamic) =>
+        val db = e.target.result.asInstanceOf[js.Dynamic]
+        val tx = db.transaction(IDB_STORE_NAME, "readwrite")
+        val store = tx.objectStore(IDB_STORE_NAME)
+        store.put(handle, IDB_HANDLE_KEY)
+        store.put(name, IDB_NAME_KEY)
+      }: js.Function1[js.Dynamic, Unit]
+    catch case ex: Exception =>
+      dom.console.warn(s"IndexedDB write failed: ${ex.getMessage}")
+
+  /** Try to restore a FileSystemFileHandle from IndexedDB and re-request write permission.
+   *  Called on startup after WIP project is restored from localStorage. */
+  private def restoreHandleFromIndexedDb(): Unit =
+    try
+      val req = dom.window.asInstanceOf[js.Dynamic].indexedDB.open(IDB_DB_NAME, 1)
+      req.asInstanceOf[js.Dynamic].onupgradeneeded = { (e: js.Dynamic) =>
+        val db = e.target.result.asInstanceOf[js.Dynamic]
+        db.createObjectStore(IDB_STORE_NAME)
+      }: js.Function1[js.Dynamic, Unit]
+      req.asInstanceOf[js.Dynamic].onsuccess = { (e: js.Dynamic) =>
+        val db = e.target.result.asInstanceOf[js.Dynamic]
+        val tx = db.transaction(IDB_STORE_NAME, "readonly")
+        val getReq = tx.objectStore(IDB_STORE_NAME).get(IDB_HANDLE_KEY)
+        val nameReq = tx.objectStore(IDB_STORE_NAME).get(IDB_NAME_KEY)
+        getReq.asInstanceOf[js.Dynamic].onsuccess = { (ge: js.Dynamic) =>
+          val handle = ge.target.result
+          nameReq.asInstanceOf[js.Dynamic].onsuccess = { (ne: js.Dynamic) =>
+            val storedName = ne.target.result
+            val name = if !js.isUndefined(storedName) && storedName != null
+                       then storedName.toString
+                       else localFileName.now().getOrElse("Projekt")
+            if !js.isUndefined(handle) && handle != null then
+              if js.typeOf(handle.asInstanceOf[js.Dynamic].requestPermission) == "function" then
+                val h = handle.asInstanceOf[js.Dynamic]
+                val onPerm: js.Function1[js.Any, Unit] = result =>
+                  if result.toString == "granted" then
+                    localFileHandle.set(Some(h))
+                    localFileName.set(Some(name))
+                    dom.console.log(s"✅ Dateihandle aus IndexedDB wiederhergestellt: $name")
+                    // Immediately write current project so the file is up to date
+                    getCurrentProject.foreach { p => scheduleLocalFileSave(p) }
+                  else
+                    dom.console.log("⚠️ Schreibberechtigung verweigert – Auto-Save deaktiviert")
+                h.requestPermission(js.Dynamic.literal(mode = "readwrite"))
+                  .asInstanceOf[js.Dynamic].`then`(onPerm)
+          }: js.Function1[js.Dynamic, Unit]
+        }: js.Function1[js.Dynamic, Unit]
+      }: js.Function1[js.Dynamic, Unit]
+      req.asInstanceOf[js.Dynamic].onerror = { (_: js.Dynamic) =>
+        dom.console.warn("IndexedDB open failed – Auto-Save nicht wiederherstellbar")
+      }: js.Function1[js.Dynamic, Unit]
+    catch case ex: Exception =>
+      dom.console.warn(s"IndexedDB restore failed: ${ex.getMessage}")
+
+  /** Restore the last session from localStorage (WIP project) and IndexedDB (file handle).
+   *  Called once at application startup. Returns true if a project was restored. */
+  def restoreSession(): Boolean =
+    val wipJson  = dom.window.localStorage.getItem(WIP_KEY)
+    val wipFile  = dom.window.localStorage.getItem(WIP_FILE_KEY)
+    if wipJson != null && wipFile != null then
+      import io.circe.parser.decode
+      import pme123.geak4s.domain.JsonCodecs.given
+      decode[pme123.geak4s.domain.GeakProject](wipJson) match
+        case Right(project) =>
+          dom.console.log(s"🔄 WIP-Projekt aus localStorage geladen: $wipFile")
+          loadProject(project, wipFile)
+          // Separately try to restore the file handle (shows browser permission prompt)
+          restoreHandleFromIndexedDb()
+          true
+        case Left(err) =>
+          dom.console.warn(s"WIP konnte nicht geladen werden: ${err.getMessage}")
+          clearWip()
+          false
+    else false
   
   /** Navigation helpers */
   def navigateToWelcome(): Unit = currentView.set(View.Welcome)
@@ -219,17 +315,45 @@ object AppState:
   private def writeToLocalFile(jsonStr: String): Unit =
     localFileHandle.now().foreach { handle =>
       val onError: js.Function1[js.Any, Unit] = err =>
+        val msg = err.asInstanceOf[js.Dynamic].message.toString
         dom.console.error("Lokales Speichern fehlgeschlagen:", err)
+        // Stale or invalid handle (e.g. file was moved) — surface error in UI
+        val hint =
+          if msg.contains("NotFound") || msg.contains("not found") then
+            "Datei nicht gefunden – sie wurde möglicherweise verschoben. Bitte Datei neu öffnen."
+          else if msg.contains("NotAllowed") || msg.contains("not allowed") then
+            "Schreibberechtigung fehlt. Bitte Seite neu laden und Berechtigung erteilen."
+          else
+            s"Speichern fehlgeschlagen: $msg"
+        localSaveError.set(Some(hint))
+        // Clear stale handle so future changes don't silently fail
+        localFileHandle.set(None)
+        localFileName.set(None)
 
       val onCreate: js.Function1[js.Any, Unit] = writable =>
         val w = writable.asInstanceOf[js.Dynamic]
+        // close() is async — must wait for it before reporting success
+        val onClosed: js.Function1[js.Any, Unit] = _ =>
+          localSaveError.set(None)
+          localSaveSuccess.set(true)
+          successClearTimer.foreach(dom.window.clearTimeout)
+          val t = dom.window.setTimeout(() => localSaveSuccess.set(false), 2000)
+          successClearTimer = Some(t)
+          dom.console.log(s"💾 Gespeichert: ${localFileName.now().getOrElse("")}")
         val onWritten: js.Function1[js.Any, Unit] = _ =>
-          w.close()
-          dom.console.log(s"💾 Automatisch gespeichert: ${localFileName.now().getOrElse("")}")
+          w.close().asInstanceOf[js.Dynamic].`then`(onClosed, onError)
         w.write(jsonStr).asInstanceOf[js.Dynamic].`then`(onWritten, onError)
 
       handle.createWritable().asInstanceOf[js.Dynamic].`then`(onCreate, onError)
     }
+
+  /** Immediately write the project to the local file (no debounce). */
+  def saveNow(project: GeakProject): Unit =
+    if localFileHandle.now().isDefined then
+      val enriched = enrichProjectWithImages(project)
+      writeToLocalFile(enriched.asJson.noSpaces)
+    else
+      dom.console.warn("saveNow: kein Dateihandle gesetzt")
 
   /** Schedule a debounced local file save (3 s after last change) */
   private def scheduleLocalFileSave(project: GeakProject): Unit =

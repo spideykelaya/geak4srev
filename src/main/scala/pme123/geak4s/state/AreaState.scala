@@ -65,18 +65,20 @@ object AreaState:
     }
 
   /** Update area calculation for a specific component type.
-   *  syncEbfToWordForm: set to true only when called from Step 6 (manual table edits). */
+   *  syncEbfToWordForm: set to true only when called from Step 6 (manual table edits).
+   *  skipCascade: set to true inside syncPolygons (the second pass at the end handles cascade once). */
   def updateAreaCalculation(
       componentType: ComponentType,
       entries: List[AreaEntry],
-      syncEbfToWordForm: Boolean = false
+      syncEbfToWordForm: Boolean = false,
+      skipCascade: Boolean = false
   ): Unit =
     areaCalculations.update : maybeArea =>
       val area = maybeArea.getOrElse(BuildingEnvelopeArea.empty)
       val calculation = AreaCalculation(componentType, entries)
       Some(area.update(calculation))
-    // If a wall/roof was updated, cascade orientation changes to assigned windows
-    if componentType != ComponentType.Window && componentType != ComponentType.EBF then
+    // If a wall/roof was updated interactively, cascade orientation changes to assigned windows
+    if !skipCascade && componentType != ComponentType.Window && componentType != ComponentType.EBF then
       cascadeOrientationToWindows()
     if componentType == ComponentType.EBF then
       val totalEbf    = entries.map(_.totalArea).sum
@@ -216,7 +218,8 @@ object AreaState:
 
       // Manual entries for this type are preserved alongside polygon-derived ones
       val manualEntries = existingEntries.filter(_.isManual)
-      updateAreaCalculation(compType, syncedEntries ++ manualEntries)
+      // skipCascade=true: the second pass at the end of syncPolygons does it once for all types
+      updateAreaCalculation(compType, syncedEntries ++ manualEntries, skipCascade = true)
     }
 
     // Second pass: for windows with installedIn set but no orientation,
