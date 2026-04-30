@@ -212,7 +212,7 @@ object ReportView:
         val url  = dom.URL.createObjectURL(blob)
         val link = dom.document.createElement("a").asInstanceOf[dom.html.Anchor]
         link.href = url
-        link.download = s"GEAK_$projectName.xls"
+        link.download = s"GEAK_$projectName.xlsx"
         link.click()
         dom.URL.revokeObjectURL(url)
       case scala.util.Failure(ex) =>
