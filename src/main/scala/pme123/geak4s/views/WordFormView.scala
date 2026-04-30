@@ -1,15 +1,16 @@
 package pme123.geak4s.views
 
-import upickle.default.write
 import com.raquo.laminar.api.L.{*, given}
 import be.doeraene.webcomponents.ui5.*
 import be.doeraene.webcomponents.ui5.configkeys.*
 import scala.scalajs.js
+import scala.scalajs.concurrent.JSExecutionContext.Implicits.queue
 import org.scalajs.dom
 import pme123.geak4s.state.AppState
 import pme123.geak4s.domain.*
 import pme123.geak4s.domain.project.*
 import pme123.geak4s.domain.building.BuildingUsage
+import pme123.geak4s.services.WordExportService
 
 object WordFormView:
 
@@ -270,29 +271,18 @@ object WordFormView:
       content
     )
 
-  // Funktion für POST
+  // Begehungsprotokoll generieren (clientseitig)
   def sendToBackend(): Unit =
-    val dataJson = write(formVar.now())
-    val url = "/generate"
-    dom.fetch(
-      url,
-      new dom.RequestInit {
-        method = dom.HttpMethod.POST
-        body = dataJson
-        headers = new dom.Headers(js.Array(js.Array("Content-Type", "application/json")))
-      }
-    ).`then`[Unit] { response =>
-      response.blob().`then`[Unit] { blob =>
-        val objectUrl = dom.URL.createObjectURL(blob)
-        val link = dom.document.createElement("a").asInstanceOf[dom.html.Anchor]
-        link.href = objectUrl
-        val form = formVar.now()
-        val nameParts = List(form.projektnummer, form.adresse.replace(",", "")).filter(_.nonEmpty)
-        val baseName  = if nameParts.nonEmpty then s"Begehung_${nameParts.mkString(" ")}" else "Begehungsprotokoll"
-        link.download = s"$baseName.docx"
-        dom.document.body.appendChild(link)
-        link.click()
-        dom.document.body.removeChild(link)
-        dom.URL.revokeObjectURL(objectUrl)
-      }
+    val form = formVar.now()
+    WordExportService.generate(form).foreach { blob =>
+      val objectUrl = dom.URL.createObjectURL(blob)
+      val link = dom.document.createElement("a").asInstanceOf[dom.html.Anchor]
+      link.href = objectUrl
+      val nameParts = List(form.projektnummer, form.adresse.replace(",", "")).filter(_.nonEmpty)
+      val baseName  = if nameParts.nonEmpty then s"Begehung_${nameParts.mkString(" ")}" else "Begehungsprotokoll"
+      link.download = s"$baseName.docx"
+      dom.document.body.appendChild(link)
+      link.click()
+      dom.document.body.removeChild(link)
+      dom.URL.revokeObjectURL(objectUrl)
     }
