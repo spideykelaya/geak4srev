@@ -145,8 +145,6 @@ object AppState:
                     localFileHandle.set(Some(h))
                     localFileName.set(Some(name))
                     dom.console.log(s"✅ Dateihandle aus IndexedDB wiederhergestellt: $name")
-                    // Immediately write current project so the file is up to date
-                    getCurrentProject.foreach { p => scheduleLocalFileSave(p) }
                   else
                     dom.console.log("⚠️ Schreibberechtigung verweigert – Auto-Save deaktiviert")
                 h.requestPermission(js.Dynamic.literal(mode = "readwrite"))
@@ -189,6 +187,7 @@ object AppState:
   /** Project management */
   def createNewProject(): Unit =
     clearWip()
+    clearLocalFileHandle()
     UndoState.clear()
     UWertState.clear()
     AreaState.clear()
@@ -203,6 +202,7 @@ object AppState:
     // Don't auto-connect for new projects - wait until project name is set
 
   def createExampleProject(): Unit =
+    clearLocalFileHandle()
     val exampleProject = GeakProject.example
     projectState.set(ProjectState.Loaded(exampleProject, "geak_example.xlsx"))
     navigateToWorkflowEditor()  // Use workflow editor by default
