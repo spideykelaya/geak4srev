@@ -7,7 +7,7 @@ export default defineConfig({
     scalaJSPlugin(),
     basicSsl() // Required for Google OAuth (HTTPS)
   ],
-  base: process.env.NODE_ENV === 'production' ? '/geak4s/' : '/',
+  base: process.env.NODE_ENV === 'production' ? '/geak4srev/' : '/',
   server: {
     https: true,
     port: 5173,

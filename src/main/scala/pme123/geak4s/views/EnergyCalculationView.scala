@@ -95,6 +95,8 @@ object EnergyCalculationView:
   // -------------------------------------------------------------------------
 
   private def syncToWordForm(d: EnergyConsumptionData, ebf: Double): Unit =
+    if ebf > 0 then
+      WordFormView.formVar.update(_.copy(ebf = fmtNum(ebf, 0)))
     val fuelVals = d.fuelEntries.flatMap(_.correctedKwh(d.calorificValue))
     val elecVals = d.electricityEntries.flatMap(_.correctedKwh)
     val avgOpt: Option[Double] =

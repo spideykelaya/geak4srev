@@ -6,7 +6,8 @@ import be.doeraene.webcomponents.ui5.configkeys.*
 import scala.scalajs.js
 import scala.scalajs.concurrent.JSExecutionContext.Implicits.queue
 import org.scalajs.dom
-import pme123.geak4s.state.AppState
+import pme123.geak4s.state.{AppState, AreaState}
+import pme123.geak4s.domain.uwert.ComponentType
 import pme123.geak4s.domain.*
 import pme123.geak4s.domain.project.*
 import pme123.geak4s.domain.building.BuildingUsage
@@ -152,6 +153,17 @@ object WordFormView:
       // Uses .changes so it does NOT fire on mount (only on actual edits).
       formVar.signal.changes --> Observer[WordFormData] { form =>
         AppState.updateProject(syncFormToProject(form))
+      },
+
+      // EBF: dieselbe Quelle wie Schritt 3 (Summe der EBF-Polygone aus AreaState)
+      AreaState.areaCalculations.signal.map { maybeArea =>
+        maybeArea
+          .flatMap(_.get(ComponentType.EBF))
+          .map(_.entries.map(_.totalArea).sum)
+          .getOrElse(0.0)
+      } --> Observer[Double] { ebf =>
+        if ebf > 0 then
+          formVar.update(_.copy(ebf = math.round(ebf).toString))
       },
 
       renderSection("Projektinfos", div(

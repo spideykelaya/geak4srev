@@ -171,7 +171,7 @@ object AppState:
       decode[pme123.geak4s.domain.GeakProject](wipJson) match
         case Right(project) =>
           dom.console.log(s"🔄 WIP-Projekt aus localStorage geladen: $wipFile")
-          loadProject(project, wipFile)
+          loadProjectData(project, wipFile)
           // Separately try to restore the file handle (shows browser permission prompt)
           restoreHandleFromIndexedDb()
           true
@@ -209,29 +209,23 @@ object AppState:
     // Auto-connect for example projects since they already have a name
     autoConnectToGoogleDrive()
 
-  def loadProject(project: GeakProject, fileName: String): Unit =
-    UndoState.clear()   // loading a different project resets undo history
+  private def loadProjectData(project: GeakProject, fileName: String): Unit =
+    UndoState.clear()
     projectState.set(ProjectState.Loaded(project, fileName))
-    // Initialize U-Wert state from project
     UWertState.loadFromProject(project)
-    // Initialize Area state from project
     AreaState.loadFromProject(project)
-    // Initialize Wärmebrücken state from project
     WaermebrueckeState.loadFromProject(project)
-    // Initialize EBF plans state from project
     EbfState.loadFromProject(project)
-    // Initialize energy consumption state from project
     EnergyState.loadFromProject(project)
-    // Reset WordFormView to the persisted form state (or empty) so stale
-    // in-memory values from a previous session do not bleed into the new project.
     pme123.geak4s.views.WordFormView.formVar.set(
       project.wordFormData.getOrElse(pme123.geak4s.domain.project.WordFormData())
     )
-    // Mark sync as initialized for loaded projects (existing projects should auto-sync)
     syncInitialized.set(true)
-    // Auto-connect to Google Drive for loaded projects
     autoConnectToGoogleDrive()
-    navigateToWorkflowEditor()  // Use workflow editor by default
+
+  def loadProject(project: GeakProject, fileName: String): Unit =
+    loadProjectData(project, fileName)
+    navigateToWorkflowEditor()
   
   def setLoading(fileName: String): Unit =
     projectState.set(ProjectState.Loading(fileName))

@@ -26,7 +26,7 @@ object AreaView:
     areaEntriesByType.getOrElseUpdate(ct, Var(List.empty))
 
   private def saveEntriesToState(ct: ComponentType, entries: List[AreaEntry]): Unit =
-    AreaState.updateAreaCalculation(ct, entries, syncEbfToWordForm = true)
+    AreaState.updateAreaCalculation(ct, entries, syncEbfToWordForm = false)
     AppState.saveAreaCalculations()
 
   def loadFromState(): Unit =
