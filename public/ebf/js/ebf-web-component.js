@@ -1,5 +1,7 @@
 const TAG_NAME = 'ebf-calculator';
 const PDF_JS_SRC = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+// Base URL of the /ebf/ folder, derived from this script's location (works regardless of deployment base path)
+const _ebfBase = new URL('../', import.meta.url).href;
 
 let pdfJsLoadPromise = null;
 
@@ -21,7 +23,7 @@ function ensurePdfJsLoaded() {
 
 async function mountEbfCalculator(root) {
   await ensurePdfJsLoaded();
-  const module = await import('/ebf/js/main.js?v=33');
+  const module = await import(/* @vite-ignore */ `${_ebfBase}js/main.js?v=33`);
   return module.mountEbf(root || document);
 }
 
@@ -63,7 +65,7 @@ const TEMPLATE = `
 
     .app { height: 100% !important; }
   </style>
-  <link rel="stylesheet" href="/ebf/styles.css?v=33">
+  <link rel="stylesheet" href="${_ebfBase}styles.css?v=33">
 
   <div class="app">
     <aside class="sidebar">
