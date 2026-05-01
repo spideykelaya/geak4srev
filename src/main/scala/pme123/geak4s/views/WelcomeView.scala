@@ -182,6 +182,38 @@ object WelcomeView:
       div(
         className := "welcome-actions",
 
+        // Continue WIP project card (only shown after browser refresh with existing session)
+        child.maybe <-- AppState.projectState.signal.map {
+          case AppState.ProjectState.Loaded(_, fileName) => Some(
+            Card(
+              _.slots.header := CardHeader(
+                _.titleText := "Projekt fortsetzen",
+                _.subtitleText := fileName,
+                _.slots.avatar := Icon(_.name := IconName.`open-folder`)
+              ),
+              div(
+                className := "card-content",
+                Label(
+                  _.wrappingType := WrappingType.Normal,
+                  "Zuletzt bearbeitetes Projekt wieder öffnen."
+                ),
+                div(
+                  className := "card-actions",
+                  Button(
+                    _.design := ButtonDesign.Emphasized,
+                    _.icon := IconName.`play`,
+                    _.events.onClick.mapTo(()) --> Observer[Unit] { _ =>
+                      AppState.navigateToWorkflowEditor()
+                    },
+                    "Weiter"
+                  )
+                )
+              )
+            )
+          )
+          case _ => None
+        },
+
         // New Project Card
         Card(
           _.slots.header := CardHeader(

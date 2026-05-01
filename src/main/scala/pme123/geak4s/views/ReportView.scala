@@ -6,7 +6,7 @@ import com.raquo.laminar.api.L.{*, given}
 import org.scalajs.dom
 import pme123.geak4s.state.AppState
 import pme123.geak4s.domain.*
-import pme123.geak4s.services.XmlExportService
+import pme123.geak4s.services.{BerechnungstoolExportService, ExcelExportService, XmlExportService}
 import pme123.geak4s.components.FormField
 import pme123.geak4s.domain.JsonCodecs.given
 import io.circe.syntax.*
@@ -207,35 +207,18 @@ object ReportView:
       case _               => "geak_projekt"
     val json = project.asJson.noSpaces
 
-    val onError: js.Function1[js.Any, Unit] = err =>
-      dom.console.error("Excel-Export fehlgeschlagen:", err)
-      dom.window.alert(s"Excel-Export fehlgeschlagen. Ist der Backend-Server gestartet?")
-
-    val onBlob: js.Function1[js.Any, Unit] = blob =>
-      val url  = dom.URL.createObjectURL(blob.asInstanceOf[dom.Blob])
-      val link = dom.document.createElement("a").asInstanceOf[dom.html.Anchor]
-      link.href = url
-      link.download = s"GEAK_$projectName.xls"
-      link.click()
-      dom.URL.revokeObjectURL(url)
-
-    val onResponse: js.Function1[js.Any, Unit] = resp =>
-      val r = resp.asInstanceOf[js.Dynamic]
-      val ok = r.ok.asInstanceOf[Boolean]
-      if ok then
-        r.blob().asInstanceOf[js.Dynamic].`then`(onBlob, onError)
-      else
-        val onText: js.Function1[js.Any, Unit] = text =>
-          val msg = text.asInstanceOf[String]
-          dom.console.error(s"Backend-Fehler: $msg")
-          dom.window.alert(s"Excel-Export fehlgeschlagen:\n$msg")
-        r.text().asInstanceOf[js.Dynamic].`then`(onText, onError)
-
-    val headers = js.Dynamic.literal()
-    headers.updateDynamic("Content-Type")("application/json")
-    val opts = js.Dynamic.literal(method = "POST", body = json, headers = headers)
-    dom.window.asInstanceOf[js.Dynamic].fetch("/generate-excel", opts)
-      .asInstanceOf[js.Dynamic].`then`(onResponse, onError)
+    ExcelExportService.generate(json).onComplete {
+      case scala.util.Success(blob) =>
+        val url  = dom.URL.createObjectURL(blob)
+        val link = dom.document.createElement("a").asInstanceOf[dom.html.Anchor]
+        link.href = url
+        link.download = s"GEAK_$projectName.xlsx"
+        link.click()
+        dom.URL.revokeObjectURL(url)
+      case scala.util.Failure(ex) =>
+        dom.console.error("Excel-Export fehlgeschlagen:", ex.getMessage)
+        dom.window.alert(s"Excel-Export fehlgeschlagen:\n${ex.getMessage}")
+    }
 
   private def downloadBerechnungstool(project: GeakProject): Unit =
     val projectName = project.project.projectName.trim match
@@ -243,35 +226,18 @@ object ReportView:
       case _               => "projekt"
     val json = project.asJson.noSpaces
 
-    val onError: js.Function1[js.Any, Unit] = err =>
-      dom.console.error("Berechnungstool-Export fehlgeschlagen:", err)
-      dom.window.alert("Berechnungstool-Export fehlgeschlagen. Ist der Backend-Server gestartet?")
-
-    val onBlob: js.Function1[js.Any, Unit] = blob =>
-      val url  = dom.URL.createObjectURL(blob.asInstanceOf[dom.Blob])
-      val link = dom.document.createElement("a").asInstanceOf[dom.html.Anchor]
-      link.href = url
-      link.download = s"Berechnungstool_260_$projectName.xlsx"
-      link.click()
-      dom.URL.revokeObjectURL(url)
-
-    val onResponse: js.Function1[js.Any, Unit] = resp =>
-      val r  = resp.asInstanceOf[js.Dynamic]
-      val ok = r.ok.asInstanceOf[Boolean]
-      if ok then
-        r.blob().asInstanceOf[js.Dynamic].`then`(onBlob, onError)
-      else
-        val onText: js.Function1[js.Any, Unit] = text =>
-          val msg = text.asInstanceOf[String]
-          dom.console.error(s"Backend-Fehler: $msg")
-          dom.window.alert(s"Berechnungstool-Export fehlgeschlagen:\n$msg")
-        r.text().asInstanceOf[js.Dynamic].`then`(onText, onError)
-
-    val headers = js.Dynamic.literal()
-    headers.updateDynamic("Content-Type")("application/json")
-    val opts = js.Dynamic.literal(method = "POST", body = json, headers = headers)
-    dom.window.asInstanceOf[js.Dynamic].fetch("/generate-berechnungstool", opts)
-      .asInstanceOf[js.Dynamic].`then`(onResponse, onError)
+    BerechnungstoolExportService.generate(json).onComplete {
+      case scala.util.Success(blob) =>
+        val url  = dom.URL.createObjectURL(blob)
+        val link = dom.document.createElement("a").asInstanceOf[dom.html.Anchor]
+        link.href = url
+        link.download = s"Berechnungstool_260_$projectName.xlsx"
+        link.click()
+        dom.URL.revokeObjectURL(url)
+      case scala.util.Failure(ex) =>
+        dom.console.error("Berechnungstool-Export fehlgeschlagen:", ex.getMessage)
+        dom.window.alert(s"Berechnungstool-Export fehlgeschlagen:\n${ex.getMessage}")
+    }
 
   private def renderExcelExportCard(project: GeakProject): HtmlElement =
     Card(

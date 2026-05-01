@@ -38,9 +38,21 @@ lazy val root = (project in file("."))
       "io.circe"    %%% "circe-core"         % "0.14.10",
       "io.circe"    %%% "circe-generic"      % "0.14.10",
       "io.circe"    %%% "circe-parser"       % "0.14.10"
+    ),
+    externalNpm := baseDirectory.value,
+    stUseScalaJsDom := true,
+    stIgnore ++= List(
+      "@azure/msal-browser",
+      "@microsoft/microsoft-graph-client",
+      "@ui5/webcomponents",
+      "@ui5/webcomponents-compat",
+      "@ui5/webcomponents-fiori",
+      "@ui5/webcomponents-icons",
+      "gapi-script",
+      "isomorphic-fetch"
     )
   )
-  .enablePlugins(ScalaJSPlugin)
+  .enablePlugins(ScalaJSPlugin, ScalablyTypedConverterExternalNpmPlugin)
 
 
 
