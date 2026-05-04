@@ -49,7 +49,8 @@ lazy val root = (project in file("."))
       "@ui5/webcomponents-fiori",
       "@ui5/webcomponents-icons",
       "gapi-script",
-      "isomorphic-fetch"
+      "isomorphic-fetch",
+      "pdf-lib"
     )
   )
   .enablePlugins(ScalaJSPlugin, ScalablyTypedConverterExternalNpmPlugin)

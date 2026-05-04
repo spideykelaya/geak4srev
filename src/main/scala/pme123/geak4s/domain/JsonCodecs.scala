@@ -60,7 +60,53 @@ object JsonCodecs:
   given Decoder[Project] = deriveDecoder[Project]
 
   given Encoder[WordFormData] = deriveEncoder[WordFormData]
-  given Decoder[WordFormData] = deriveDecoder[WordFormData]
+  given Decoder[WordFormData] = Decoder.instance { c =>
+    for
+      projektnummer          <- c.getOrElse[String]("projektnummer")("")
+      auftraggeberin         <- c.getOrElse[String]("auftraggeberin")("")
+      mail                   <- c.getOrElse[String]("mail")("")
+      tel                    <- c.getOrElse[String]("tel")("")
+      adresse                <- c.getOrElse[String]("adresse")("")
+      baujahr                <- c.getOrElse[String]("baujahr")("")
+      datum                  <- c.getOrElse[String]("datum")("")
+      egid                   <- c.getOrElse[String]("egid")("")
+      heizung                <- c.getOrElse[String]("heizung")("")
+      warmwasser             <- c.getOrElse[String]("warmwasser")("")
+      gebaudeart             <- c.getOrElse[String]("gebaudeart")("")
+      ebf                    <- c.getOrElse[String]("ebf")("")
+      wohnungen              <- c.getOrElse[String]("wohnungen")("")
+      energieart             <- c.getOrElse[String]("energieart")("")
+      energieverbrauch       <- c.getOrElse[String]("energieverbrauch")("")
+      energiekennzahl        <- c.getOrElse[String]("energiekennzahl")("")
+      erdsonde               <- c.getOrElse[String]("erdsonde")("")
+      fernwärme              <- c.getOrElse[String]("fernwärme")("")
+      fossil                 <- c.getOrElse[String]("fossil")("")
+      wp                     <- c.getOrElse[String]("wp")("")
+      sondentiefe            <- c.getOrElse[String]("sondentiefe")("")
+      ibBaujahrHeizung       <- c.getOrElse[String]("ibBaujahrHeizung")("")
+      ibGebaeudeErneuerungen <- c.getOrElse[String]("ibGebaeudeErneuerungen")("")
+      ibAnzahlGebaeude       <- c.getOrElse[String]("ibAnzahlGebaeude")("")
+      ibAnzahlHeizungsraeume <- c.getOrElse[String]("ibAnzahlHeizungsraeume")("")
+      ibEigentuemerAdresse   <- c.getOrElse[String]("ibEigentuemerAdresse")("")
+      ibEigentuemerPlz       <- c.getOrElse[String]("ibEigentuemerPlz")("")
+      ibEigentuemerOrt       <- c.getOrElse[String]("ibEigentuemerOrt")("")
+      ibAnsprechVorname      <- c.getOrElse[String]("ibAnsprechVorname")("")
+      ibAnsprechName         <- c.getOrElse[String]("ibAnsprechName")("")
+      ibAnsprechAdresse      <- c.getOrElse[String]("ibAnsprechAdresse")("")
+      ibAnsprechPlz          <- c.getOrElse[String]("ibAnsprechPlz")("")
+      ibAnsprechOrt          <- c.getOrElse[String]("ibAnsprechOrt")("")
+      ibAnsprechTel          <- c.getOrElse[String]("ibAnsprechTel")("")
+      ibAnsprechMail         <- c.getOrElse[String]("ibAnsprechMail")("")
+    yield WordFormData(
+      projektnummer, auftraggeberin, mail, tel, adresse, baujahr, datum, egid,
+      heizung, warmwasser, gebaudeart, ebf, wohnungen, energieart,
+      energieverbrauch, energiekennzahl, erdsonde, fernwärme, fossil, wp, sondentiefe,
+      ibBaujahrHeizung, ibGebaeudeErneuerungen, ibAnzahlGebaeude, ibAnzahlHeizungsraeume,
+      ibEigentuemerAdresse, ibEigentuemerPlz, ibEigentuemerOrt,
+      ibAnsprechVorname, ibAnsprechName, ibAnsprechAdresse, ibAnsprechPlz, ibAnsprechOrt,
+      ibAnsprechTel, ibAnsprechMail
+    )
+  }
   
   // Building domain
   given Encoder[BuildingUsage] = deriveEncoder[BuildingUsage]

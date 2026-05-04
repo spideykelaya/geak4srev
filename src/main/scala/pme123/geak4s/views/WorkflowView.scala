@@ -165,7 +165,6 @@ object WorkflowView:
   private def stepNavigator(): HtmlElement =
     div(
       className := "workflow-navigator",
-      Title(_.level := TitleLevel.H5, "Arbeitsschritte"),
       div(
         className := "step-list",
         Step.values.toSeq.map { step =>
@@ -185,6 +184,7 @@ object WorkflowView:
           if isCurrent then ButtonDesign.Default else ButtonDesign.Default
         ),
         _.icon := stepIcon(step),
+        _.tooltip := step.description,
         _.events.onClick.mapTo(step) --> Observer[Step] { s =>
           WorkflowState.goToStep(s)
         },
@@ -192,14 +192,9 @@ object WorkflowView:
         marginBottom := "0.5rem",
         div(
           className := "step-button-content",
-          div(
-            className := "step-number",
-            s"${step.order}"
-          ),
-          div(
-            className := "step-info",
-            div(className := "step-title", step.title),
-            div(className := "step-desc", step.description)
+          div(className := "step-number", s"${step.order}"),
+          div(className := "step-info",
+            div(className := "step-title", step.title)
           ),
           child <-- statusSignal.map(status => statusBadge(status))
         )

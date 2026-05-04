@@ -26,7 +26,23 @@ case class WordFormData(
   fernwärme: String = "",
   fossil: String = "",
   wp: String = "",
-  sondentiefe: String = ""
+  sondentiefe: String = "",
+  // IB-Protokoll Felder
+  ibBaujahrHeizung: String = "",
+  ibGebaeudeErneuerungen: String = "",
+  ibAnzahlGebaeude: String = "",
+  ibAnzahlHeizungsraeume: String = "",
+  ibEigentuemerAdresse: String = "",
+  ibEigentuemerPlz: String = "",
+  ibEigentuemerOrt: String = "",
+  // gMFH Ansprechperson Eigentümerschaft
+  ibAnsprechVorname: String = "",
+  ibAnsprechName: String = "",
+  ibAnsprechAdresse: String = "",
+  ibAnsprechPlz: String = "",
+  ibAnsprechOrt: String = "",
+  ibAnsprechTel: String = "",
+  ibAnsprechMail: String = ""
 )
 
 object WordFormData:

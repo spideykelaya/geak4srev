@@ -9,6 +9,7 @@ import org.scalajs.dom
 import pme123.geak4s.state.{AppState, AreaState}
 import pme123.geak4s.domain.uwert.ComponentType
 import pme123.geak4s.domain.*
+import pme123.geak4s.services.IbExportService
 import pme123.geak4s.domain.project.*
 import pme123.geak4s.domain.building.BuildingUsage
 import pme123.geak4s.services.WordExportService
@@ -270,7 +271,128 @@ object WordFormView:
         _.events.onClick.mapTo(()) --> Observer { _ =>
           sendToBackend()
         }
-      )
+      ),
+
+      // IB-Protokoll Abschnitt
+      div(marginTop := "3rem"),
+      renderSection("IB-Protokoll", {
+        val sameAsGebaeude  = Var(false)
+        val sameAsEigentue  = Var(false)
+
+        def textAreaField(labelStr: String, get: WordFormData => String, set: (WordFormData, String) => WordFormData): HtmlElement =
+          div(
+            className := "form-field",
+            Label(labelStr),
+            textArea(
+              rows := 3,
+              value <-- formVar.signal.map(get),
+              onInput.mapToValue --> Observer[String] { v => formVar.update(set(_, v)) },
+              styleAttr := "width:100%;box-sizing:border-box;font-size:14px;font-family:\"72\",\"72full\",Arial,Helvetica,sans-serif;line-height:1.4;padding:0.4rem;resize:vertical;border:1px solid #89919a;border-radius:0.25rem;background:#fff;color:#32363a;"
+            )
+          )
+
+        def subTitle(text: String): HtmlElement =
+          div(
+            marginTop := "2rem", marginBottom := "0.75rem",
+            backgroundColor := "#0070f3", borderRadius := "4px",
+            padding := "0.6rem 1rem",
+            color := "white", fontWeight := "700", fontSize := "1rem",
+            span(text)
+          )
+
+        div(
+          // Gemeinsame Felder
+          textInput("Baujahr Heizanlage", _.ibBaujahrHeizung, (d,v) => d.copy(ibBaujahrHeizung=v)),
+
+          // Gebäudeeigentümer/in
+          div(
+            marginTop := "1rem",
+            sameAsGebaeude.signal --> Observer[Boolean] { checked =>
+              if checked then
+                val (strasse, plz, ort) = splitAdresseIb(formVar.now().adresse)
+                formVar.update(_.copy(ibEigentuemerAdresse=strasse, ibEigentuemerPlz=plz, ibEigentuemerOrt=ort))
+              else
+                formVar.update(_.copy(ibEigentuemerAdresse="", ibEigentuemerPlz="", ibEigentuemerOrt=""))
+            },
+            div(
+              display := "flex", alignItems := "center", gap := "0.75rem", marginBottom := "0.5rem",
+              Title(_.level := TitleLevel.H4, "Gebäudeeigentümer/in"),
+              label(
+                display := "flex", alignItems := "center", gap := "0.35rem", fontSize := "0.9rem", cursor := "pointer",
+                input(typ := "checkbox", checked <-- sameAsGebaeude.signal, onChange.mapToChecked --> sameAsGebaeude),
+                "Gleiche Adresse wie Gebäude"
+              )
+            ),
+            textInput("Adresse", _.ibEigentuemerAdresse, (d,v) => d.copy(ibEigentuemerAdresse=v)),
+            textInput("PLZ",     _.ibEigentuemerPlz,     (d,v) => d.copy(ibEigentuemerPlz=v)),
+            textInput("Ort",     _.ibEigentuemerOrt,     (d,v) => d.copy(ibEigentuemerOrt=v))
+          ),
+
+          // ── EFH ──────────────────────────────────────────────
+          subTitle("IB EFH"),
+          textAreaField("Gebäudeerneuerungen (inkl. Jahr)", _.ibGebaeudeErneuerungen, (d,v) => d.copy(ibGebaeudeErneuerungen=v)),
+          div(
+            marginTop := "1rem",
+            Button(
+              "IB-Protokoll EFH erstellen",
+              _.design := ButtonDesign.Default,
+              _.events.onClick.mapTo(()) --> Observer { _ => generateIb(efh = true) }
+            )
+          ),
+
+          // ── gMFH ─────────────────────────────────────────────
+          subTitle("IB gMFH"),
+          textInput("Anzahl Gebäude", _.ibAnzahlGebaeude, (d,v) => d.copy(ibAnzahlGebaeude=v)),
+          textInput("Anzahl Heizungsräume", _.ibAnzahlHeizungsraeume, (d,v) => d.copy(ibAnzahlHeizungsraeume=v)),
+
+          // Ansprechperson Eigentümerschaft
+          div(
+            marginTop := "1rem",
+            sameAsEigentue.signal --> Observer[Boolean] { checked =>
+              if checked then
+                val (vorname, name) = splitName(formVar.now().auftraggeberin)
+                formVar.update(_.copy(
+                  ibAnsprechVorname  = vorname,
+                  ibAnsprechName     = name,
+                  ibAnsprechAdresse  = formVar.now().ibEigentuemerAdresse,
+                  ibAnsprechPlz      = formVar.now().ibEigentuemerPlz,
+                  ibAnsprechOrt      = formVar.now().ibEigentuemerOrt,
+                  ibAnsprechTel      = formVar.now().tel,
+                  ibAnsprechMail     = formVar.now().mail
+                ))
+              else
+                formVar.update(_.copy(
+                  ibAnsprechVorname="", ibAnsprechName="", ibAnsprechAdresse="",
+                  ibAnsprechPlz="", ibAnsprechOrt="", ibAnsprechTel="", ibAnsprechMail=""
+                ))
+            },
+            div(
+              display := "flex", alignItems := "center", gap := "0.75rem", marginBottom := "0.5rem",
+              Title(_.level := TitleLevel.H4, "Ansprechperson Eigentümerschaft"),
+              label(
+                display := "flex", alignItems := "center", gap := "0.35rem", fontSize := "0.9rem", cursor := "pointer",
+                input(typ := "checkbox", checked <-- sameAsEigentue.signal, onChange.mapToChecked --> sameAsEigentue),
+                "Gleich wie Gebäudeeigentümer/in"
+              )
+            ),
+            textInput("Vorname",  _.ibAnsprechVorname,  (d,v) => d.copy(ibAnsprechVorname=v)),
+            textInput("Name",     _.ibAnsprechName,     (d,v) => d.copy(ibAnsprechName=v)),
+            textInput("Adresse",  _.ibAnsprechAdresse,  (d,v) => d.copy(ibAnsprechAdresse=v)),
+            textInput("PLZ",      _.ibAnsprechPlz,      (d,v) => d.copy(ibAnsprechPlz=v)),
+            textInput("Ort",      _.ibAnsprechOrt,      (d,v) => d.copy(ibAnsprechOrt=v)),
+            textInput("Telefon",  _.ibAnsprechTel,      (d,v) => d.copy(ibAnsprechTel=v)),
+            textInput("E-Mail",   _.ibAnsprechMail,     (d,v) => d.copy(ibAnsprechMail=v))
+          ),
+          div(
+            marginTop := "1rem",
+            Button(
+              "IB-Protokoll gMFH erstellen",
+              _.design := ButtonDesign.Default,
+              _.events.onClick.mapTo(()) --> Observer { _ => generateIb(efh = false) }
+            )
+          )
+        )
+      })
     )
 
   private def renderSection(title: String, content: HtmlElement): HtmlElement =
@@ -283,22 +405,52 @@ object WordFormView:
       content
     )
 
+  private def splitName(fullName: String): (String, String) =
+    val parts = fullName.trim.split(" ")
+    if parts.length > 1 then (parts.dropRight(1).mkString(" "), parts.last)
+    else ("", fullName)
+
+  private def splitAdresseIb(adresse: String): (String, String, String) =
+    val parts  = adresse.split(",", 2)
+    val stasse = parts.headOption.map(_.trim).getOrElse("")
+    val rest   = parts.lift(1).map(_.trim).getOrElse("")
+    val tokens = rest.split(" ", 2).filter(_.nonEmpty)
+    val plz    = tokens.headOption.filter(_.forall(_.isDigit)).getOrElse("")
+    val ort    = tokens.lift(1).getOrElse(if plz.isEmpty then rest else "")
+    (stasse, plz, ort)
+
+  private def downloadBlob(blob: dom.Blob, fileName: String): Unit =
+    val objectUrl = dom.URL.createObjectURL(blob)
+    val link = dom.document.createElement("a").asInstanceOf[dom.html.Anchor]
+    link.href = objectUrl
+    link.download = fileName
+    dom.document.body.appendChild(link)
+    link.click()
+    dom.document.body.removeChild(link)
+    dom.URL.revokeObjectURL(objectUrl)
+
+  def generateIb(efh: Boolean): Unit =
+    val form = formVar.now()
+    val nameParts = List(form.projektnummer, form.adresse.replace(",", "")).filter(_.nonEmpty)
+    val prefix    = if nameParts.nonEmpty then nameParts.mkString(" ") else "Projekt"
+    val label     = if efh then "EFH" else "gMFH"
+    val future    = if efh then IbExportService.generateEfh(form) else IbExportService.generateGmfh(form)
+    future.onComplete {
+      case scala.util.Success(blob) =>
+        downloadBlob(blob, s"IB_${label}_$prefix.pdf")
+      case scala.util.Failure(ex) =>
+        dom.console.error(s"IB-Protokoll $label fehlgeschlagen:", ex.getMessage)
+        dom.window.alert(s"IB-Protokoll $label fehlgeschlagen:\n${ex.getMessage}")
+    }
+
   // Begehungsprotokoll generieren (clientseitig)
   def sendToBackend(): Unit =
     val form = formVar.now()
-    dom.console.log("[WordFormView] generating Begehungsprotokoll …")
+    val nameParts = List(form.projektnummer, form.adresse.replace(",", "")).filter(_.nonEmpty)
+    val baseName  = if nameParts.nonEmpty then s"Begehung_${nameParts.mkString(" ")}" else "Begehungsprotokoll"
     WordExportService.generate(form).onComplete {
       case scala.util.Success(blob) =>
-        val objectUrl = dom.URL.createObjectURL(blob)
-        val link = dom.document.createElement("a").asInstanceOf[dom.html.Anchor]
-        link.href = objectUrl
-        val nameParts = List(form.projektnummer, form.adresse.replace(",", "")).filter(_.nonEmpty)
-        val baseName  = if nameParts.nonEmpty then s"Begehung_${nameParts.mkString(" ")}" else "Begehungsprotokoll"
-        link.download = s"$baseName.docx"
-        dom.document.body.appendChild(link)
-        link.click()
-        dom.document.body.removeChild(link)
-        dom.URL.revokeObjectURL(objectUrl)
+        downloadBlob(blob, s"$baseName.docx")
       case scala.util.Failure(ex) =>
         dom.console.error("[WordFormView] Begehungsprotokoll fehlgeschlagen:", ex.getMessage)
         ex.printStackTrace()

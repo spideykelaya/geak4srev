@@ -639,6 +639,10 @@ ui5-link:hover {
   position: relative;
 }
 
+.step-button-container ui5-button::part(button) {
+  justify-content: flex-start;
+}
+
 .step-button-content {
   display: flex;
   align-items: center;
