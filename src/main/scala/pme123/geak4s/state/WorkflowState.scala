@@ -21,12 +21,11 @@ object WorkflowState:
     case GISData extends Step(1, "Datenupload", "Gebäudedaten vom kantonalen GIS beziehen")
     case EBFCalculation extends Step(2, "Flächenauszug", "Energiebezugsfläche (EBF) und Gebäudehülle berechnen")
     case EnergyCalculation extends Step(3, "Energieberechnung", "Energieverbrauch erfassen und Heizleistung berechnen")
-    case WordForm extends Step(4, "Begehungsprotokoll und IB", "Formular ausfüllen und Protokoll erstellen")
+    case WordForm extends Step(4, "Begehung & IB Protokoll", "Formular ausfüllen und Protokoll erstellen")
     case UWertCalculation extends Step(5, "U-Wert-Berechnung", "Wärmedurchgangskoeffizienten berechnen")
     case Calculations extends Step(6, "Flächenberechnung", "Gebäudehülle IST und SOLL")
     case ProjectSetup extends Step(7, "GEAK Daten", "Ergänzung fehlender Daten, welche fürs GEAK wichtig sind")
-    case DataEntry extends Step(8, "Dateneingabe", "Gebäudehülle, HLKK, Energie")
-    case Reports extends Step(9, "Speicherung + Export", "JSON-Datei speichern und EXCEL erstellen und exportieren")
+    case Reports extends Step(8, "Speicherung + Export", "JSON-Datei speichern und EXCEL erstellen und exportieren")
   
   /** Status of each workflow step */
   enum StepStatus:

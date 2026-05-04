@@ -195,9 +195,10 @@ object AreaCalculationTable:
               textAlign  := "right",
               fontWeight := "600",
               child.text <-- dataEntries.signal.map { entries =>
-                val sum = entries.map(_.totalArea).sum
-                if componentType == ComponentType.EBF then math.round(sum).toString
-                else f"$sum%.1f"
+                if componentType == ComponentType.EBF then
+                  entries.map(e => math.round(e.totalArea)).sum.toString
+                else
+                  f"${entries.map(_.totalArea).sum}%.1f"
               }
             ),
 

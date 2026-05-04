@@ -81,8 +81,7 @@ object AreaState:
     if !skipCascade && componentType != ComponentType.Window && componentType != ComponentType.EBF then
       cascadeOrientationToWindows()
     if componentType == ComponentType.EBF then
-      val totalEbf    = entries.map(_.totalArea).sum
-      val rounded = math.round(totalEbf).toDouble
+      val rounded = entries.map(e => math.round(e.totalArea)).sum.toDouble
       if rounded > 0 then
         // Sync to project model (Schritt 7 fields)
         AppState.updateProject { p =>
@@ -99,7 +98,7 @@ object AreaState:
           )
         }
         if syncEbfToWordForm then
-          val totalEbfStr = f"$totalEbf%.0f"
+          val totalEbfStr = rounded.toLong.toString
           WordFormView.formVar.update(_.copy(ebf = totalEbfStr))
 
   /**

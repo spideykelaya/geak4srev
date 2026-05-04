@@ -192,7 +192,6 @@ object WorkflowView:
         marginBottom := "0.5rem",
         div(
           className := "step-button-content",
-          div(className := "step-number", s"${step.order}"),
           div(className := "step-info",
             div(className := "step-title", step.title)
           ),
@@ -208,7 +207,7 @@ object WorkflowView:
     case Step.EnergyCalculation => IconName.`energy-saving-lightbulb`
     case Step.UWertCalculation => IconName.`temperature`
     case Step.Calculations => IconName.`number-sign`
-    case Step.DataEntry => IconName.`edit`
+    case Step.Reports => IconName.`document`
     case Step.Reports => IconName.`document`
     case Step.ProjectSetup => IconName.`project-definition-triangle`
 
@@ -316,7 +315,6 @@ object WorkflowView:
       case Step.WordForm => WordFormView()
       case Step.UWertCalculation => renderUWertCalculation(project)
       case Step.Calculations => renderCalculations(project)
-      case Step.DataEntry => renderDataEntry(project)
       case Step.Reports => ReportView()
       case Step.ProjectSetup => renderProjectSetup(project)
 
@@ -363,56 +361,6 @@ object WorkflowView:
       AreaView()
     )
 
-
-  // Step 5: Data Entry
-  private def renderDataEntry(project: GeakProject): HtmlElement =
-    div(
-      className := "step-content",
-      MessageStrip(
-        _.design := MessageStripDesign.Information,
-        _.hideCloseButton := true,
-        marginBottom := "1.5rem",
-        "Erfassen Sie alle Gebäudedaten: Hülle, HLKK-Systeme, Energieproduktion."
-      ),
-      div(
-        className := "data-entry-sections",
-        Card(
-          _.slots.header := CardHeader(
-            _.titleText := "Gebäudehülle",
-            _.subtitleText := s"${project.roofsCeilings.length + project.walls.length + project.windowsDoors.length + project.floors.length} Bauteile"
-          ),
-          div(
-            className := "card-content",
-            Label(s"• Dächer/Decken: ${project.roofsCeilings.length}"),
-            Label(s"• Wände: ${project.walls.length}"),
-            Label(s"• Fenster/Türen: ${project.windowsDoors.length}"),
-            Label(s"• Böden: ${project.floors.length}")
-          )
-        ),
-        Card(
-          _.slots.header := CardHeader(
-            _.titleText := "HLKK-Systeme",
-            _.subtitleText := s"${project.heatProducers.length + project.ventilations.length} Systeme"
-          ),
-          div(
-            className := "card-content",
-            Label(s"• Wärmeerzeuger: ${project.heatProducers.length}"),
-            Label(s"• Lüftung: ${project.ventilations.length}"),
-            Label(s"• Wärmespeicher: ${project.heatStorages.length}")
-          )
-        ),
-        Card(
-          _.slots.header := CardHeader(
-            _.titleText := "Energieproduktion",
-            _.subtitleText := s"${project.electricityProducers.length} Anlagen"
-          ),
-          div(
-            className := "card-content",
-            Label(s"• Stromproduzenten: ${project.electricityProducers.length}")
-          )
-        )
-      )
-    )
 
 end WorkflowView
 

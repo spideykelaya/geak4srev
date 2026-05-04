@@ -232,12 +232,6 @@ case class ProjectView(geakProject: GeakProject):
               address = p.project.buildingLocation.address.copy(city = opt(v))))))
         ),
 
-        // Erwartete Stammnummer
-        ff(FieldMetadata.expectedGeakNumber,
-          proj.map(_.flatMap(_.geakId).map(_.toString).getOrElse("")),
-          v => upProj(p => p.copy(geakId = v.toIntOption))
-        ),
-
         // Klimastation
         ff(FieldMetadata.weatherStation,
           proj.map(_.flatMap(_.project.buildingData.weatherStation).getOrElse("")),

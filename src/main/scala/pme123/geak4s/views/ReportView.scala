@@ -222,7 +222,7 @@ object ReportView:
 
   private def downloadBerechnungstool(project: GeakProject): Unit =
     val projectName = project.project.projectName.trim match
-      case n if n.nonEmpty => n.replace(" ", "-")
+      case n if n.nonEmpty => n
       case _               => "projekt"
     val json = project.asJson.noSpaces
 
@@ -231,7 +231,7 @@ object ReportView:
         val url  = dom.URL.createObjectURL(blob)
         val link = dom.document.createElement("a").asInstanceOf[dom.html.Anchor]
         link.href = url
-        link.download = s"Berechnungstool_260_$projectName.xlsx"
+        link.download = s"Berechnungstool_$projectName.xlsx"
         link.click()
         dom.URL.revokeObjectURL(url)
       case scala.util.Failure(ex) =>
