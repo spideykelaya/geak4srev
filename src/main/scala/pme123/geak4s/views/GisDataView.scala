@@ -55,16 +55,28 @@ object GisDataView:
                 _.icon   := IconName.map,
                 _.events.onClick.mapTo(()) --> Observer[Unit] { _ =>
                   dom.window.open(
+                    "https://geo.zh.ch/maps?x=2698005&y=1246613&scale=162&basemap=arelkbackgroundzh",
+                    "_blank"
+                  )
+                },
+                "GIS ZH"
+              ),
+              Button(
+                marginTop := "0.5rem",
+                _.design := ButtonDesign.Default,
+                _.icon   := IconName.map,
+                _.events.onClick.mapTo(()) --> Observer[Unit] { _ =>
+                  dom.window.open(
                     s"https://www.geoportal.ch/ktzh/map/104?y=${address.lat.mkString}&x=${address.lon.mkString}&scale=500&rotation=0",
                     "_blank"
                   )
                 },
-                "Geoportal"
+                "Geoportal ZH"
               ),
 
               // XML File Upload Section
               div(
-                marginTop := "1.5rem",
+                marginTop := "0.5rem",
                 Label(
                   fontWeight := "600",
                   "GEO-Daten aus XML importieren:"

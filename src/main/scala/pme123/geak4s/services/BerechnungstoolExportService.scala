@@ -195,40 +195,79 @@ object BerechnungstoolExportService:
       nc(sh, 28, 1, calorific)
 
       // Elektro Allg. — rows 8–12 (idx 7–11): B=Jahr, C=HT, D=NT, E=Bereinigt
-      av(energy, "electricityEntries").take(5).zipWithIndex.foreach { (e, i) =>
-        val rowIdx    = 7 + i
-        val year      = Try(e("year").num.toInt).getOrElse(0)
-        val ht        = Try(e("htKwh").num).getOrElse(0.0)
-        val nt        = Try(e("ntKwh").num).getOrElse(0.0)
-        val bereinigt = (ht + nt) * hgt(year)
-        if year != 0     then nc(sh, rowIdx, 1, year.toDouble)
-        if ht > 0        then nc(sh, rowIdx, 2, ht)
-        if nt > 0        then nc(sh, rowIdx, 3, nt)
-        if bereinigt > 0 then nc(sh, rowIdx, 4, bereinigt)
-      }
+      val elecEntries = av(energy, "electricityEntries")
+      if elecEntries.length > 5 then
+        val years      = elecEntries.flatMap(e => Try(e("year").num.toInt).toOption).filter(_ != 0)
+        val yearLabel  = if years.nonEmpty then s"Mittelwert ${years.min}–${years.max}" else "Mittelwert"
+        val avgHt      = elecEntries.map(e => Try(e("htKwh").num).getOrElse(0.0)).sum / elecEntries.length
+        val avgNt      = elecEntries.map(e => Try(e("ntKwh").num).getOrElse(0.0)).sum / elecEntries.length
+        val avgBer     = elecEntries.zipWithIndex.map { (e, _) =>
+          val year = Try(e("year").num.toInt).getOrElse(0)
+          val ht   = Try(e("htKwh").num).getOrElse(0.0)
+          val nt   = Try(e("ntKwh").num).getOrElse(0.0)
+          (ht + nt) * hgt(year)
+        }.sum / elecEntries.length
+        sc(sh, 7, 1, yearLabel)
+        if avgHt  > 0 then nc(sh, 7, 2, avgHt)
+        if avgNt  > 0 then nc(sh, 7, 3, avgNt)
+        if avgBer > 0 then nc(sh, 7, 4, avgBer)
+      else
+        elecEntries.zipWithIndex.foreach { (e, i) =>
+          val rowIdx    = 7 + i
+          val year      = Try(e("year").num.toInt).getOrElse(0)
+          val ht        = Try(e("htKwh").num).getOrElse(0.0)
+          val nt        = Try(e("ntKwh").num).getOrElse(0.0)
+          val bereinigt = (ht + nt) * hgt(year)
+          if year != 0     then nc(sh, rowIdx, 1, year.toDouble)
+          if ht > 0        then nc(sh, rowIdx, 2, ht)
+          if nt > 0        then nc(sh, rowIdx, 3, nt)
+          if bereinigt > 0 then nc(sh, rowIdx, 4, bereinigt)
+        }
 
-      // Gas/Öl — rows 19–23 (idx 18–22). All 5 D-cells written with ncForce
-      // so D24=AVERAGE(D19:D23) stays consistent (D19 carries a formula).
-      av(energy, "fuelEntries").take(5).zipWithIndex.foreach { (e, i) =>
-        val rowIdx    = 18 + i
-        val year      = Try(e("year").num.toInt).getOrElse(0)
-        val vol       = Try(e("volumeLOrM3").num).getOrElse(0.0)
-        val kwh       = Try(e("directKwh").num).filter(_ > 0)
-                          .getOrElse(if vol > 0 then vol * calorific else 0.0)
-        val bereinigt = kwh * hgt(year)
-        if year != 0     then nc(sh, rowIdx, 1, year.toDouble)
-        if vol > 0       then nc(sh, rowIdx, 2, vol)
-        if bereinigt > 0 then ncForce(sh, rowIdx, 3, bereinigt)
-      }
+      // Gas/Öl — rows 19–23 (idx 18–22)
+      val fuelEntries = av(energy, "fuelEntries")
+      if fuelEntries.length > 5 then
+        val years     = fuelEntries.flatMap(e => Try(e("year").num.toInt).toOption).filter(_ != 0)
+        val yearLabel = if years.nonEmpty then s"Mittelwert ${years.min}–${years.max}" else "Mittelwert"
+        val avgVol    = fuelEntries.map(e => Try(e("volumeLOrM3").num).getOrElse(0.0)).sum / fuelEntries.length
+        val avgBer    = fuelEntries.map { e =>
+          val year = Try(e("year").num.toInt).getOrElse(0)
+          val vol  = Try(e("volumeLOrM3").num).getOrElse(0.0)
+          val kwh  = Try(e("directKwh").num).filter(_ > 0).getOrElse(if vol > 0 then vol * calorific else 0.0)
+          kwh * hgt(year)
+        }.sum / fuelEntries.length
+        sc(sh, 18, 1, yearLabel)
+        if avgVol > 0 then nc(sh, 18, 2, avgVol)
+        if avgBer > 0 then ncForce(sh, 18, 3, avgBer)
+      else
+        fuelEntries.zipWithIndex.foreach { (e, i) =>
+          val rowIdx    = 18 + i
+          val year      = Try(e("year").num.toInt).getOrElse(0)
+          val vol       = Try(e("volumeLOrM3").num).getOrElse(0.0)
+          val kwh       = Try(e("directKwh").num).filter(_ > 0)
+                            .getOrElse(if vol > 0 then vol * calorific else 0.0)
+          val bereinigt = kwh * hgt(year)
+          if year != 0     then nc(sh, rowIdx, 1, year.toDouble)
+          if vol > 0       then nc(sh, rowIdx, 2, vol)
+          if bereinigt > 0 then ncForce(sh, rowIdx, 3, bereinigt)
+        }
 
       // Kalt-Wasser — rows 40–44 (idx 39–43)
-      av(energy, "waterEntries").take(5).zipWithIndex.foreach { (e, i) =>
-        val rowIdx = 39 + i
-        val year   = Try(e("year").num.toInt).getOrElse(0)
-        val m3     = Try(e("consumptionM3").num).getOrElse(0.0)
-        if year != 0 then nc(sh, rowIdx, 1, year.toDouble)
-        if m3 > 0    then nc(sh, rowIdx, 2, m3)
-      }
+      val waterEntries = av(energy, "waterEntries")
+      if waterEntries.length > 5 then
+        val years     = waterEntries.flatMap(e => Try(e("year").num.toInt).toOption).filter(_ != 0)
+        val yearLabel = if years.nonEmpty then s"Mittelwert ${years.min}–${years.max}" else "Mittelwert"
+        val avgM3     = waterEntries.map(e => Try(e("consumptionM3").num).getOrElse(0.0)).sum / waterEntries.length
+        sc(sh, 39, 1, yearLabel)
+        if avgM3 > 0 then nc(sh, 39, 2, avgM3)
+      else
+        waterEntries.zipWithIndex.foreach { (e, i) =>
+          val rowIdx = 39 + i
+          val year   = Try(e("year").num.toInt).getOrElse(0)
+          val m3     = Try(e("consumptionM3").num).getOrElse(0.0)
+          if year != 0 then nc(sh, rowIdx, 1, year.toDouble)
+          if m3 > 0    then nc(sh, rowIdx, 2, m3)
+        }
     }
 
   // ── Sheet: Flächen ────────────────────────────────────────────────────────

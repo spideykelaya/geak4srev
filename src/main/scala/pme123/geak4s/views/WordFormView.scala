@@ -160,7 +160,7 @@ object WordFormView:
       AreaState.areaCalculations.signal.map { maybeArea =>
         maybeArea
           .flatMap(_.get(ComponentType.EBF))
-          .map(_.entries.map(_.totalArea).sum)
+          .map(_.entries.map(e => math.round(e.totalArea)).sum.toDouble)
           .getOrElse(0.0)
       } --> Observer[Double] { ebf =>
         if ebf > 0 then
@@ -307,12 +307,10 @@ object WordFormView:
           // Gebäudeeigentümer/in
           div(
             marginTop := "1rem",
-            sameAsGebaeude.signal --> Observer[Boolean] { checked =>
+            sameAsGebaeude.signal.changes --> Observer[Boolean] { checked =>
               if checked then
                 val (strasse, plz, ort) = splitAdresseIb(formVar.now().adresse)
                 formVar.update(_.copy(ibEigentuemerAdresse=strasse, ibEigentuemerPlz=plz, ibEigentuemerOrt=ort))
-              else
-                formVar.update(_.copy(ibEigentuemerAdresse="", ibEigentuemerPlz="", ibEigentuemerOrt=""))
             },
             div(
               display := "flex", alignItems := "center", gap := "0.75rem", marginBottom := "0.5rem",
@@ -348,7 +346,7 @@ object WordFormView:
           // Ansprechperson Eigentümerschaft
           div(
             marginTop := "1rem",
-            sameAsEigentue.signal --> Observer[Boolean] { checked =>
+            sameAsEigentue.signal.changes --> Observer[Boolean] { checked =>
               if checked then
                 val (vorname, name) = splitName(formVar.now().auftraggeberin)
                 formVar.update(_.copy(
@@ -359,11 +357,6 @@ object WordFormView:
                   ibAnsprechOrt      = formVar.now().ibEigentuemerOrt,
                   ibAnsprechTel      = formVar.now().tel,
                   ibAnsprechMail     = formVar.now().mail
-                ))
-              else
-                formVar.update(_.copy(
-                  ibAnsprechVorname="", ibAnsprechName="", ibAnsprechAdresse="",
-                  ibAnsprechPlz="", ibAnsprechOrt="", ibAnsprechTel="", ibAnsprechMail=""
                 ))
             },
             div(

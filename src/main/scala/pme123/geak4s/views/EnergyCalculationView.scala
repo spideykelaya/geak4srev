@@ -70,7 +70,7 @@ object EnergyCalculationView:
     AreaState.areaCalculations.signal.map { maybeArea =>
       maybeArea
         .flatMap(_.get(ComponentType.EBF))
-        .map(_.entries.map(_.totalArea).sum)
+        .map(_.entries.map(e => math.round(e.totalArea)).sum.toDouble)
         .getOrElse(0.0)
     }
 
