@@ -586,7 +586,7 @@ object AreaCalculationTable:
                     fontWeight := "600", fontSize := "0.85rem",
                     color := col, backgroundColor := bg,
                     padding := "1px 4px", borderRadius := "3px",
-                    title := "Fs = Fs,H × Fs,V nach SIA 380/1:2016",
+                    title := "Fs = Fs1 × Fs2 × Fs3 nach SIA 380/1:2016 Ziff. 3.5.4.13",
                     f"$fs%.2f"
                   )
           }
