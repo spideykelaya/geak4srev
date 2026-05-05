@@ -2,7 +2,8 @@
   "permissions": {
     "allow": [
       "Bash(find . -name \"*.scala\" -type f ! -path \"./node_modules/*\" ! -path \"./.*\" ! -path \"./.git/*\" -exec grep -l \"fernwärme\\\\|sondentiefe\\\\|erdsonde\" {} \\\\;)",
-      "Bash(python3 -c ':*)"
+      "Bash(python3 -c ':*)",
+      "WebFetch(domain:de.readkong.com)"
     ]
   }
 }
